@@ -15,6 +15,9 @@ const MODEL_CONFIG: Record<string, ModelConfig> = {
 export class BrowserAI {
   private engine: MLCEngineWrapper | TransformersEngineWrapper | null;
   public currentModel: ModelConfig | null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private modelIdentifier: string | null = null;
 
   constructor() {
     this.engine = null;
@@ -22,14 +25,14 @@ export class BrowserAI {
   }
 
   async loadModel(modelIdentifier: string, options: Record<string, unknown> = {}): Promise<void> {
-    const modelConfig = MODEL_CONFIG[modelIdentifier];
-
+    this.modelIdentifier = modelIdentifier;
+    const modelConfig = MODEL_CONFIG[this.modelIdentifier];
     if (!modelConfig) {
-      throw new Error(`Model identifier "${modelIdentifier}" not recognized.`);
+      throw new Error(`Model identifier "${this.modelIdentifier}" not recognized.`);
     }
 
     // Check if model exists in both MLC and Transformers configs
-    const mlcVersion = (mlcModels as Record<string, MLCConfig>)[modelIdentifier];
+    const mlcVersion = (mlcModels as Record<string, MLCConfig>)[this.modelIdentifier];
     // const transformersVersion = (transformersModels as Record<string, TransformersConfig>)[modelIdentifier];
 
     // For text-generation models, prefer MLC if available
@@ -64,7 +67,6 @@ export class BrowserAI {
 
     try {
       const result = await this.engine.generateText(prompt, options);
-      console.log("Result:", result);
       return result;
     } catch (error) {
       console.error("Error generating text:", error);
@@ -72,20 +74,84 @@ export class BrowserAI {
     }
   }
 
-  async transcribeAudio(audio: Blob, options: Record<string, unknown> = {}): Promise<unknown> {
+  async transcribeAudio(audio: Blob | Float32Array, options: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.engine) {
       throw new Error("No model loaded. Please call loadModel first.");
     }
 
     try {
       if (this.engine instanceof TransformersEngineWrapper) {
-        const transcribedResults = await this.engine.transcribe(audio, options);
-        return transcribedResults;
+        if (audio instanceof Blob) {
+          const audioContext = new AudioContext({
+            sampleRate: 16000  // Force 16kHz sample rate
+          });
+          
+          const arrayBuffer = await audio.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          // Ensure we get the correct number of samples
+          const float32Data = new Float32Array(Math.floor(audioBuffer.length));
+          audioBuffer.copyFromChannel(float32Data, 0);
+          
+          // Clean up
+          audioContext.close();
+          
+          return await this.engine.transcribe(float32Data, options);
+        }
+        return await this.engine.transcribe(audio, options);
       } else {
         throw new Error("Engine does not support transcribe method.");
       }
     } catch (error) {
+      console.error('Transcription error:', error);
       throw error;
     }
+  }
+
+  async startRecording(): Promise<void> {
+    if (this.mediaRecorder) {
+      throw new Error('Recording already in progress');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.mediaRecorder = new MediaRecorder(stream);
+    this.audioChunks = [];
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.audioChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.start();
+  }
+
+  async stopRecording(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
+        reject(new Error('No recording in progress'));
+        return;
+      }
+
+      this.mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        this.audioChunks = [];
+        this.mediaRecorder = null;
+        resolve(audioBlob);
+      };
+
+      this.mediaRecorder.stop();
+    });
+  }
+
+  async generateResponse(text: string): Promise<string> {
+    if (!this.modelIdentifier) {
+      throw new Error("No model loaded. Please call loadModel first.");
+    }
+    if (this.currentModel?.modelName !== this.modelIdentifier) {
+      await this.loadModel(this.modelIdentifier);
+    }
+    const response = await this.generateText(text);
+    return response as string;
   }
 }

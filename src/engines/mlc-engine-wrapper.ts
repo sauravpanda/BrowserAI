@@ -12,7 +12,6 @@ export class MLCEngineWrapper {
   async loadModel(modelConfig: ModelConfig  , options: any = {}) {
     try {
       const modelIdentifier = modelConfig.repo.replace("{quantization}", modelConfig.defaultQuantization);
-      console.log("Loading MLC model:", modelIdentifier);
       this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
         initProgressCallback: options.onProgress, // Pass progress callback
         ...options, // Pass other options
