@@ -1,0 +1,22 @@
+{
+  "llama-2-7b": {
+    "engine": "transformers",
+    "modelName": "Llama-2-7b-chat",
+    "modelType": "text-generation",
+    "repo": "Xenova/llama-2-7b-chat",
+    "pipeline": "text-generation",
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxLength": 2048
+    },
+    "defaultQuantization": "q4"
+  },
+  "distilbert-sentiment": {
+    "engine": "transformers",
+    "modelName": "distilbert-sentiment",
+    "modelType": "sentiment-analysis",
+    "repo": "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+    "pipeline": "sentiment-analysis",
+    "defaultQuantization": "q4"
+  }
+} 

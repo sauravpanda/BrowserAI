@@ -1,0 +1,31 @@
+{
+  "name": "browserai",
+  "version": "1.0.0",
+  "private": false,
+  "description": "A library for running AI models directly in the browser",
+  "main": "dist/index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sauravpanda/BrowserAI.git"
+  },
+  "author": "Saurav Panda",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sauravpanda/BrowserAI/issues"
+  },
+  "homepage": "https://github.com/sauravpanda/BrowserAI#readme",
+  "dependencies": {
+    "@huggingface/transformers": "^3.2.4",
+    "@mlc-ai/web-llm": "^0.2.77"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
