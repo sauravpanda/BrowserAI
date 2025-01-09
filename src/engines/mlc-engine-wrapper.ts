@@ -1,6 +1,6 @@
 // src/engines/mlc-engine-wrapper.ts
 import { CreateMLCEngine, MLCEngineInterface } from "@mlc-ai/web-llm";
-import { ModelConfig } from "@/config/models/types";
+import { ModelConfig } from "../config/models/types";
 
 export class MLCEngineWrapper {
   private mlcEngine: MLCEngineInterface | null = null;
@@ -11,7 +11,8 @@ export class MLCEngineWrapper {
 
   async loadModel(modelConfig: ModelConfig  , options: any = {}) {
     try {
-      const modelIdentifier = modelConfig.modelName.replace("{quantization}", modelConfig.defaultQuantization);
+      const modelIdentifier = modelConfig.repo.replace("{quantization}", modelConfig.defaultQuantization);
+      console.log("Loading MLC model:", modelIdentifier);
       this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
         initProgressCallback: options.onProgress, // Pass progress callback
         ...options, // Pass other options
@@ -31,6 +32,13 @@ export class MLCEngineWrapper {
     if (options.system_prompt) {
       messages.push({role: "system", content: options.system_prompt});
     }
-    return this.mlcEngine.chat.completions.create({messages: messages, ...options});
+    if (!options.max_tokens) {
+      options.max_tokens = 100;
+    }
+    if (!options.temperature) {
+      options.temperature = 0.5;
+    }
+    const result = await this.mlcEngine.chat.completions.create({messages: messages, ...options});
+    return result.choices[0].message.content;
   }
 }

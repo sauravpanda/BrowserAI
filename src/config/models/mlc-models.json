@@ -21,14 +21,12 @@
         "engine": "mlc",
         "modelName": "SmolLM2-135M-Instruct",
         "modelType": "text-generation",
-        "repo": "mlc-ai/SmolLM2-135M-Instruct-{quantization}-MLC",
+        "repo": "SmolLM2-135M-Instruct-{quantization}-MLC",
         "quantizations": [
-            "q4f16_1",
-            "q4f32_1",
             "q0f32",
             "q0f16"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q0f16",
         "defaultParams": {
             "temperature": 0.7,
             "maxTokens": 2048

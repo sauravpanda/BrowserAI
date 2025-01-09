@@ -1,10 +1,10 @@
 // src/index.js (Main entry point)
 
-import { MLCEngineWrapper } from '@/engines/mlc-engine-wrapper';
-import { TransformersEngineWrapper } from '@/engines/transformer-engine-wrapper';
-import { ModelConfig, MLCConfig, TransformersConfig } from '@/config/models/types';
-import mlcModels from '@/config/models/mlc-models.json';
-import transformersModels from '@/config/models/transformers-models.json';
+import { MLCEngineWrapper } from '../../engines/mlc-engine-wrapper';
+import { TransformersEngineWrapper } from '../../engines/transformer-engine-wrapper';
+import { ModelConfig, MLCConfig, TransformersConfig } from '../../config/models/types';
+import mlcModels from '../../config/models/mlc-models.json';
+import transformersModels from '../../config/models/transformers-models.json';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
@@ -28,19 +28,29 @@ export class BrowserAI {
       throw new Error(`Model identifier "${modelIdentifier}" not recognized.`);
     }
 
-    const { engine: engineType } = modelConfig;
+    // Check if model exists in both MLC and Transformers configs
+    const mlcVersion = (mlcModels as Record<string, MLCConfig>)[modelIdentifier];
+    // const transformersVersion = (transformersModels as Record<string, TransformersConfig>)[modelIdentifier];
 
-    switch (engineType) {
+    // For text-generation models, prefer MLC if available
+    let engineToUse = modelConfig.engine;
+    if (modelConfig.modelType === 'text-generation' && mlcVersion) {
+      engineToUse = 'mlc';
+    }
+
+    console.log("Engine to use:", engineToUse);
+
+    switch (engineToUse) {
       case "mlc":
         this.engine = new MLCEngineWrapper();
-        await this.engine.loadModel(modelConfig, options);
+        await this.engine.loadModel(mlcVersion || modelConfig, options);
         break;
       case "transformers":
         this.engine = new TransformersEngineWrapper();
         await this.engine.loadModel(modelConfig, options);
         break;
       default:
-        throw new Error(`Engine "${engineType}" not supported.`);
+        throw new Error(`Engine "${engineToUse}" not supported.`);
     }
 
     this.currentModel = modelConfig;
@@ -54,8 +64,10 @@ export class BrowserAI {
 
     try {
       const result = await this.engine.generateText(prompt, options);
+      console.log("Result:", result);
       return result;
     } catch (error) {
+      console.error("Error generating text:", error);
       throw error;
     }
   }

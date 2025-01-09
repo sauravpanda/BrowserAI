@@ -1,15 +1,24 @@
 {
-  "name": "browserai",
-  "version": "1.0.0",
+  "name": "@browserai/browserai",
+  "version": "1.0.2",
   "private": false,
   "description": "A library for running AI models directly in the browser",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "directories": {
     "example": "examples"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc && tsc --module CommonJS --outDir ./dist/cjs"
   },
   "repository": {
     "type": "git",
@@ -27,5 +36,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "type": "module"
 }
