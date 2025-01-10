@@ -18,6 +18,7 @@ export class BrowserAI {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
+  private ttsEngine: TransformersEngineWrapper | null = null;
 
   constructor() {
     this.engine = null;
@@ -153,5 +154,23 @@ export class BrowserAI {
     }
     const response = await this.generateText(text);
     return response as string;
+  }
+
+  async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<ArrayBuffer> {
+    if (!this.ttsEngine) {
+      this.ttsEngine = new TransformersEngineWrapper();
+      await this.ttsEngine.loadModel(MODEL_CONFIG['speecht5-tts'], {
+        quantized: false,
+        ...options
+      });
+    }
+
+    try {
+      const audioData = await this.ttsEngine.textToSpeech(text, options);
+      return audioData;
+    } catch (error) {
+      console.error("Error generating speech:", error);
+      throw error;
+    }
   }
 }

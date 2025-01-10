@@ -1,11 +1,11 @@
 import {
-  pipeline, TextGenerationPipeline, FeatureExtractionPipeline, AutomaticSpeechRecognitionPipeline, TextClassificationPipeline
+  pipeline, TextGenerationPipeline, FeatureExtractionPipeline, AutomaticSpeechRecognitionPipeline, TextClassificationPipeline, TextToAudioPipeline
 } from '@huggingface/transformers';
 import { ModelConfig } from "../config/models/types";
 
 
 export class TransformersEngineWrapper {
-  private transformersPipeline: TextGenerationPipeline | FeatureExtractionPipeline | AutomaticSpeechRecognitionPipeline | TextClassificationPipeline | null = null;
+  private transformersPipeline: TextGenerationPipeline | FeatureExtractionPipeline | AutomaticSpeechRecognitionPipeline | TextClassificationPipeline | TextToAudioPipeline | null = null;
   private modelType: string | null = null;
 
   constructor() {
@@ -77,6 +77,25 @@ export class TransformersEngineWrapper {
     return result;
   }
 
+  // Add text-to-speech method
+  async textToSpeech(text: string, options: any = {}) {
+    if (!this.transformersPipeline || this.modelType !== 'text-to-speech') {
+      throw new Error("Text-to-speech pipeline not initialized.");
+    }
+    
+    const pipeline = this.transformersPipeline as any;
+    const speaker_embeddings = options.speaker_embeddings || 
+      'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+    
+    const result = await pipeline(text, { 
+      speaker_embeddings,
+      ...options 
+    });
+
+    // Convert the audio data to ArrayBuffer
+    return new Int16Array(result.audio).buffer;
+  }
+
   // Generic method for backward compatibility
   async generate(prompt: string, options: any = {}) {
     switch (this.modelType) {
@@ -86,6 +105,8 @@ export class TransformersEngineWrapper {
         return this.extractFeatures(prompt, options);
       case 'automatic-speech-recognition':
         return this.transcribe(prompt, options);
+      case 'text-to-speech':
+        return this.textToSpeech(prompt, options);
       default:
         throw new Error(`Unsupported model type: ${this.modelType}`);
     }

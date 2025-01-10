@@ -185,24 +185,49 @@ const TypingIndicator = styled.div`
   }
 `;
 
+const AudioButton = styled(ActionButton)`
+  padding: 8px;
+  min-width: 40px;
+  background-color: #2196F3;
+  margin-left: 8px;
+`;
+
+const MessageContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+type Message = {
+  text: string;
+  isUser: boolean;
+  isPlaying?: boolean;
+};
+
 export default function ChatInterface() {
   const [audioAI] = useState(new BrowserAI());
   const [chatAI] = useState(new BrowserAI());
   const [status, setStatus] = useState('Initializing...');
   const [isRecording, setIsRecording] = useState(false);
-  const [messages, setMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isAITyping, setIsAITyping] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [ttsAI] = useState(new BrowserAI());
 
   useEffect(() => {
     const init = async () => {
       try {
         setStatus('Loading audio model...');
-        await audioAI.loadModel('whisper-tiny-en');
+        await audioAI.loadModel('whisper-tiny-en', { onProgress: (progress: any) => {
+          console.log(`Audio model loading progress: ${progress.progress}`);
+        } });
         
         setStatus('Loading chat model...');
         await chatAI.loadModel('smollm2-135m-instruct');
+        
+        setStatus('Loading TTS model...');
+        await ttsAI.loadModel('speecht5-tts');
         
         setStatus('Ready');
       } catch (error) {
@@ -218,9 +243,9 @@ export default function ChatInterface() {
       setIsRecording(true);
       setStatus('Recording...');
       
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      setMediaRecorder(recorder);
+      // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // const recorder = new MediaRecorder(stream);
+      // setMediaRecorder(recorder);
       
       await audioAI.startRecording();
     } catch (error) {
@@ -236,22 +261,22 @@ export default function ChatInterface() {
       const audioBlob = await audioAI.stopRecording();
       const transcription = await audioAI.transcribeAudio(audioBlob);
       
-      const transcribedText = transcription.text || '';
-      setMessages(prev => [...prev, { text: transcribedText, isUser: true }]);
+      const transcribedText = (transcription as { text: string }).text;
+      setMessages(prev => [...prev, { text: transcribedText, isUser: true, isPlaying: false }]);
 
       setIsAITyping(true);
       try {
         const response = await chatAI.generateText(transcribedText, {
           maxTokens: 100,
           temperature: 0.7,
-          system_prompt: "You are a helpful assistant who answers questions about the user's input in short and concise manner."
+          system_prompt: "You are a helpful assistant who answers questions about the user's input in short and concise manner. Keep answer to 3-5 sentences. "
         });
         
         const responseText = response?.toString() || 'No response';
-        setMessages(prev => [...prev, { text: responseText, isUser: false }]);
+        setMessages(prev => [...prev, { text: responseText, isUser: false, isPlaying: false }]);
       } catch (error) {
         console.error('Error generating response:', error);
-        setMessages(prev => [...prev, { text: 'Error generating response', isUser: false }]);
+        setMessages(prev => [...prev, { text: 'Error generating response', isUser: false, isPlaying: false }]);
       } finally {
         setIsAITyping(false);
       }
@@ -268,15 +293,15 @@ export default function ChatInterface() {
   const handleSendMessage = async () => {
     if (!textInput.trim()) return;
     
-    setMessages(prev => [...prev, { text: textInput, isUser: true }]);
+    setMessages(prev => [...prev, { text: textInput, isUser: true, isPlaying: false }]);
     setIsAITyping(true);
     
     try {
       const response = await chatAI.generateText(textInput);
-      setMessages(prev => [...prev, { text: response as string, isUser: false }]);
+      setMessages(prev => [...prev, { text: response as string, isUser: false, isPlaying: false }]);
     } catch (error) {
       console.error('Error generating response:', error);
-      setMessages(prev => [...prev, { text: 'Error generating response', isUser: false }]);
+      setMessages(prev => [...prev, { text: 'Error generating response', isUser: false, isPlaying: false }]);
     } finally {
       setIsAITyping(false);
       setTextInput('');
@@ -289,6 +314,41 @@ export default function ChatInterface() {
     }
   };
 
+  const speakMessage = async (text: string, messageIndex: number) => {
+    try {
+      setMessages(prev => prev.map((msg, idx) => ({
+        ...msg,
+        isPlaying: idx === messageIndex
+      })));
+
+      const audioData = await ttsAI.textToSpeech(text);
+      
+      // Create audio context
+      const audioContext = new (window.AudioContext)();
+      
+      // Decode the audio data
+      const audioBuffer = await audioContext.decodeAudioData(audioData);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      
+      source.onended = () => {
+        setMessages(prev => prev.map(msg => ({
+          ...msg,
+          isPlaying: false
+        })));
+      };
+
+      source.start();
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setMessages(prev => prev.map(msg => ({
+        ...msg,
+        isPlaying: false
+      })));
+    }
+  };
+
   return (
     <Container>
       <MainContent>
@@ -298,22 +358,7 @@ export default function ChatInterface() {
           <Spinner />
           <div>{status}</div>
         </LoadingIndicator>}
-        
-        <ChatBox>
-          {messages.map((message, index) => (
-            <Message key={index} isUser={message.isUser}>
-              {message.text}
-            </Message>
-          ))}
-          {isAITyping && (
-            <Message isUser={false}>
-              <TypingIndicator>AI is typing...</TypingIndicator>
-            </Message>
-          )}
-        </ChatBox>
-
-        <InputSection>
-          <AudioControls>
+        <AudioControls>
             {!isRecording ? (
               <ActionButton
                 onClick={startRecording}
@@ -331,6 +376,31 @@ export default function ChatInterface() {
               </ActionButton>
             )}
           </AudioControls>
+        
+        <ChatBox>
+          {messages.map((message, index) => (
+            <MessageContainer key={index}>
+              <Message isUser={message.isUser}>
+                {message.text}
+              </Message>
+              {!message.isUser && (
+                <AudioButton
+                  onClick={() => speakMessage(message.text, index)}
+                  disabled={status !== 'Ready'}
+                >
+                  {message.isPlaying ? '🔊' : '🔈'}
+                </AudioButton>
+              )}
+            </MessageContainer>
+          ))}
+          {isAITyping && (
+            <Message isUser={false}>
+              <TypingIndicator>AI is typing...</TypingIndicator>
+            </Message>
+          )}
+        </ChatBox>
+
+        <InputSection>
 
           <TextInputContainer>
             <TextInput

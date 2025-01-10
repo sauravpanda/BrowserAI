@@ -18,5 +18,16 @@
     "repo": "onnx-community/whisper-tiny.en",
     "pipeline": "automatic-speech-recognition",
     "defaultQuantization": "q4"
+  },
+  "speecht5-tts": {
+    "engine": "transformers",
+    "modelName": "speecht5_tts",
+    "modelType": "text-to-speech",
+    "repo": "Xenova/speecht5_tts",
+    "pipeline": "text-to-speech",
+    "defaultQuantization": "none",
+    "defaultParams": {
+      "speaker_embeddings": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin"
+    }
   }
 } 

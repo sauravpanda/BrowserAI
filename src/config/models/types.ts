@@ -11,7 +11,7 @@ export interface BaseModelConfig {
   requiredFeatures?: string[];
 }
 
-export type ModelType = 'text-generation' | 'sentiment-analysis' | 'feature-extraction' | 'automatic-speech-recognition';
+export type ModelType = 'text-generation' | 'sentiment-analysis' | 'feature-extraction' | 'automatic-speech-recognition' | 'text-to-speech';
 
 export interface MLCConfig extends BaseModelConfig {
   engine: 'mlc';
