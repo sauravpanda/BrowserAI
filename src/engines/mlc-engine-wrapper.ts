@@ -27,10 +27,11 @@ export class MLCEngineWrapper {
     if (!this.mlcEngine) {
       throw new Error("MLC Engine not initialized.");
     }
-    const messages = [{role: "user", content: prompt}];
+    const messages = [];
     if (options.system_prompt) {
       messages.push({role: "system", content: options.system_prompt});
     }
+    messages.push({role: "user", content: prompt});
     if (!options.max_tokens) {
       options.max_tokens = 100;
     }

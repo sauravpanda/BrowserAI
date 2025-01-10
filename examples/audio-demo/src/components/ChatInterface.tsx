@@ -235,15 +235,20 @@ export default function ChatInterface() {
       setStatus('Processing...');
       const audioBlob = await audioAI.stopRecording();
       const transcription = await audioAI.transcribeAudio(audioBlob);
-      const transcribeText = (transcription as { text: string }).text;
-      setMessages(prev => [...prev, { text: transcribeText, isUser: true }]);
+      
+      const transcribedText = transcription.text || '';
+      setMessages(prev => [...prev, { text: transcribedText, isUser: true }]);
 
       setIsAITyping(true);
       try {
-        const response = await chatAI.generateText(transcribeText, {
+        const response = await chatAI.generateText(transcribedText, {
+          maxTokens: 100,
+          temperature: 0.7,
+          system_prompt: "You are a helpful assistant who answers questions about the user's input in short and concise manner."
         });
-        console.log("LLM response:", response);
-        setMessages(prev => [...prev, { text: response as string, isUser: false }]);
+        
+        const responseText = response?.toString() || 'No response';
+        setMessages(prev => [...prev, { text: responseText, isUser: false }]);
       } catch (error) {
         console.error('Error generating response:', error);
         setMessages(prev => [...prev, { text: 'Error generating response', isUser: false }]);
