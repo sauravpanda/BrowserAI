@@ -50,6 +50,21 @@ maxTokens: 100
 });
 ```
 
+### Speech Recognition
+```javascript
+const ai = new BrowserAI();
+await ai.loadModel('whisper-tiny-en');
+const audioBlob = await ai.stopRecording();
+const transcription = await ai.transcribeAudio(audioBlob);
+```
+
+### Text-to-Speech
+```javascript
+const ai = new BrowserAI();
+const audioBuffer = await ai.textToSpeech('Hello, how are you today?');
+// Play the audio...
+```
+
 ## 🔧 Supported Models
 
 ### MLC Models
@@ -59,7 +74,8 @@ maxTokens: 100
 
 ### Transformers Models
 - Llama-3.2-1b-Instruct
-- DistilBERT (Sentiment Analysis)
+- Whisper-tiny-en (Speech Recognition)
+- SpeechT5-TTS (Text-to-Speech)
 
 ## 🗺️ Enhanced Roadmap
 
