@@ -11,11 +11,12 @@ export default defineConfig({
   outDir: 'dist',
   outExtension({ format }) {
     return {
-      js: format === 'esm' ? '.mjs' : '.cjs'
+      js: format === 'esm' ? '.mjs' : '.js'
     }
   },
   target: 'es2020',
   platform: 'browser',
   minify: false,
-  shims: false
+  shims: false,
+  noExternal: []
 }) 
