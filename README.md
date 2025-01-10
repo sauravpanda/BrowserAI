@@ -1,6 +1,21 @@
 # BrowserAI 🚀
 
-Bring the power of AI directly into your browser! BrowserAI is a lightweight JavaScript library that enables running AI models directly in the browser using WebGPU acceleration.
+BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
+
+## Why BrowserAI?
+
+- 🔒 **Privacy First**: All processing happens locally - your data never leaves the browser
+- 💰 **Cost Effective**: No server costs or complex infrastructure needed
+- 🌐 **Offline Capable**: Models work offline after initial download
+- 🚀 **Blazing Fast**: WebGPU acceleration for near-native performance
+- 🎯 **Developer Friendly**: Simple API, multiple engine support, ready-to-use models
+
+## 🎯 Perfect For
+
+- Web developers building AI-powered applications
+- Companies needing privacy-conscious AI solutions
+- Researchers experimenting with browser-based AI
+- Hobbyists exploring AI without infrastructure overhead
 
 ## ✨ Features
 
@@ -67,6 +82,8 @@ const audioBuffer = await ai.textToSpeech('Hello, how are you today?');
 
 ## 🔧 Supported Models
 
+More models will be added soon. Request a model by creating an issue.
+
 ### MLC Models
 - Llama-3.2-1b-Instruct
 - SmolLM2-135M-Instruct
@@ -97,7 +114,6 @@ const audioBuffer = await ai.textToSpeech('Hello, how are you today?');
 
 ### Phase 3: Enterprise Features
 - 🔐 Security features
-- 🌐 Distributed processing
 - 📈 Advanced analytics
 - 🤝 Multi-model orchestration
 

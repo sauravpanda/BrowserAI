@@ -5,4 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/sauravpanda/BrowserAI/',
   plugins: [react()],
+  build: {
+    commonjsOptions: {
+      include: [/@browserai\/browserai/, /node_modules/]
+    }
+  },
+  optimizeDeps: {
+    include: ['@browserai/browserai']
+  }
 })

@@ -18,7 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "declarationDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "examples"]

@@ -1,15 +1,15 @@
 {
   "name": "@browserai/browserai",
-  "version": "1.0.2",
+  "version": "1.0.6",
   "private": false,
   "description": "A library for running AI models directly in the browser",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     }
   },
@@ -42,5 +42,8 @@
   "devDependencies": {
     "tsup": "^8.3.5",
     "typescript": "^5.7.3"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

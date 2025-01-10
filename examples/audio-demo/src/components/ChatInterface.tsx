@@ -210,7 +210,7 @@ export default function ChatInterface() {
   const [status, setStatus] = useState('Initializing...');
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  // const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isAITyping, setIsAITyping] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [ttsAI] = useState(new BrowserAI());

@@ -9,4 +9,13 @@ export default defineConfig({
   treeshake: true,
   splitting: false,
   outDir: 'dist',
+  outExtension({ format }) {
+    return {
+      js: format === 'esm' ? '.mjs' : '.cjs'
+    }
+  },
+  target: 'es2020',
+  platform: 'browser',
+  minify: false,
+  shims: false
 }) 
