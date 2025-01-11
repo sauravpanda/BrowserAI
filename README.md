@@ -2,6 +2,10 @@
 
 BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
 
+## 🎥 Demo
+
+[![BrowserAI Demo](https://img.youtube.com/vi/BoxYT6SU7PQ/0.jpg)](https://youtu.be/BoxYT6SU7PQ)
+
 ## Why BrowserAI?
 
 - 🔒 **Privacy First**: All processing happens locally - your data never leaves the browser
