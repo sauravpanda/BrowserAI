@@ -4,9 +4,7 @@ BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
 
 ## 🎥 Demo
 
-<video width="320" height="240" controls>
-  <source src="assets/demo.mp4" type="video/mp4">
-</video>
+[![BrowserAI Demo](https://img.youtube.com/vi/BoxYT6SU7PQ/0.jpg)](https://youtu.be/BoxYT6SU7PQ)
 
 ## Why BrowserAI?
 
