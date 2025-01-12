@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && cp public/_headers dist/",
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@browserai/browserai": "^1.0.9",
+    "@browserai/browserai": "^1.0.10",
     "@emotion/styled": "^11.14.0",
     "@huggingface/transformers": "^3.2.4",
     "@mlc-ai/web-llm": "^0.2.77",

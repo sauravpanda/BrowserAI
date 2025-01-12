@@ -18,5 +18,10 @@ export default defineConfig({
   platform: 'browser',
   minify: false,
   shims: false,
-  noExternal: []
+  noExternal: [],
+  esbuildOptions(options) {
+    options.platform = 'neutral'
+  },
+  bundle: true,
+  skipNodeModulesBundle: true
 }) 
