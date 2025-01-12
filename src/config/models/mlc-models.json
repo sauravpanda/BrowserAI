@@ -3,7 +3,7 @@
         "engine": "mlc",
         "modelName": "Llama-3.2-1b-Instruct",
         "modelType": "text-generation",
-        "repo": "mlc-ai/llama-3.2-1b-Instruct-{quantization}-MLC",
+        "repo": "llama-3.2-1b-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1",
@@ -43,7 +43,7 @@
         "engine": "mlc",
         "modelName": "SmolLM2-350M-Instruct",
         "modelType": "text-generation",
-        "repo": "mlc-ai/SmolLM2-350M-Instruct-{quantization}-MLC",
+        "repo": "SmolLM2-350M-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1",
