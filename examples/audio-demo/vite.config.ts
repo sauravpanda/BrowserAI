@@ -13,5 +13,10 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['@browserai/browserai']
+  },
+  build: {
+    commonjsOptions: {
+      include: [/@browserai\/browserai/, /node_modules/]
+    }
   }
 })
