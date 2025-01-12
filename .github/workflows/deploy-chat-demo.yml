@@ -21,7 +21,10 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: cd examples/chat-demo && npm install
+        run: |
+          cd examples/chat-demo
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build
         run: cd examples/chat-demo && npm run build

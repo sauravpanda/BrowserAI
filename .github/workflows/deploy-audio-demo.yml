@@ -21,7 +21,10 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: cd examples/audio-demo && npm install
+        run: |
+          cd examples/audio-demo
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build
         run: cd examples/audio-demo && npm run build
