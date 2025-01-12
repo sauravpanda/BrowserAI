@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { BrowserAI } from '@browserai/browserai';
 
@@ -28,18 +28,33 @@ const Title = styled.h1`
   margin-bottom: 30px;
   font-size: 2.5rem;
   font-weight: 600;
+  background: linear-gradient(120deg, #4CAF50, #2196F3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 `;
 
 const ChatBox = styled.div`
-  border: 1px solid #333;
-  border-radius: 12px;
-  height: 500px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  height: 600px;
   width: 100%;
   overflow-y: auto;
   padding: 20px;
   margin-bottom: 20px;
-  background: #2a2a2a;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: rgba(42, 42, 42, 0.7);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  }
 
   /* Scrollbar styling */
   &::-webkit-scrollbar {
@@ -57,81 +72,78 @@ const ChatBox = styled.div`
 `;
 
 const Message = styled.div<{ isUser: boolean }>`
-  background: ${props => props.isUser ? '#4CAF50' : '#333'};
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin: 8px 0;
-  max-width: 80%;
-  margin-left: ${props => props.isUser ? 'auto' : '0'};
-  color: ${props => props.isUser ? '#fff' : '#fff'};
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
+  background: ${props => props.isUser ? 
+    'linear-gradient(135deg, #4CAF50, #45a049)' : 
+    'linear-gradient(135deg, #333, #2a2a2a)'};
+  padding: 16px 24px;
+  border-radius: 20px;
+  margin: 12px 0;
+  max-width: 90%;
+  text-align: left;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: scale(0);
+  animation: popIn 0.3s ease-out forwards;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
-const InputSection = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  background: #2a2a2a;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-`;
-
-const TextInputContainer = styled.div`
-  display: flex;
-  gap: 10px;
-  width: 100%;
-`;
-
-const TextInput = styled.input`
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #444;
-  border-radius: 24px;
-  font-size: 16px;
-  outline: none;
-  background: #333;
-  color: #fff;
-  transition: all 0.3s ease;
-
-  &:focus {
-    border-color: #4CAF50;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-  }
-
-  &::placeholder {
-    color: #888;
+  @keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.05); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
   }
 `;
 
-const ActionButton = styled.button<{ isRecording?: boolean }>`
-  background-color: ${props => props.isRecording ? '#ff4444' : '#4CAF50'};
+const ActionButton = styled.button<{ isRecording?: boolean; isLoading?: boolean }>`
+  background: ${props => {
+    if (props.isLoading) return 'linear-gradient(135deg, #666, #555)';
+    return props.isRecording ? 
+      'linear-gradient(135deg, #ff4444, #cc0000)' : 
+      'linear-gradient(135deg, #4CAF50, #45a049)';
+  }};
   color: white;
-  padding: 12px 24px;
-  border-radius: 24px;
+  padding: 14px 28px;
+  border-radius: 30px;
   border: none;
-  cursor: pointer;
+  cursor: ${props => props.isLoading ? 'wait' : 'pointer'};
   transition: all 0.3s ease;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 
   &:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+    opacity: ${props => props.isLoading ? 1 : 0.9};
+    transform: ${props => props.isLoading ? 'none' : 'translateY(-2px)'};
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   }
 
-  &:disabled {
-    background-color: #444;
-    cursor: not-allowed;
-    transform: none;
-  }
-`;
+  ${props => props.isLoading && `
+    &:after {
+      content: '';
+      position: absolute;
+      left: -100%;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+      );
+      animation: loading 1.5s infinite;
+    }
+  `}
 
-const SendButton = styled(ActionButton)`
-  min-width: 100px;
-  background-color: #4CAF50;
+  @keyframes loading {
+    100% {
+      left: 100%;
+    }
+  }
 `;
 
 const AudioControls = styled.div`
@@ -139,15 +151,6 @@ const AudioControls = styled.div`
   justify-content: center;
   gap: 16px;
   margin-bottom: 20px;
-`;
-
-const LoadingIndicator = styled.div`
-  text-align: center;
-  color: #fff;
-  padding: 20px;
-  background: #2a2a2a;
-  border-radius: 12px;
-  margin: 20px 0;
 `;
 
 const Spinner = styled.div`
@@ -165,43 +168,151 @@ const Spinner = styled.div`
   }
 `;
 
-const TypingIndicator = styled.div`
-  padding: 8px 12px;
-  font-style: italic;
-  color: #888;
+const RecordingIndicator = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+`;
+
+const WaveContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 60px;
+`;
 
-  &::after {
-    content: '...';
-    animation: ellipsis 1.4s infinite;
+const WaveBar = styled.div`
+  width: 8px;
+  height: 20px;
+  background: #4CAF50;
+  border-radius: 4px;
+  animation: wave 1s ease-in-out infinite;
+
+  @keyframes wave {
+    0%, 100% { height: 20px; }
+    50% { height: 60px; }
   }
 
-  @keyframes ellipsis {
-    0% { content: '.'; }
-    33% { content: '..'; }
-    66% { content: '...'; }
+  &:nth-of-type(2) { animation-delay: 0.1s; }
+  &:nth-of-type(3) { animation-delay: 0.2s; }
+  &:nth-of-type(4) { animation-delay: 0.3s; }
+  &:nth-of-type(5) { animation-delay: 0.4s; }
+`;
+
+const RecordingText = styled.div`
+  font-size: 1.2rem;
+  color: #4CAF50;
+  animation: pulse 1.5s ease-in-out infinite;
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 `;
 
-const AudioButton = styled(ActionButton)`
+const InfoSection = styled.div`
+  background: rgba(76, 175, 80, 0.05);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  text-align: center;
+  max-width: 600px;
+  width: 100%;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const InfoText = styled.p`
+  color: #9e9e9e;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+`;
+
+const ModelBadge = styled.span`
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(33, 150, 243, 0.2));
+  color: #4CAF50;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  margin: 0 4px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  font-weight: 500;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+  }
+`;
+
+const MetricsContainer = styled.div`
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+`;
+
+const MetricCard = styled.div`
+  background: rgba(33, 33, 33, 0.7);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  border-radius: 12px;
+  padding: 16px 24px;
+  min-width: 180px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+  }
+`;
+
+const MetricLabel = styled.div`
+  color: #888;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+`;
+
+const MetricValue = styled.div`
+  color: #4CAF50;
+  font-size: 1.1rem;
+  font-weight: 500;
+`;
+
+const SpeakButton = styled(ActionButton)`
   padding: 8px;
   min-width: 40px;
   background-color: #2196F3;
   margin-left: 8px;
 `;
 
-const MessageContainer = styled.div`
+const MessageWrapper = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 90%;
 `;
 
 type Message = {
   text: string;
   isUser: boolean;
-  isPlaying?: boolean;
 };
 
 export default function ChatInterface() {
@@ -210,22 +321,23 @@ export default function ChatInterface() {
   const [status, setStatus] = useState('Initializing...');
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  // const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [isAITyping, setIsAITyping] = useState(false);
-  const [textInput, setTextInput] = useState('');
   const [ttsAI] = useState(new BrowserAI());
+  const [audioProcessingTime, setAudioProcessingTime] = useState<number>(0);
+  const [chatProcessingTime, setChatProcessingTime] = useState<number>(0);
+  const [speakingMessageId, setSpeakingMessageId] = useState<number | null>(null);
 
   useEffect(() => {
     const init = async () => {
       try {
         setStatus('Loading audio model...');
         await audioAI.loadModel('whisper-tiny-en', { onProgress: (progress: any) => {
-          console.log(`Audio model loading progress: ${progress.progress}`);
+          if (progress.progress == 100)
+          console.log(`Audio model loaded: ${progress.progress}`);
         } });
         
         setStatus('Loading chat model...');
         await chatAI.loadModel('smollm2-135m-instruct');
-        
+
         setStatus('Loading TTS model...');
         await ttsAI.loadModel('speecht5-tts');
         
@@ -242,11 +354,7 @@ export default function ChatInterface() {
     try {
       setIsRecording(true);
       setStatus('Recording...');
-      
-      // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // const recorder = new MediaRecorder(stream);
-      // setMediaRecorder(recorder);
-      
+      setMessages([]);
       await audioAI.startRecording();
     } catch (error) {
       console.error('Recording error:', error);
@@ -259,26 +367,32 @@ export default function ChatInterface() {
     try {
       setStatus('Processing...');
       const audioBlob = await audioAI.stopRecording();
+      setIsRecording(false);
+      const audioStartTime = performance.now();
       const transcription = await audioAI.transcribeAudio(audioBlob);
+      const audioEndTime = performance.now();
+      setAudioProcessingTime(audioEndTime - audioStartTime);
       
       const transcribedText = (transcription as { text: string }).text;
-      setMessages(prev => [...prev, { text: transcribedText, isUser: true, isPlaying: false }]);
+      setMessages(prev => [...prev, { text: transcribedText, isUser: true }]);
 
-      setIsAITyping(true);
       try {
+        const chatStartTime = performance.now();
         const response = await chatAI.generateText(transcribedText, {
           maxTokens: 100,
           temperature: 0.7,
           system_prompt: "You are a helpful assistant who answers questions about the user's input in short and concise manner. Keep answer to 3-5 sentences. "
         });
+        const chatEndTime = performance.now();
+        setChatProcessingTime(chatEndTime - chatStartTime);
         
         const responseText = response?.toString() || 'No response';
-        setMessages(prev => [...prev, { text: responseText, isUser: false, isPlaying: false }]);
+        setMessages(prev => [...prev, { text: responseText, isUser: false }]);
+        
+        
       } catch (error) {
         console.error('Error generating response:', error);
-        setMessages(prev => [...prev, { text: 'Error generating response', isUser: false, isPlaying: false }]);
-      } finally {
-        setIsAITyping(false);
+        setMessages(prev => [...prev, { text: 'Error generating response', isUser: false }]);
       }
       
     } catch (error) {
@@ -290,135 +404,118 @@ export default function ChatInterface() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!textInput.trim()) return;
-    
-    setMessages(prev => [...prev, { text: textInput, isUser: true, isPlaying: false }]);
-    setIsAITyping(true);
-    
-    try {
-      const response = await chatAI.generateText(textInput);
-      setMessages(prev => [...prev, { text: response as string, isUser: false, isPlaying: false }]);
-    } catch (error) {
-      console.error('Error generating response:', error);
-      setMessages(prev => [...prev, { text: 'Error generating response', isUser: false, isPlaying: false }]);
-    } finally {
-      setIsAITyping(false);
-      setTextInput('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
-
   const speakMessage = async (text: string, messageIndex: number) => {
     try {
-      setMessages(prev => prev.map((msg, idx) => ({
-        ...msg,
-        isPlaying: idx === messageIndex
-      })));
-
+      setSpeakingMessageId(messageIndex);
       const audioData = await ttsAI.textToSpeech(text);
       
-      // Create audio context
       const audioContext = new (window.AudioContext)();
-      
-      // Decode the audio data
       const audioBuffer = await audioContext.decodeAudioData(audioData);
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
       
       source.onended = () => {
-        setMessages(prev => prev.map(msg => ({
-          ...msg,
-          isPlaying: false
-        })));
+        setSpeakingMessageId(null);
       };
 
       source.start();
     } catch (error) {
       console.error('Error playing audio:', error);
-      setMessages(prev => prev.map(msg => ({
-        ...msg,
-        isPlaying: false
-      })));
+      setSpeakingMessageId(null);
     }
   };
 
   return (
-    <Container>
-      <MainContent>
-        <Title>BrowserAI Voice & Chat Demo</Title>
-        
-        {status !== 'Ready' && <LoadingIndicator>
-          <Spinner />
-          <div>{status}</div>
-        </LoadingIndicator>}
-        <AudioControls>
-            {!isRecording ? (
-              <ActionButton
-                onClick={startRecording}
-                disabled={status !== 'Ready'}
-              >
-                Start Recording
-              </ActionButton>
-            ) : (
-              <ActionButton
-                isRecording={true}
-                onClick={stopRecording}
-                disabled={status !== 'Recording...'}
-              >
-                Stop Recording
-              </ActionButton>
-            )}
-          </AudioControls>
-        
-        <ChatBox>
-          {messages.map((message, index) => (
-            <MessageContainer key={index}>
-              <Message isUser={message.isUser}>
-                {message.text}
-              </Message>
-              {!message.isUser && (
-                <AudioButton
-                  onClick={() => speakMessage(message.text, index)}
-                  disabled={status !== 'Ready'}
-                >
-                  {message.isPlaying ? '🔊' : '🔈'}
-                </AudioButton>
-              )}
-            </MessageContainer>
-          ))}
-          {isAITyping && (
-            <Message isUser={false}>
-              <TypingIndicator>AI is typing...</TypingIndicator>
-            </Message>
-          )}
-        </ChatBox>
-
-        <InputSection>
-
-          <TextInputContainer>
-            <TextInput
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message here..."
-              disabled={status !== 'Ready'}
-            />
-            <SendButton
-              onClick={handleSendMessage}
-              disabled={!textInput.trim() || status !== 'Ready'}
+    <div className="flex flex-col h-screen">
+      <Container>
+        <MainContent>
+          <Title>BrowserAI Voice & Chat Demo</Title>
+          <div className="text-center mb-4 text-sm text-gray-500">
+            Built using <a 
+              href="https://github.com/sauravpanda/browserai" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700 underline"
             >
-              Send
-            </SendButton>
-          </TextInputContainer>
-        </InputSection>
-      </MainContent>
-    </Container>
+              BrowserAI
+            </a>
+          </div>
+          <InfoSection>
+            <InfoText>
+              I am a <ModelBadge>Smollm2</ModelBadge> AI model powered by 
+              <ModelBadge>Whisper</ModelBadge> running locally in your browser. 
+              Click the record button below to start a conversation with me!
+            </InfoText>
+          </InfoSection>
+
+          <AudioControls>
+            <ActionButton
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={status !== 'Ready' && !isRecording}
+              isLoading={status !== 'Ready' && status !== 'Recording...'}
+              isRecording={isRecording}
+            >
+              {status === 'Ready' && !isRecording ? 'Start Recording' : 
+               isRecording ? 'Stop Recording' : 
+               status}
+            </ActionButton>
+          </AudioControls>
+          
+          <ChatBox>
+            {isRecording ? (
+              <RecordingIndicator>
+                <WaveContainer>
+                  <WaveBar />
+                  <WaveBar />
+                  <WaveBar />
+                  <WaveBar />
+                  <WaveBar />
+                </WaveContainer>
+                <RecordingText>Listening...</RecordingText>
+              </RecordingIndicator>
+            ) : messages.length > 0 ? (
+              messages.map((message, index) => (
+                <MessageWrapper key={index}>
+                  <Message isUser={message.isUser}>
+                    {message.text}
+                  </Message>
+                  {!message.isUser && (
+                    <SpeakButton
+                      onClick={() => speakMessage(message.text, index)}
+                      disabled={speakingMessageId !== null}
+                      isLoading={speakingMessageId === index}
+                    >
+                      {speakingMessageId === index ? (
+                        <Spinner style={{ width: '20px', height: '20px', border: '2px solid #fff' }} />
+                      ) : (
+                        '🔊'
+                      )}
+                    </SpeakButton>
+                  )}
+                </MessageWrapper>
+              ))
+            ) : (
+              <RecordingText style={{ color: '#666' }}>
+                Press "Start Recording" to begin
+              </RecordingText>
+            )}
+          </ChatBox>
+          
+          {(audioProcessingTime > 0 || chatProcessingTime > 0) && (
+            <MetricsContainer>
+              <MetricCard>
+                <MetricLabel>Audio Processing</MetricLabel>
+                <MetricValue>{(audioProcessingTime / 1000).toFixed(2)}s</MetricValue>
+              </MetricCard>
+              <MetricCard>
+                <MetricLabel>Chat Processing</MetricLabel>
+                <MetricValue>{(chatProcessingTime / 1000).toFixed(2)}s</MetricValue>
+              </MetricCard>
+            </MetricsContainer>
+          )}
+        </MainContent>
+      </Container>
+    </div>
   );
 }

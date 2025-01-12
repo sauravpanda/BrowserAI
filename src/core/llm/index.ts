@@ -166,7 +166,7 @@ export class BrowserAI {
     }
 
     try {
-      const audioData = await this.ttsEngine.textToSpeech(text, options);
+      const audioData = await this.ttsEngine.textToSpeech(text);
       return audioData;
     } catch (error) {
       console.error("Error generating speech:", error);

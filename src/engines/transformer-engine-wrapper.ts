@@ -61,11 +61,11 @@ export class TransformersEngineWrapper {
     if (!this.transformersPipeline || this.modelType !== 'automatic-speech-recognition') {
       throw new Error("Speech recognition pipeline not initialized.");
     }
-    
-    const input = audioInput instanceof Blob ? 
-      new Float32Array(await audioInput.arrayBuffer()) : 
+
+    const input = audioInput instanceof Blob ?
+      new Float32Array(await audioInput.arrayBuffer()) :
       audioInput as any;
-      
+
     const result = await this.transformersPipeline(input, {
       language: options.language,
       task: options.task,
@@ -78,22 +78,65 @@ export class TransformersEngineWrapper {
   }
 
   // Add text-to-speech method
-  async textToSpeech(text: string, options: any = {}) {
+  async textToSpeech(text: string) {
     if (!this.transformersPipeline || this.modelType !== 'text-to-speech') {
       throw new Error("Text-to-speech pipeline not initialized.");
     }
-    
-    const pipeline = this.transformersPipeline as any;
-    const speaker_embeddings = options.speaker_embeddings || 
-      'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
-    
-    const result = await pipeline(text, { 
-      speaker_embeddings,
-      ...options 
-    });
 
-    // Convert the audio data to ArrayBuffer
-    return new Int16Array(result.audio).buffer;
+    const pipeline = this.transformersPipeline as any;
+    const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+
+    try {
+      const result = await pipeline(text, {
+        speaker_embeddings
+      });
+
+      // Convert Float32Array to proper audio buffer format
+      const audioData = result.audio;
+      if (audioData instanceof Float32Array) {
+        // Convert to 16-bit PCM
+        const pcmData = new Int16Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+          const s = Math.max(-1, Math.min(1, audioData[i]));
+          pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+
+        // Create WAV header
+        const wavHeader = new ArrayBuffer(44);
+        const view = new DataView(wavHeader);
+
+        // WAV header details
+        this.writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + pcmData.length * 2, true);
+        this.writeString(view, 8, 'WAVE');
+        this.writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, 16000, true);  // Sample rate
+        view.setUint32(28, 32000, true);  // Byte rate
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        this.writeString(view, 36, 'data');
+        view.setUint32(40, pcmData.length * 2, true);
+
+        // Combine header and data
+        const wavBlob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
+        return await wavBlob.arrayBuffer();
+      }
+
+      return result.audio;
+    } catch (error) {
+      console.error("Error in text-to-speech:", error);
+      throw error;
+    }
+  }
+
+  // Helper function to write strings to DataView
+  private writeString(view: DataView, offset: number, string: string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
   }
 
   // Generic method for backward compatibility
@@ -106,7 +149,7 @@ export class TransformersEngineWrapper {
       case 'automatic-speech-recognition':
         return this.transcribe(prompt, options);
       case 'text-to-speech':
-        return this.textToSpeech(prompt, options);
+        return this.textToSpeech(prompt);
       default:
         throw new Error(`Unsupported model type: ${this.modelType}`);
     }
