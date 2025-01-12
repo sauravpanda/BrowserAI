@@ -12,5 +12,5 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['@browserai/browserai']
-  }
+  },
 })
