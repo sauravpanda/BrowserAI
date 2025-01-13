@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.14.0",
     "@huggingface/transformers": "^3.2.4",
     "@mlc-ai/web-llm": "^0.2.77",
+    "posthog-js": "^1.205.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
