@@ -23,22 +23,36 @@ export class MLCEngineWrapper {
     }
   }
 
-  async generateText(prompt: string, options: any = {}) {
+  async generateText(
+    input: string | Array<{role: string, content: string}>,
+    options: any = {}
+  ) {
     if (!this.mlcEngine) {
       throw new Error("MLC Engine not initialized.");
     }
-    const messages = [];
-    if (options.system_prompt) {
-      messages.push({role: "system", content: options.system_prompt});
+
+    let messages = Array.isArray(input) ? input : [];
+    
+    // If input is a string, construct messages array
+    if (typeof input === 'string') {
+      if (options.system_prompt) {
+        messages.push({role: "system", content: options.system_prompt});
+      }
+      messages.push({role: "user", content: input});
     }
-    messages.push({role: "user", content: prompt});
+
+    // Set default options
     if (!options.max_tokens) {
-      options.max_tokens = 100;
+      options.max_tokens = 300;
     }
     if (!options.temperature) {
       options.temperature = 0.5;
     }
-    const result = await this.mlcEngine.chat.completions.create({messages: messages, ...options});
+
+    if (options.stream) {
+      return this.mlcEngine.chat.completions.create({messages, ...options});
+    }
+    const result = await this.mlcEngine.chat.completions.create({messages, ...options});
     return result.choices[0].message.content;
   }
 }

@@ -6,6 +6,12 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: {
+    ssrManifest: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    },
     commonjsOptions: {
       include: [/@browserai\/browserai/, /node_modules/]
     },
@@ -15,11 +21,11 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['@browserai/browserai']
-  },
+  }, 
   server: {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Content-Type': 'application/javascript'
+    middlewareMode: false,
+    fs: {
+      strict: true
     }
   }
 })
