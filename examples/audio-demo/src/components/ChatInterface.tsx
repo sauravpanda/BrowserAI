@@ -515,23 +515,40 @@ export default function ChatInterface() {
   }, []);
 
   useEffect(() => {
-    initPostHog();
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
 
-    captureAnalytics('voice_chat_page_view', {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      screenResolution: `${window.screen.width}x${window.screen.height}`,
-      pixelRatio: window.devicePixelRatio,
-      language: navigator.language,
-      hardwareConcurrency: navigator.hardwareConcurrency,
-      deviceMemory: (navigator as any).deviceMemory,
-      maxTouchPoints: navigator.maxTouchPoints,
-      hasPerformanceAPI: 'performance' in window,
-      hasMemoryInfo: 'memory' in performance,
-      hasWebWorker: 'Worker' in window,
-      hasWebAssembly: typeof WebAssembly === 'object',
-      hasSIMD: 'Atomics' in window && 'SharedArrayBuffer' in window,
-    });
+    // Wait for DOM to be fully loaded
+    const initializeAnalytics = () => {
+      initPostHog();
+
+      captureAnalytics('voice_chat_page_view', {
+        userAgent: navigator?.userAgent,
+        platform: navigator?.platform,
+        screenResolution: window?.screen ? `${window.screen.width}x${window.screen.height}` : undefined,
+        pixelRatio: window?.devicePixelRatio,
+        language: navigator?.language,
+        hardwareConcurrency: navigator?.hardwareConcurrency,
+        deviceMemory: (navigator as any)?.deviceMemory,
+        maxTouchPoints: navigator?.maxTouchPoints,
+        hasPerformanceAPI: 'performance' in window,
+        hasMemoryInfo: 'performance' in window && 'memory' in performance,
+        hasWebWorker: 'Worker' in window,
+        hasWebAssembly: typeof WebAssembly === 'object',
+        hasSIMD: 'Atomics' in window && 'SharedArrayBuffer' in window,
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeAnalytics);
+    } else {
+      initializeAnalytics();
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('DOMContentLoaded', initializeAnalytics);
+    };
   }, []);
 
   const startRecording = async () => {
@@ -713,26 +730,40 @@ export default function ChatInterface() {
     try {
       const audioLoadStart = performance.now();
       setStatus('Loading audio model...');
-      await audioAIRef.current?.loadModel('whisper-tiny-en', {
-        onProgress: (progress: any) => {
-          if (progress.progress == 100)
-            console.log(`Audio model loaded: ${progress.progress}`);
-        }
-      });
+      try {
+        await audioAIRef.current?.loadModel('whisper-tiny-en');
+        console.log('Audio model loaded successfully');
+      } catch (error) {
+        console.error('Error loading audio model:', error);
+        throw error;
+      }
       const audioLoadEnd = performance.now();
       const audioLoadTime = audioLoadEnd - audioLoadStart;
       setAudioProcessingTime(audioLoadTime);
 
+
       const ttsLoadStart = performance.now();
       setStatus('Loading TTS model...');
-      await ttsAIRef.current?.loadModel('speecht5-tts');
+      try {
+        await ttsAIRef.current?.loadModel('speecht5-tts');
+        console.log('TTS model loaded successfully');
+      } catch (error) {
+        console.error('Error loading TTS model:', error);
+        throw error;
+      }
       const ttsLoadEnd = performance.now();
       const ttsLoadTime = ttsLoadEnd - ttsLoadStart;
       setVoiceProcessingTime(ttsLoadTime);
 
       const chatLoadStart = performance.now();
       setStatus('Loading chat model...');
-      await chatAIRef.current?.loadModel(selectedModel);
+      try {
+        await chatAIRef.current?.loadModel(selectedModel);
+        console.log('Chat model loaded successfully');
+      } catch (error) {
+        console.error('Error loading chat model:', error);
+        throw error;
+      }
       const chatLoadEnd = performance.now();
       const chatLoadTime = chatLoadEnd - chatLoadStart;
       setChatProcessingTime(chatLoadTime);
@@ -740,8 +771,8 @@ export default function ChatInterface() {
       setIsModelLoaded(true);
       setStatus('Ready');
     } catch (error) {
-      console.error('Error loading chat model:', error);
-      setStatus('Error loading chat model');
+      console.error('Error in loadChatModel:', error);
+      setStatus('Error loading models');
     }
   };
 
