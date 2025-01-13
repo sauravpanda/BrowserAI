@@ -431,6 +431,35 @@ type Message = {
   isUser: boolean;
 };
 
+const captureAnalytics = (eventName: string, properties?: Record<string, any>) => {
+  try {
+    if (typeof posthog !== 'undefined') {
+      posthog.capture(eventName, properties);
+    }
+  } catch (error) {
+    // Silently fail if PostHog is blocked or unavailable
+    console.debug('Analytics disabled or blocked');
+  }
+};
+
+const initPostHog = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      if (typeof posthog !== 'undefined') {
+        posthog.init('phc_zZuhhgvhx49iRC6ftmFcnVKZrlraLCyPeFbs5mWzmxp', {
+          api_host: 'https://us.i.posthog.com',
+          person_profiles: 'identified_only',
+          loaded: (posthog) => {
+            posthog.debug(false);
+          }
+        });
+      }
+    } catch (error) {
+      console.debug('Analytics initialization failed');
+    }
+  }
+};
+
 export default function ChatInterface() {
   const [status, setStatus] = useState('Initializing...');
   const [isRecording, setIsRecording] = useState(false);
@@ -486,39 +515,21 @@ export default function ChatInterface() {
   }, []);
 
   useEffect(() => {
-    posthog.init('phc_zZuhhgvhx49iRC6ftmFcnVKZrlraLCyPeFbs5mWzmxp', {
-      api_host: 'https://us.i.posthog.com',
-      person_profiles: 'identified_only'
-    });
+    initPostHog();
 
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    const webGLInfo = gl ? {
-      vendor: gl.getParameter(gl.VENDOR),
-      renderer: gl.getParameter(gl.RENDERER),
-      version: gl.getParameter(gl.VERSION),
-      shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-      maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
-      hasWebGL2: !!canvas.getContext('webgl2'),
-    } : null;
-
-    posthog.capture('voice_chat_page_view', {
+    const webGLInfo = getWebGLInfo();
+    captureAnalytics('voice_chat_page_view', {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       screenResolution: `${window.screen.width}x${window.screen.height}`,
       pixelRatio: window.devicePixelRatio,
       language: navigator.language,
-
       hardwareConcurrency: navigator.hardwareConcurrency,
       deviceMemory: (navigator as any).deviceMemory,
       maxTouchPoints: navigator.maxTouchPoints,
-
       webGLInfo,
-
       hasPerformanceAPI: 'performance' in window,
       hasMemoryInfo: 'memory' in performance,
-
       hasWebWorker: 'Worker' in window,
       hasWebAssembly: typeof WebAssembly === 'object',
       hasSIMD: 'Atomics' in window && 'SharedArrayBuffer' in window,
@@ -536,13 +547,13 @@ export default function ChatInterface() {
       setMessages([]);
       await audioAIRef.current?.startRecording();
 
-      posthog.capture('start_recording', {
+      captureAnalytics('start_recording', {
         memoryUsage: stats.memoryUsage,
         peakMemoryUsage: stats.peakMemoryUsage,
       });
     } catch (error) {
       console.error('Recording error:', error);
-      posthog.capture('recording_error', {
+      captureAnalytics('recording_error', {
         error: (error as Error).message,
         memoryUsage: stats.memoryUsage,
       });
@@ -565,7 +576,7 @@ export default function ChatInterface() {
         const audioProcessingTime = audioEndTime - audioStartTime;
         setAudioProcessingTime(audioProcessingTime);
 
-        posthog.capture('audio_processed', {
+        captureAnalytics('audio_processed', {
           duration: audioProcessingTime,
           blobSize: audioBlob.size,
           memoryUsage: stats.memoryUsage,
@@ -587,7 +598,7 @@ export default function ChatInterface() {
             const chatProcessingTime = chatEndTime - chatStartTime;
             setChatProcessingTime(chatProcessingTime);
 
-            posthog.capture('chat_response_generated', {
+            captureAnalytics('chat_response_generated', {
               inputLength: transcribedText?.length,
               responseLength: response?.toString().length,
               processingTimeMs: chatProcessingTime,
@@ -606,7 +617,7 @@ export default function ChatInterface() {
         const endTime = performance.now();
         const totalProcessingTime = endTime - startTime;
 
-        posthog.capture('interaction_complete', {
+        captureAnalytics('interaction_complete', {
           totalDurationMs: totalProcessingTime,
           audioProcessingMs: audioProcessingTime,
           chatProcessingMs: chatProcessingTime,
@@ -618,7 +629,7 @@ export default function ChatInterface() {
     } catch (error) {
       const errorMessage = (error as Error).message;
       console.error('Processing error:', error);
-      posthog.capture('processing_error', {
+      captureAnalytics('processing_error', {
         error: errorMessage,
         memoryUsage: stats.memoryUsage,
         state: status,
@@ -638,7 +649,7 @@ export default function ChatInterface() {
 
       setVoiceProcessingTime(performance.now() - startTime);
       if (audioData) {
-        posthog.capture('text_to_speech_generated', {
+        captureAnalytics('text_to_speech_generated', {
           textLength: text.length,
           processingTimeMs: performance.now() - startTime,
           memoryUsage: stats.memoryUsage,
@@ -657,7 +668,7 @@ export default function ChatInterface() {
         source.start();
       }
     } catch (error) {
-      posthog.capture('text_to_speech_error', {
+      captureAnalytics('text_to_speech_error', {
         error: (error as Error).message,
         textLength: text.length,
         memoryUsage: stats.memoryUsage,
@@ -680,7 +691,7 @@ export default function ChatInterface() {
         const maxMemory = memory.jsHeapSizeLimit / (1024 * 1024);
 
         if (Math.abs(currentMemoryUsage - stats.memoryUsage) / stats.memoryUsage > 0.1) {
-          posthog.capture('memory_usage_change', {
+          captureAnalytics('memory_usage_change', {
             previousUsage: stats.memoryUsage,
             currentUsage: currentMemoryUsage,
             maxMemory: maxMemory,
@@ -736,6 +747,25 @@ export default function ChatInterface() {
     }
   };
 
+  const getWebGLInfo = () => {
+    if (typeof window === 'undefined') return null;
+    
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    
+    if (!gl) return null;
+    
+    return {
+      vendor: gl.getParameter(gl.VENDOR),
+      renderer: gl.getParameter(gl.RENDERER),
+      version: gl.getParameter(gl.VERSION),
+      shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+      maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+      hasWebGL2: !!canvas.getContext('webgl2'),
+    };
+  };
+
   return (
     <Container>
       <MainContent>
@@ -766,9 +796,11 @@ export default function ChatInterface() {
             <LoadButton
               onClick={loadChatModel}
               disabled={isModelLoaded}
-              isLoading={status === 'Loading chat model...'}
+              isLoading={status.includes('Loading')}
             >
-              {isModelLoaded ? 'Model Loaded' : 'Load Model'}
+              {isModelLoaded ? 'Model Loaded' : 
+               status.includes('Loading') ? status : 
+               'Load Model'}
             </LoadButton>
           </div>
         </InfoSection>
