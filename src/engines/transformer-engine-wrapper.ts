@@ -16,10 +16,27 @@ export class TransformersEngineWrapper {
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
       this.modelType = modelConfig.modelType;
-      this.transformersPipeline = await pipeline(modelConfig.modelType, modelConfig.repo, {
+      
+      // Configure pipeline options with proper worker settings
+      const pipelineOptions = {
         progress_callback: options.onProgress,
         ...options,
-      });
+        // Add worker configuration
+        worker: {
+          // Ensure worker has no DOM dependencies
+          env: 'worker',
+          // Disable service workers which may try to access document
+          serviceWorker: false,
+          // Skip DOM checks
+          skipCompatibilityCheck: true
+        }
+      };
+
+      this.transformersPipeline = await pipeline(
+        modelConfig.modelType, 
+        modelConfig.repo, 
+        pipelineOptions
+      );
     } catch (error) {
       console.error("Error loading Transformers model:", error);
       const message = error instanceof Error ? error.message : String(error);

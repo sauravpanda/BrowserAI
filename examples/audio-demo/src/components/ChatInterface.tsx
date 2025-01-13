@@ -443,9 +443,13 @@ const captureAnalytics = (eventName: string, properties?: Record<string, any>) =
 };
 
 const initPostHog = () => {
-  if (typeof window !== 'undefined') {
-    try {
-      if (typeof posthog !== 'undefined') {
+  // Only run in browser environment
+  if (typeof window === 'undefined') return;
+
+  try {
+    if (typeof posthog !== 'undefined') {
+      // Wait for next tick to ensure document is ready
+      setTimeout(() => {
         posthog.init('phc_zZuhhgvhx49iRC6ftmFcnVKZrlraLCyPeFbs5mWzmxp', {
           api_host: 'https://us.i.posthog.com',
           person_profiles: 'identified_only',
@@ -453,10 +457,10 @@ const initPostHog = () => {
             posthog.debug(false);
           }
         });
-      }
-    } catch (error) {
-      console.debug('Analytics initialization failed');
+      }, 0);
     }
+  } catch (error) {
+    console.debug('Analytics initialization failed');
   }
 };
 
@@ -518,10 +522,11 @@ export default function ChatInterface() {
     // Only run in browser environment
     if (typeof window === 'undefined') return;
 
-    // Wait for DOM to be fully loaded
-    const initializeAnalytics = () => {
-      initPostHog();
+    // Initialize PostHog
+    initPostHog();
 
+    // Capture page view after a small delay
+    const pageViewTimeout = setTimeout(() => {
       captureAnalytics('voice_chat_page_view', {
         userAgent: navigator?.userAgent,
         platform: navigator?.platform,
@@ -537,17 +542,10 @@ export default function ChatInterface() {
         hasWebAssembly: typeof WebAssembly === 'object',
         hasSIMD: 'Atomics' in window && 'SharedArrayBuffer' in window,
       });
-    };
+    }, 100);
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initializeAnalytics);
-    } else {
-      initializeAnalytics();
-    }
-
-    // Cleanup
     return () => {
-      document.removeEventListener('DOMContentLoaded', initializeAnalytics);
+      clearTimeout(pageViewTimeout);
     };
   }, []);
 
@@ -797,7 +795,7 @@ export default function ChatInterface() {
               <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1,75GB)</option>
               <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
               <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
-              <option value="qwen-0.5b-instruct">Qwen 0.5B Instruct (950MB)</option>
+              <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
               <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
               <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
               <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>

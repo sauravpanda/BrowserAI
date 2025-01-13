@@ -265,6 +265,15 @@ const PrivacyBanner = styled.div`
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: #ef4444;
+  background: #451a1a;
+  border: 1px solid #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+`;
+
 
 export default function ChatInterface() {
   const [browserAI] = useState(new BrowserAI());
@@ -288,6 +297,7 @@ export default function ChatInterface() {
   const [showPrivacyBanner, ] = useState(true);
   const [showPrivacyDetails, setShowPrivacyDetails] = useState(false);
   const chatBoxRef = useRef<HTMLDivElement>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     // Initialize PostHog
@@ -378,6 +388,7 @@ export default function ChatInterface() {
 
   const loadModel = async () => {
     setLoading(true);
+    setLoadError(null);
     const startTime = performance.now();
     const memoryBefore = (performance as any).memory?.usedJSHeapSize;
     
@@ -433,6 +444,9 @@ export default function ChatInterface() {
       setModelLoaded(true);
     } catch (err) {
       const error = err as Error;
+      setLoadError(error.message);
+      setModelLoaded(false);
+      
       posthog.capture('model_load_error', {
         model: selectedModel,
         error: error.message,
@@ -588,7 +602,7 @@ export default function ChatInterface() {
             <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1,75GB)</option>
             <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
             <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
-            <option value="qwen-0.5b-instruct">Qwen 0.5B Instruct (950MB)</option>
+            <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
             <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
             <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
             <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
@@ -604,6 +618,12 @@ export default function ChatInterface() {
           </StatusIndicator>
         </div>
       </Header>
+
+      {loadError && (
+        <ErrorMessage>
+          Failed to load model: {loadError}
+        </ErrorMessage>
+      )}
 
       {showPrivacyBanner && (
         <PrivacyBanner>
