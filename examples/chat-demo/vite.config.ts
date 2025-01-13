@@ -6,6 +6,12 @@ export default defineConfig({
   base:'/',
   plugins: [react()],
   build: {
+    ssrManifest: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    },
     commonjsOptions: {
       include: [/@browserai\/browserai/, /node_modules/]
     },

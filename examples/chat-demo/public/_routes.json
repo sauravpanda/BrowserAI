@@ -5,6 +5,8 @@
       "/assets/*",
       "/_next/*",
       "/_next/static/*",
-      "/api/*"
+      "/api/*",
+      "/*.js",
+      "/*.css"
     ]
   }
