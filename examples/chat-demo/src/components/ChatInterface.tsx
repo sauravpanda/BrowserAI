@@ -640,20 +640,21 @@ export default function ChatInterface() {
           
           <StatItem>
             <h3>Memory Usage</h3>
-            <span className="value">{stats.memoryUsage.toFixed(1)}</span>
-            <span className="unit">MB</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <span>
+                <span className="value">{stats.memoryUsage.toFixed(1)}</span>
+                <span className="unit">MB</span>
+              </span>
+              <span style={{ color: '#666' }}>
+                of {stats.maxMemory.toFixed(1)} MB
+              </span>
+            </div>
             <ProgressBar>
               <div 
                 className="fill" 
-                style={{ width: `${Math.min(stats.memoryUsage / 1000 * 100, 100)}%` }} 
+                style={{ width: `${(stats.memoryUsage / stats.maxMemory * 100).toFixed(1)}%` }} 
               />
             </ProgressBar>
-          </StatItem>
-          
-          <StatItem>
-            <h3>Maximum Available Memory</h3>
-            <span className="value">{stats.maxMemory.toFixed(1)}</span>
-            <span className="unit">MB</span>
           </StatItem>
           
           <StatItem>
