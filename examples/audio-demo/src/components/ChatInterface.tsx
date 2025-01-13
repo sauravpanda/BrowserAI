@@ -517,7 +517,6 @@ export default function ChatInterface() {
   useEffect(() => {
     initPostHog();
 
-    const webGLInfo = getWebGLInfo();
     captureAnalytics('voice_chat_page_view', {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
@@ -527,7 +526,6 @@ export default function ChatInterface() {
       hardwareConcurrency: navigator.hardwareConcurrency,
       deviceMemory: (navigator as any).deviceMemory,
       maxTouchPoints: navigator.maxTouchPoints,
-      webGLInfo,
       hasPerformanceAPI: 'performance' in window,
       hasMemoryInfo: 'memory' in performance,
       hasWebWorker: 'Worker' in window,
@@ -745,25 +743,6 @@ export default function ChatInterface() {
       console.error('Error loading chat model:', error);
       setStatus('Error loading chat model');
     }
-  };
-
-  const getWebGLInfo = () => {
-    if (typeof window === 'undefined') return null;
-    
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    
-    if (!gl) return null;
-    
-    return {
-      vendor: gl.getParameter(gl.VENDOR),
-      renderer: gl.getParameter(gl.RENDERER),
-      version: gl.getParameter(gl.VERSION),
-      shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-      maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
-      hasWebGL2: !!canvas.getContext('webgl2'),
-    };
   };
 
   return (
