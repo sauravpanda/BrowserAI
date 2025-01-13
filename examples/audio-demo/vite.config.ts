@@ -1,22 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/sauravpanda/BrowserAI',
+  base: './',
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@browserai/browserai': path.resolve(__dirname, '../../src/index.ts')
-    }
+  build: {
+    commonjsOptions: {
+      include: [/@browserai\/browserai/, /node_modules/]
+    },
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true
   },
   optimizeDeps: {
     include: ['@browserai/browserai']
   },
-  build: {
-    commonjsOptions: {
-      include: [/@browserai\/browserai/, /node_modules/]
+  server: {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/javascript'
     }
   }
 })
