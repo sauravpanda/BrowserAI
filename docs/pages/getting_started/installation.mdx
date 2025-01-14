@@ -1,0 +1,59 @@
+---
+title: 'Installation'
+description: 'Getting started with BrowserAI installation and setup'
+---
+
+# Installation
+
+Getting started with BrowserAI is quick and easy! Choose your preferred package manager to install:
+
+## Using NPM
+
+```bash copy
+npm install @browserai/browserai
+```
+
+## Using Yarn
+
+```bash copy
+yarn add @browserai/browserai
+```
+
+## Quick Start
+
+Once installed, you can import BrowserAI into your project:
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+```
+
+## Basic Example
+
+Here's a simple example to get you up and running in seconds:
+
+```javascript copy
+// Initialize BrowserAI
+const browserAI = new BrowserAI();
+
+// Load a model and generate text
+async function quickStart() {
+    // Load a small, efficient model
+    await browserAI.loadModel('smollm2-135m-instruct');
+    
+    // Generate your first AI response!
+    const response = await browserAI.generateText('Hello, BrowserAI!');
+    console.log(response);
+}
+
+quickStart();
+```
+
+## Requirements
+
+- Modern web browser with WebGPU support (Chrome Canary, Edge Canary, or other browsers with WebGPU enabled)
+- Node.js version 16 or higher (for development)
+
+export const metadata = {
+  title: 'BrowserAI Installation Guide',
+  description: 'Step-by-step guide for installing and setting up BrowserAI'
+}

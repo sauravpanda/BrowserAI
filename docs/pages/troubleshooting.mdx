@@ -1,0 +1,90 @@
+---
+title: 'Troubleshooting'
+description: 'Comprehensive guide for resolving common issues with BrowserAI'
+---
+
+# Troubleshooting
+
+Having issues with BrowserAI? We've got you covered! Here's a comprehensive guide to common problems and their solutions.
+
+## Common Issues & Solutions
+
+### Browser Compatibility Issues
+
+#### WebGPU Not Available
+- Use Chrome Canary or Edge Canary
+- Enable WebGPU flags in browser settings
+- Ensure your GPU supports WebGPU
+- Update to latest browser version
+
+```javascript copy
+// Check WebGPU support
+if (!navigator.gpu) {
+    console.error('WebGPU not supported - please use a compatible browser');
+    // Implement fallback logic here
+}
+```
+
+### Memory Management
+
+#### Out of Memory Errors
+- Use quantized models: q4f16_1 for 4-bit quantization
+- Reduce context window size (e.g., from 2048 to 1024)
+- Free unused models when not needed
+- Monitor memory usage with callbacks
+
+```javascript copy
+// Memory-optimized model loading
+await browserAI.loadModel('smollm2-135m-instruct', {
+    quantization: 'q4f16_1',
+    context_window: 1024,
+    onProgress: (progress) => {
+        console.log(`Memory used: ${progress.memory_used} MB`);
+    }
+});
+```
+
+### Model Loading Issues
+
+#### Model Download Failures
+- Check internet connection stability
+- Verify browser cache isn't full
+- Implement retry logic
+- Monitor download progress
+
+```javascript copy
+// Robust model loading with retries
+async function loadModelWithRetry(modelId, maxAttempts = 3) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            await browserAI.loadModel(modelId, {
+                onProgress: (p) => console.log(`Loading: ${p.progress}%`)      
+            });
+            return;
+        } catch (error) {
+            console.warn(`Attempt ${i + 1} failed, retrying...`);
+        }
+    }
+    throw new Error('Failed to load model');
+}
+```
+
+## Quick Error Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "WebGPU not available" | Browser doesn't support WebGPU | Switch to Chrome/Edge Canary |
+| "Out of memory" | Model too large for available RAM | Use smaller model or enable quantization |
+| "Model download failed" | Network issues | Check connection and retry |
+| "Generation timeout" | Processing taking too long | Reduce context size or batch size |
+
+## Need More Help?
+
+[Join our Discord Community](#)
+
+> **Remember**: Start small, test thoroughly, and scale up as needed. Most issues can be resolved by following the best practices!
+
+export const metadata = {
+  title: 'Troubleshooting',
+  description: 'Comprehensive guide for resolving common issues with BrowserAI'
+}

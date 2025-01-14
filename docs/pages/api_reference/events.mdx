@@ -1,0 +1,51 @@
+---
+title: 'Events'
+description: 'Documentation for event handling and callbacks in BrowserAI'
+---
+
+# Events
+
+The BrowserAI instance emits events you can listen to:
+
+```javascript copy
+browserAI.on('modelLoaded', (modelInfo) => {
+  console.log(`Model ${modelInfo.name} loaded successfully`);
+});
+
+browserAI.on('error', (error) => {
+  console.error('An error occurred:', error);
+});
+```
+
+## Available Events
+
+| Event | Description |
+|-------|-------------|
+| modelLoaded | Triggered when a model is successfully loaded |
+| modelUnloaded | Triggered when a model is unloaded |
+| error | Triggered when an error occurs |
+| progress | Triggered during loading operations with progress updates |
+
+### Example Usage
+
+```javascript copy
+// Listen for loading progress
+browserAI.on('progress', (progress) => {
+  console.log(`Loading progress: ${progress.progress}%`);
+});
+
+// Handle model loading completion
+browserAI.on('modelLoaded', (modelInfo) => {
+  console.log(`Model ${modelInfo.name} is ready to use`);
+});
+
+// Global error handling
+browserAI.on('error', (error) => {
+  console.error('BrowserAI error:', error.message);
+});
+```
+
+export const metadata = {
+  title: 'Events',
+  description: 'Documentation for event handling and callbacks in BrowserAI'
+}

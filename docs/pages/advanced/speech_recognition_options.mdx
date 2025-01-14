@@ -1,0 +1,70 @@
+---
+title: 'Speech Recognition Options'
+description: 'Configuration options and parameters for speech recognition with BrowserAI'
+---
+
+# Speech Recognition Options
+
+## Model Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| language | string | 'en' | Target language for recognition |
+| task | string | 'transcribe' | Task type ('transcribe' or 'translate') |
+| onProgress | function | - | Callback for loading progress updates |
+| onComplete | function | - | Callback when loading completes |
+| onError | function | - | Callback for error handling |
+
+## Recording Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| sampleRate | number | 16000 | Audio sample rate |
+| channels | number | 1 | Number of audio channels |
+
+## Transcription Parameters 
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| return_timestamps | boolean | false | Include word timestamps |
+| chunk_length_s | number | 30 | Processing chunk length in seconds |
+| stride_length_s | number | 5 | Overlap between chunks in seconds |
+| language | string | 'en' | Force specific language |
+
+## Example
+
+```javascript copy
+const browserAI = new BrowserAI();
+
+// Load Whisper model with options
+await browserAI.loadModel('whisper-tiny-en', {
+  language: 'en',
+  task: 'transcribe',
+  onProgress: (progress) => {
+    console.log('Model loading:', progress.progress + '%'); // "Model loading: 60%"
+  }
+});
+
+// Start recording with custom parameters
+await browserAI.startRecording({
+  sampleRate: 16000,
+  channels: 1
+});
+
+// Transcribe with options
+const audioBlob = await browserAI.stopRecording();
+const transcription = await browserAI.transcribeAudio(audioBlob, {
+  return_timestamps: true,
+  chunk_length_s: 30,
+  stride_length_s: 5,
+  language: 'en'
+});
+
+console.log('Transcription Result:', transcription); 
+// { text: "Hello world", timestamps: [...] }
+```
+
+export const metadata = {
+    title: 'Speech Recognition Options',
+    description: 'Configuration options and parameters for speech recognition with BrowserAI'
+}

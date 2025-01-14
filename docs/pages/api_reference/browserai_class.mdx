@@ -1,0 +1,51 @@
+---
+title: 'BrowserAI Class Reference'
+description: 'Documentation for the main BrowserAI class and its core methods'
+---
+
+# BrowserAI Class
+
+The main class that provides access to all AI capabilities.
+
+## Constructor
+
+```javascript copy
+const browserAI = new BrowserAI();
+```
+
+Creates a new instance of the BrowserAI class. No parameters required.
+
+## loadModel(modelIdentifier: string, options?: ModelOptions)
+
+Loads an AI model for use.
+
+```javascript copy
+await browserAI.loadModel('smollm2-135m-instruct', {
+  quantization: 'q4f16_1',
+  onProgress: (progress) => console.log(`Loading: ${progress.progress}%`)
+});
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| modelIdentifier | string | Yes | Name of the model to load |
+| options | ModelOptions | No | Configuration options |
+
+### ModelOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| quantization | string | 'q4f16_1' | Model quantization level |
+| onProgress | function | - | Progress callback |
+| onComplete | function | - | Completion callback |
+| onError | function | - | Error callback |
+
+### Returns
+`Promise<void>`
+
+export const metadata = {
+  title: 'BrowserAI Class Reference',
+  description: 'Documentation for the main BrowserAI class and its core methods'
+}

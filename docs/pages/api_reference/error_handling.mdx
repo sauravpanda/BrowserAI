@@ -1,0 +1,43 @@
+---
+title: 'Error Handling'
+description: 'Documentation for handling errors in BrowserAI operations'
+---
+
+# Error Handling
+
+All methods can throw errors that should be handled.
+
+```javascript copy
+try {
+  await browserAI.loadModel('smollm2-135m-instruct');
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+## Common Error Types
+
+| Error Type | Description |
+|------------|-------------|
+| ModelLoadError | Failed to load model |
+| GenerationError | Text generation failed |
+| AudioError | Audio processing failed |
+| TranscriptionError | Speech recognition failed |
+
+### Best Practices
+
+It's recommended to wrap all BrowserAI operations in try-catch blocks to handle potential errors gracefully. You can also use the `onError` callback in configuration options for specific error handling:
+
+```javascript copy
+await browserAI.loadModel('smollm2-135m-instruct', {
+  onError: (error) => {
+    console.error('Model loading failed:', error.message);
+    // Handle error appropriately
+  }
+});
+```
+
+export const metadata = {
+  title: 'Error Handling',
+  description: 'Documentation for handling errors in BrowserAI operations'
+}

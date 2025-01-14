@@ -1,0 +1,180 @@
+---
+title: 'Core Features & Usage'
+description: 'Comprehensive guide to BrowserAI features and capabilities'
+---
+
+# Core Features & Usage
+
+BrowserAI supports a variety of AI tasks right in your browser. Here's how to use each feature:
+
+## 1. Text Generation
+
+Generate human-like text responses, stories, code, and more
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function generateText() {
+    // Load a text generation model
+    await browserAI.loadModel('smollm2-135m-instruct');
+    
+    // Generate a response
+    const response = await browserAI.generateText('What is machine learning?');
+    console.log(response); // "Machine learning is a branch of AI..."
+}
+```
+
+## 2. Speech Recognition
+
+Convert spoken words to text with high accuracy
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function transcribeSpeech() {
+    // Load Whisper model
+    await browserAI.loadModel('whisper-tiny-en');
+    
+    // Record and transcribe
+    await browserAI.startRecording();
+    const audioBlob = await browserAI.stopRecording();
+    const transcription = await browserAI.transcribeAudio(audioBlob);
+    console.log(transcription.text); // "Hello, this is a test..."
+}
+```
+
+## 3. Text-to-Speech
+
+Transform text into natural-sounding speech
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function synthesizeSpeech() {
+    // Load TTS model
+    await browserAI.loadModel('speecht5-tts');
+    
+    // Generate and play audio
+    const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?');
+    
+    // Play the audio
+    const audioContext = new AudioContext();
+    const source = audioContext.createBufferSource();
+    const audioBuffer = await audioContext.decodeAudioData(audioBuffer);
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.start();
+    console.log('Audio playback started');
+}
+```
+
+## 4. Feature Extraction (Coming Soon)
+
+Extract meaningful features and embeddings from text
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function extractFeatures() {
+    // Load feature extraction model
+    await browserAI.loadModel('feature-extraction-model'); //Coming Soon
+    
+    // Get text embeddings
+    const embeddings = await browserAI.extractFeatures('Hello, world!');
+    console.log(embeddings); // [0.123, -0.456, ...]
+}
+```
+
+## 5. Translation (Coming Soon)
+
+Translate text between different languages
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function translate() {
+    // Load translation model
+    await browserAI.loadModel('translation-model'); //Coming Soon
+    
+    // Translate text
+    const translation = await browserAI.translate('Hello, world!', {
+        sourceLang: 'en',
+        targetLang: 'fr'
+    });
+    console.log(translation); // Bonjour, monde!
+}
+```
+
+## 6. Text Classification (Coming Soon)
+
+Classify text into predefined categories
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function classifyText() {
+    // Load classification model
+    await browserAI.loadModel('classification-model'); //Coming Soon
+    
+    // Classify text
+    const sentiment = await browserAI.classify('This product is amazing!');
+    console.log(sentiment); // { label: 'POSITIVE', score: 0.98 }
+}
+```
+
+## 7. Question Answering (Coming Soon)
+
+Extract answers from context
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+
+const browserAI = new BrowserAI();
+
+async function answerQuestion() {
+    // Load QA model
+    await browserAI.loadModel('QA-model'); //Coming Soon
+    
+    const context = "BrowserAI was created in 2025. It runs AI models directly in web browsers.";
+    const question = "When was BrowserAI created?";
+    const answer = await browserAI.answerQuestion(question, context);
+    console.log(answer); // "2025"
+}
+```
+
+## Loading Progress & Events
+
+All tasks support progress monitoring and events
+
+```javascript copy
+const browserAI = new BrowserAI();
+
+await browserAI.loadModel('smollm2-135m-instruct', {
+    onProgress: (progress) => {
+        console.log(`Loading: ${progress.progress}%`);
+    },
+    onComplete: () => {
+        console.log('Model loaded successfully!');
+    },
+    onError: (error) => {
+        console.error('Error loading model:', error);
+    }
+});
+```
+
+export const metadata = {
+  title: 'BrowserAI Core Features & Usage Guide',
+  description: 'Comprehensive documentation of BrowserAI features and capabilities'
+}

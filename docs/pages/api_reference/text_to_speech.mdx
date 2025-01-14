@@ -1,0 +1,41 @@
+---
+title: 'Text-to-Speech'
+description: 'Documentation for text-to-speech conversion capabilities'
+---
+
+# Text-to-Speech
+
+## textToSpeech(text: string, options?: TTSOptions)
+
+Converts text to speech.
+
+```javascript copy
+const audioBuffer = await browserAI.textToSpeech('Hello world', {
+  voice: 'female_a',
+  speed: 1.0
+});
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| text | string | Yes | Text to convert |
+| options | TTSOptions | No | TTS settings |
+
+### TTSOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| voice | string | 'female_a' | Voice selection |
+| speed | number | 1.0 | Speech rate |
+| pitch | number | 1.0 | Voice pitch |
+| quality | string | 'medium' | Audio quality |
+
+### Returns
+`Promise<ArrayBuffer>`
+
+export const metadata = {
+  title: 'Text-to-Speech',
+  description: 'Documentation for text-to-speech conversion capabilities'
+}

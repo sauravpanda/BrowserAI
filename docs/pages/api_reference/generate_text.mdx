@@ -1,0 +1,44 @@
+---
+title: 'Text Generation'
+description: 'Documentation for text generation capabilities in BrowserAI'
+---
+
+# Generate Text
+
+## generateText(prompt: string, options?: GenerationOptions)
+
+Generates text using the loaded language model.
+
+```javascript copy
+const response = await browserAI.generateText('Write a story about space', {
+  temperature: 0.7,
+  maxTokens: 100,
+  system_prompt: "You are a sci-fi writer."
+});
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| prompt | string | Yes | Input text prompt |
+| options | GenerationOptions | No | Generation parameters |
+
+### GenerationOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| temperature | number | 0.7 | Randomness (0.0-1.0) |
+| maxTokens | number | 100 | Maximum response length |
+| topP | number | 0.9 | Nucleus sampling |
+| topK | number | 40 | Top-k sampling |
+| system_prompt | string | - | System context |
+| stop_tokens | string[] | [] | Stop generation tokens |
+
+### Returns
+`Promise<string>`
+
+export const metadata = {
+  title: 'Text Generation',
+  description: 'Documentation for text generation capabilities in BrowserAI'
+}
