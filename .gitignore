@@ -32,3 +32,7 @@ yarn-error.log*
 # Cache
 .cache/
 .npm/ 
+
+# Docs
+.next
+out
