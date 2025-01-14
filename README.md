@@ -31,10 +31,10 @@ BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
 
 ## 🚀 Live Demos
 
-| Demo | Description | URL |
-|------|-------------|-----|
-| Chat Demo | Simple chat interface with multiple model options | [Try Chat Demo](https://chat.browserai.dev) |
-| Voice Chat Demo | Full-featured demo with speech recognition and text-to-speech | [Try Voice Demo](https://voice-demo.browserai.dev) |
+| Demo | Description | URL | Status |
+|------|-------------|-----|--------|
+| Chat Demo | Simple chat interface with multiple model options | [Try Chat Demo](https://chat.browserai.dev) | ✅ |
+| Voice Chat Demo | Full-featured demo with speech recognition and text-to-speech | [Try Voice Demo](https://voice-demo.browserai.dev) | ❌ |
 
 ## 🚀 Quick Start
 ```
