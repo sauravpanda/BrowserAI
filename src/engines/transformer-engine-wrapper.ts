@@ -16,10 +16,27 @@ export class TransformersEngineWrapper {
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
       this.modelType = modelConfig.modelType;
-      this.transformersPipeline = await pipeline(modelConfig.modelType, modelConfig.repo, {
+      
+      // Configure pipeline options with proper worker settings
+      const pipelineOptions = {
         progress_callback: options.onProgress,
         ...options,
-      });
+        // Add worker configuration
+        worker: {
+          // Ensure worker has no DOM dependencies
+          env: 'worker',
+          // Disable service workers which may try to access document
+          serviceWorker: false,
+          // Skip DOM checks
+          skipCompatibilityCheck: true
+        }
+      };
+
+      this.transformersPipeline = await pipeline(
+        modelConfig.modelType, 
+        modelConfig.repo, 
+        pipelineOptions
+      );
     } catch (error) {
       console.error("Error loading Transformers model:", error);
       const message = error instanceof Error ? error.message : String(error);
@@ -28,13 +45,30 @@ export class TransformersEngineWrapper {
   }
 
   // Text generation specific method
-  async generateText(prompt: string, options: any = {}) {
+  async generateText(
+    input: string | Array<{role: string, content: string}>,
+    options: any = {}
+  ) {
     if (!this.transformersPipeline || this.modelType !== 'text-generation') {
       throw new Error("Text generation pipeline not initialized.");
     }
+
+    let messages = Array.isArray(input) ? input : [];
+
+    // If input is a string, construct messages array
+    if (typeof input === 'string') {
+      if (options.system_prompt) {
+        messages.push({role: "system", content: options.system_prompt});
+      }
+      messages.push({role: "user", content: input});
+    }
+
+    // Convert messages array to text format
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+    
     const result = await this.transformersPipeline(prompt, {
-      temperature: options.temperature ?? 1,
-      max_new_tokens: options.max_new_tokens ?? 50,
+      temperature: options.temperature ?? 0.1,
+      max_new_tokens: options.max_new_tokens ?? 300,
       repetition_penalty: options.repetition_penalty,
       no_repeat_ngram_size: options.no_repeat_ngram_size,
       num_beams: options.num_beams,
