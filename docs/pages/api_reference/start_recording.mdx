@@ -1,0 +1,38 @@
+---
+title: 'Audio Recording'
+description: 'Documentation for starting audio recording in BrowserAI'
+---
+
+# Start Recording
+
+## startRecording(options?: RecordingOptions)
+
+Starts audio recording for speech recognition.
+
+```javascript copy
+await browserAI.startRecording({
+  sampleRate: 16000,
+  channels: 1
+});
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| options | RecordingOptions | No | Recording configuration |
+
+### RecordingOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| sampleRate | number | 16000 | Audio sample rate |
+| channels | number | 1 | Number of channels |
+
+### Returns
+`Promise<void>`
+
+export const metadata = {
+  title: 'Audio Recording',
+  description: 'Documentation for audio recording functionality in BrowserAI'
+}

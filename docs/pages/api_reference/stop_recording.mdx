@@ -1,0 +1,24 @@
+---
+title: 'Stop Recording'
+description: 'Documentation for stopping audio recording in BrowserAI'
+---
+
+# Stop Recording
+
+## stopRecording()
+
+Stops the current recording and returns the audio data.
+
+```javascript copy
+const audioBlob = await browserAI.stopRecording();
+```
+
+### Returns
+`Promise<Blob>`
+
+The returned Blob contains the recorded audio data that can be used for transcription or other audio processing.
+
+export const metadata = {
+  title: 'Stop Recording',
+  description: 'Documentation for stopping audio recording in BrowserAI'
+}

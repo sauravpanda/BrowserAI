@@ -1,0 +1,40 @@
+---
+title: 'Transcribe Audio'
+description: 'Documentation for audio transcription capabilities'
+---
+
+# Transcribe Audio
+
+## transcribeAudio(audio: Blob | Float32Array, options?: TranscriptionOptions)
+
+Transcribes audio to text.
+
+```javascript copy
+const transcription = await browserAI.transcribeAudio(audioBlob, {
+  return_timestamps: true,
+  language: 'en'
+});
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| audio | Blob\|Float32Array | Yes | Audio data |
+| options | TranscriptionOptions | No | Transcription settings |
+
+### TranscriptionOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| return_timestamps | boolean | false | Include word timing |
+| language | string | 'en' | Target language |
+| chunk_length_s | number | 30 | Chunk size in seconds |
+
+### Returns
+`Promise<TranscriptionResult>`
+
+export const metadata = {
+  title: 'Transcribe Audio',
+  description: 'Documentation for audio transcription capabilities'
+}

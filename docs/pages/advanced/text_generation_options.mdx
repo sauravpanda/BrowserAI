@@ -1,0 +1,64 @@
+---
+title: 'Text Generation Options'
+description: 'Configuration options and parameters for text generation with BrowserAI'
+---
+
+# Text Generation Options
+
+## Model Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| quantization | string | q4f16_1 | Model quantization level ('q4f16_1', 'q4f32_1', 'q0f32', 'q0f16') |
+| onProgress | function | - | Callback for loading progress updates |
+| onComplete | function | - | Callback when loading completes |
+| onError | function | - | Callback for error handling |
+
+## Generation Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| temperature | number | 0.7 | Controls randomness (0.0 - 1.0) |
+| maxTokens | number | 100 | Maximum length of response |
+| topP | number | 0.9 | Nucleus sampling parameter |
+| topK | number | 40 | Top-k sampling parameter |
+| system_prompt | string | - | System prompt for context |
+| stop_tokens | string[] | [] | Tokens that stop generation |
+| context_window | number | 2048 | Maximum context size |
+
+## Example
+
+```javascript copy
+import { BrowserAI } from '@browserai/browserai';
+const browserAI = new BrowserAI();
+
+// Load model with advanced options
+await browserAI.loadModel('llama-3.2-1b-instruct', {
+  quantization: 'q4f16_1',
+  onProgress: (progress) => {
+    console.log('Loading progress:', progress.progress + '%');
+    // "Loading progress: 45%"
+  },
+  onComplete: () => {
+    console.log('Status:', 'Ready to generate!'); // "Status: Ready to generate!"
+  }
+});
+
+// Generate text with custom parameters
+const response = await browserAI.generateText('Write a story about AI', {
+  temperature: 0.8,
+  maxTokens: 200,
+  topP: 0.9,
+  topK: 40,
+  system_prompt: "You are a creative storyteller specialized in science fiction.",
+  stop_tokens: ["\n\n", "THE END"],
+  context_window: 2048
+});
+
+console.log('Generated Story:', response); // "In the year 2045..."
+```
+
+export const metadata = {
+title: 'Text Generation Options',
+description: 'Configuration options and parameters for text generation with BrowserAI'
+}

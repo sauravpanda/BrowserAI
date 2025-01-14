@@ -1,0 +1,58 @@
+---
+title: 'Text to Speech Options'
+description: 'Configuration options and parameters for text-to-speech with BrowserAI'
+---
+
+# Text-to-Speech Options
+
+## Model Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| quality | string | 'medium' | Model quality preset |
+| onProgress | function | - | Callback for loading progress updates |
+| onComplete | function | - | Callback when loading completes |
+| onError | function | - | Callback for error handling |
+
+## Speech Generation Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| voice | string | 'female_a' | Voice selection |
+| speed | number | 1.0 | Speech rate (0.5 - 2.0) |
+| pitch | number | 1.0 | Voice pitch adjustment |
+| language | string | 'en-US' | Language code |
+| quality | string | 'medium' | Audio quality preset |
+| format | string | 'wav' | Output format |
+
+## Example
+
+```javascript copy
+const browserAI = new BrowserAI();
+
+// Load TTS model with options
+await browserAI.loadModel('speecht5-tts', {
+  onProgress: (progress) => {
+    console.log('Loading TTS model:', progress.progress + '%'); 
+    // "Loading TTS model: 75%"
+  }
+});
+
+// Generate speech with custom parameters
+const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?', {
+  voice: 'female_a',
+  speed: 1.2,
+  pitch: 1.0,
+  language: 'en-US',
+  quality: 'high',
+  format: 'wav'
+});
+
+console.log('Audio Status:', 'Generated successfully'); 
+// "Audio Status: Generated successfully"
+```
+
+export const metadata = {
+    title: 'Text to Speech Options',
+    description: 'Configuration options and parameters for text-to-speech with BrowserAI'
+}
