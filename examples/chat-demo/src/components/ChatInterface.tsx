@@ -1,9 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { BrowserAI } from '@browserai/browserai';
 import posthog from 'posthog-js';
+import { MessageContent } from './MessageContent';
+import React from 'react';
 
+//added my manmohan
 
+const MessageContainer = styled.div<{ isUser: boolean }>`
+  background: ${props => props.isUser ? '#3b82f6' : '#404040'};
+  color: ${props => props.isUser ? '#ffffff' : '#ffffff'};
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 12px 0;
+  max-width: 80%;
+  margin-left: ${props => props.isUser ? 'auto' : '0'};
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+`;
+
+const Message: React.FC<{ text: string; isUser: boolean }> = ({ text, isUser }) => {
+  return (
+    <MessageContainer isUser={isUser}>
+      <MessageContent content={text} />
+    </MessageContainer>
+  );
+};
+//added my manmohan
 const Description = styled.div`
   text-align: center;
   margin-bottom: 32px;
@@ -63,16 +85,6 @@ const ChatBox = styled.div`
   background: #2d2d2d;
 `;
 
-const Message = styled.div<{ isUser: boolean }>`
-  background: ${props => props.isUser ? '#3b82f6' : '#404040'};
-  color: ${props => props.isUser ? '#ffffff' : '#ffffff'};
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin: 12px 0;
-  max-width: 80%;
-  margin-left: ${props => props.isUser ? 'auto' : '0'};
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-`;
 
 const InputContainer = styled.div`
   display: flex;
@@ -265,6 +277,15 @@ const PrivacyBanner = styled.div`
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: #ef4444;
+  background: #451a1a;
+  border: 1px solid #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+`;
+
 
 export default function ChatInterface() {
   const [browserAI] = useState(new BrowserAI());
@@ -287,6 +308,8 @@ export default function ChatInterface() {
   });
   const [showPrivacyBanner, ] = useState(true);
   const [showPrivacyDetails, setShowPrivacyDetails] = useState(false);
+  const chatBoxRef = useRef<HTMLDivElement>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     // Initialize PostHog
@@ -377,6 +400,7 @@ export default function ChatInterface() {
 
   const loadModel = async () => {
     setLoading(true);
+    setLoadError(null);
     const startTime = performance.now();
     const memoryBefore = (performance as any).memory?.usedJSHeapSize;
     
@@ -432,6 +456,9 @@ export default function ChatInterface() {
       setModelLoaded(true);
     } catch (err) {
       const error = err as Error;
+      setLoadError(error.message);
+      setModelLoaded(false);
+      
       posthog.capture('model_load_error', {
         model: selectedModel,
         error: error.message,
@@ -459,7 +486,28 @@ export default function ChatInterface() {
 
     try {
       const startTime = performance.now();
-      const response = await browserAI.generateText(input) as string;
+      const chunks = await browserAI.generateText(input, {
+        maxTokens: 300,
+        temperature: 0.1,
+        stream: true,
+      });
+
+      let response = '';
+      for await (const chunk of chunks as AsyncIterable<{
+        choices: Array<{ delta: { content?: string } }>
+      }>) {
+        const newContent = chunk.choices[0]?.delta.content || "";
+        response += newContent;
+        setMessages(prevMessages => {
+          if (prevMessages[prevMessages.length - 1]?.isUser) {
+            return [...prevMessages, { text: response, isUser: false }];
+          } else {
+            const updatedMessages = [...prevMessages];
+            updatedMessages[updatedMessages.length - 1].text = response;
+            return updatedMessages;
+          }
+        });
+      }
       const responseTime = performance.now() - startTime;
       
       // Capture message interaction with performance data
@@ -487,8 +535,6 @@ export default function ChatInterface() {
         };
       });
 
-      const aiMessage = { text: String(response), isUser: false };
-      setMessages(prev => [...prev, aiMessage]);
     } catch (err) {
       const error = err as Error;
       posthog.capture('message_error', {
@@ -534,6 +580,12 @@ export default function ChatInterface() {
     };
   }, []);
 
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <Layout>
       <Header>
@@ -557,8 +609,15 @@ export default function ChatInterface() {
             onChange={e => handleModelChange(e.target.value)}
             disabled={loading}
           >
-            <option value="smollm2-135m-instruct">SmolLM2 135M Instruct</option>
-            <option value="smollm2-350m-instruct">SmolLM2 350M Instruct</option>
+            <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (360MB)</option>
+            <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
+            <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1,75GB)</option>
+            <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
+            <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
+            <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
+            <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
+            <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
+            <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
           </ModelSelect>
           <Button 
             onClick={loadModel}
@@ -571,6 +630,12 @@ export default function ChatInterface() {
           </StatusIndicator>
         </div>
       </Header>
+
+      {loadError && (
+        <ErrorMessage>
+          Failed to load model: {loadError}
+        </ErrorMessage>
+      )}
 
       {showPrivacyBanner && (
         <PrivacyBanner>
@@ -609,11 +674,9 @@ export default function ChatInterface() {
             </LoadingIndicator>
           ) : (
             <>
-              <ChatBox>
+              <ChatBox ref={chatBoxRef}>
                 {messages.map((message, index) => (
-                  <Message key={index} isUser={message.isUser}>
-                    {message.text}
-                  </Message>
+                  <Message key={index} text={message.text} isUser={message.isUser} />
                 ))}
               </ChatBox>
               <InputContainer>
