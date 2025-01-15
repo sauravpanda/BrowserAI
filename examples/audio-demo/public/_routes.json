@@ -1,10 +1,12 @@
 {
-    "version": 1,
-    "include": ["/*"],
-    "exclude": [
-      "/assets/*",
-      "/_next/*",
-      "/_next/static/*",
-      "/api/*"
-    ]
-  }
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/assets/*",
+    "/_next/*",
+    "/_next/static/*",
+    "/api/*",
+    "/*.js",
+    "/*.css"
+  ]
+}
