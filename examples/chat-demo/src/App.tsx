@@ -1,4 +1,6 @@
 import ChatInterface from './components/ChatInterface'
+import React, { StrictMode } from 'react'
+
 
 function App() {
   return (
