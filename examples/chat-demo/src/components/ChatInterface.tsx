@@ -2,8 +2,30 @@ import { useState, useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { BrowserAI } from '@browserai/browserai';
 import posthog from 'posthog-js';
+import { MessageContent } from './MessageContent';
+import React from 'react';
 
+//added my manmohan
 
+const MessageContainer = styled.div<{ isUser: boolean }>`
+  background: ${props => props.isUser ? '#3b82f6' : '#404040'};
+  color: ${props => props.isUser ? '#ffffff' : '#ffffff'};
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 12px 0;
+  max-width: 80%;
+  margin-left: ${props => props.isUser ? 'auto' : '0'};
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+`;
+
+const Message: React.FC<{ text: string; isUser: boolean }> = ({ text, isUser }) => {
+  return (
+    <MessageContainer isUser={isUser}>
+      <MessageContent content={text} />
+    </MessageContainer>
+  );
+};
+//added my manmohan
 const Description = styled.div`
   text-align: center;
   margin-bottom: 32px;
@@ -63,16 +85,6 @@ const ChatBox = styled.div`
   background: #2d2d2d;
 `;
 
-const Message = styled.div<{ isUser: boolean }>`
-  background: ${props => props.isUser ? '#3b82f6' : '#404040'};
-  color: ${props => props.isUser ? '#ffffff' : '#ffffff'};
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin: 12px 0;
-  max-width: 80%;
-  margin-left: ${props => props.isUser ? 'auto' : '0'};
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-`;
 
 const InputContainer = styled.div`
   display: flex;
@@ -664,9 +676,7 @@ export default function ChatInterface() {
             <>
               <ChatBox ref={chatBoxRef}>
                 {messages.map((message, index) => (
-                  <Message key={index} isUser={message.isUser}>
-                    {message.text}
-                  </Message>
+                  <Message key={index} text={message.text} isUser={message.isUser} />
                 ))}
               </ChatBox>
               <InputContainer>
