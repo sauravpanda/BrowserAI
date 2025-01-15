@@ -6,6 +6,10 @@
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     },
+    "optionalDependencies": {
+        "@napi-rs/simple-git-linux-x64-gnu": "latest",
+        "@napi-rs/simple-git-darwin-arm64": "latest"
+    },
     "scripts": {
         "dev": "next",
         "build": "next build",
