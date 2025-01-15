@@ -41,6 +41,7 @@
   },
   "type": "module",
   "devDependencies": {
+    "@webgpu/types": "^0.1.53",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3"
   },

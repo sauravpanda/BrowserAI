@@ -23,5 +23,5 @@ export default defineConfig({
     options.platform = 'neutral'
   },
   bundle: true,
-  skipNodeModulesBundle: true
+  skipNodeModulesBundle: true,
 }) 
