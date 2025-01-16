@@ -287,7 +287,34 @@ const ErrorMessage = styled.div`
 `;
 
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  children?: (props: {
+    stats: {
+      memoryUsage: number;
+      maxMemory: number;
+      lastDecodingTime: number;
+      lastEncodingTime: number;
+      tokensPerSecond: number;
+      modelSize: number;
+      peakMemoryUsage: number;
+      responseHistory: number[];
+      modelLoadTime: number;
+      contextWindowUsed: number;
+    };
+    messages: Array<{ text: string; isUser: boolean }>;
+    input: string;
+    modelLoaded: boolean;
+    selectedModel: string;
+    loading: boolean;
+    showPrivacyBanner: boolean;
+    onSend: () => void;
+    onInputChange: (value: string) => void;
+    onModelChange: (model: string) => void;
+    onLoadModel: () => void;
+  }) => React.ReactNode;
+}
+
+export default function ChatInterface({ children }: ChatInterfaceProps) {
   const [browserAI] = useState(new BrowserAI());
   const [selectedModel, setSelectedModel] = useState('smollm2-135m-instruct');
   const [loading, setLoading] = useState(false);
@@ -586,7 +613,19 @@ export default function ChatInterface() {
     }
   }, [messages]);
 
-  return (
+  return children ? children({
+    stats,
+    messages,
+    input,
+    modelLoaded,
+    selectedModel,
+    loading,
+    showPrivacyBanner,
+    onSend: handleSend,
+    onInputChange: (value) => setInput(value),
+    onModelChange: handleModelChange,
+    onLoadModel: loadModel
+  }) : (
     <Layout>
       <Header>
         <h1>BrowserAI Chat Demo</h1>
