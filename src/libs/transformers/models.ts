@@ -1,4 +1,3 @@
-
 /**
  * @file Definitions of all models available in Transformers.js.
  * 
@@ -41,6 +40,7 @@
 import {
     AutoConfig,
     getKeyValueShapes,
+    PretrainedConfig,
 } from './configs';
 
 import {
@@ -94,7 +94,7 @@ import {
 
 import {
     GenerationConfig,
-} from './generation/configuration_utils.js';
+} from './generation/configuration_utils';
 
 import {
     cat,
@@ -108,16 +108,16 @@ import {
     stack,
     std_mean,
     Tensor,
-} from './utils/tensor.js';
-import { RawImage } from './utils/image.js';
+} from './utils/tensor';
+import { RawImage } from './utils/image';
 
-import { dynamic_time_warping, max, medianFilter } from './utils/maths.js';
-import { EosTokenCriteria, MaxLengthCriteria, StoppingCriteriaList } from './generation/stopping_criteria.js';
-import { LogitsSampler } from './generation/logits_sampler.js';
-import { apis } from './env.js';
+import { dynamic_time_warping, max, medianFilter } from './utils/maths';
+import { EosTokenCriteria, MaxLengthCriteria, StoppingCriteriaList } from './generation/stopping_criteria';
+import { LogitsSampler } from './generation/logits_sampler';
+import { apis } from './env';
 
-import { WhisperGenerationConfig } from './models/whisper/generation_whisper.js';
-import { whisper_language_to_code } from './models/whisper/common_whisper.js';
+import { WhisperGenerationConfig } from './models/whisper/generation_whisper';
+import { whisper_language_to_code } from './models/whisper/common_whisper';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -153,7 +153,7 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @returns {Promise<{buffer: Uint8Array, session_options: Object, session_config: Object}>} A Promise that resolves to the data needed to create an InferenceSession object.
  * @private
  */
-async function getSession(pretrained_model_name_or_path, fileName, options) {
+async function getSession(pretrained_model_name_or_path: string, fileName: string, options: any) {
     const custom_config = options.config?.['transformers.js_config'] ?? {};
     let device = options.device ?? custom_config.device;
     if (device && typeof device !== 'string') {
@@ -178,7 +178,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         if (dtype && dtype.hasOwnProperty(fileName)) {
             dtype = dtype[fileName];
         } else {
-            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice] ?? DATA_TYPES.fp32;
+            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice as keyof typeof DEFAULT_DEVICE_DTYPE_MAPPING] ?? DATA_TYPES.fp32;
             console.warn(`dtype not specified for "${fileName}". Using the default dtype (${dtype}) for this device (${selectedDevice}).`);
         }
     }
@@ -195,7 +195,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
             dtype = config_dtype;
         } else {
             // Choose default dtype based on device, falling back to fp32
-            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice] ?? DATA_TYPES.fp32;
+            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice as keyof typeof DEFAULT_DEVICE_DTYPE_MAPPING] ?? DATA_TYPES.fp32;
         }
     }
 
@@ -224,7 +224,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     }
 
     // Construct the model file name
-    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selectedDtype];
+    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selectedDtype as keyof typeof DEFAULT_DTYPE_SUFFIX_MAPPING];
     const modelFileName = `${options.subfolder ?? ''}/${fileName}${suffix}.onnx`;
 
     const session_options = { ...options.session_options };
@@ -268,13 +268,9 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         }));
 
     } else if (session_options.externalData !== undefined) {
-        externalDataPromises = session_options.externalData.map(async (ext) => {
-            // if the external data is a string, fetch the file and replace the string with its content
-            // @ts-expect-error TS2339
+        externalDataPromises = session_options.externalData.map(async (ext: any) => {
             if (typeof ext.data === "string") {
-                // @ts-expect-error TS2339
                 const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
-                // @ts-expect-error TS2698
                 return { ...ext, data: ext_buffer };
             }
             return ext;
@@ -314,7 +310,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
  * @returns {Promise<Record<string, any>>} A Promise that resolves to a dictionary of InferenceSession objects.
  * @private
  */
-async function constructSessions(pretrained_model_name_or_path, names, options) {
+async function constructSessions(pretrained_model_name_or_path: string, names: Record<string, string>, options: any) {
     return Object.fromEntries(await Promise.all(
         Object.keys(names).map(async (name) => {
             const { buffer, session_options, session_config } = await getSession(pretrained_model_name_or_path, names[name], options);
@@ -332,7 +328,7 @@ async function constructSessions(pretrained_model_name_or_path, names, options) 
  * @returns {Promise<Record<string, any>>} A Promise that resolves to a dictionary of configuration objects.
  * @private
  */
-async function getOptionalConfigs(pretrained_model_name_or_path, names, options) {
+async function getOptionalConfigs(pretrained_model_name_or_path: string, names: Record<string, string>, options: any) {
     return Object.fromEntries(await Promise.all(
         Object.keys(names).map(async (name) => {
             const config = await getModelJSON(pretrained_model_name_or_path, names[name], false, options);
@@ -349,7 +345,7 @@ async function getOptionalConfigs(pretrained_model_name_or_path, names, options)
  * @throws {Error} If any inputs are missing.
  * @private
  */
-function validateInputs(session, inputs) {
+function validateInputs(session: any, inputs: any) {
     /**
      * NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
      * @type {Record<string, Tensor>}
@@ -398,7 +394,7 @@ function validateInputs(session, inputs) {
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
  * @private
  */
-async function sessionRun(session, inputs) {
+async function sessionRun(session: any, inputs: any) {
     const checkedInputs = validateInputs(session, inputs);
     try {
         // pass the original ort tensor
@@ -410,9 +406,11 @@ async function sessionRun(session, inputs) {
         // Error messages can be long (nested) and uninformative. For this reason,
         // we apply minor formatting to show the most important information
         const formatted = Object.fromEntries(Object.entries(checkedInputs)
-            .map(([k, { type, dims, data }]) => [k, {
+            .map(([k, v]) => [k, {
                 // Extract these properties from the underlying ORT tensor
-                type, dims, data,
+                type: (v as Tensor).type,
+                dims: (v as Tensor).dims,
+                data: (v as Tensor).data,
             }]));
 
         // This usually occurs when the inputs are of the wrong type.
@@ -428,7 +426,7 @@ async function sessionRun(session, inputs) {
  * @returns {Object} The object with tensor objects replaced by custom Tensor objects.
  * @private
  */
-function replaceTensors(obj) {
+function replaceTensors(obj: any) {
     for (let prop in obj) {
         if (isONNXTensor(obj[prop])) {
             obj[prop] = new Tensor(obj[prop]);
@@ -447,7 +445,7 @@ function replaceTensors(obj) {
  * @throws {Error} If the input array is empty or the input is a batched Tensor and not all sequences have the same length.
  * @private
  */
-function toI64Tensor(items) {
+function toI64Tensor(items: any) {
     if (items instanceof Tensor) {
         return items;
     }
@@ -458,18 +456,18 @@ function toI64Tensor(items) {
 
     if (Array.isArray(items[0])) {
         // batched
-        if (items.some(x => x.length !== items[0].length)) {
+        if (items.some((x : any) => x.length !== items[0].length)) {
             throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
         }
 
         return new Tensor('int64',
-            BigInt64Array.from(items.flat().map(x => BigInt(x))),
+            BigInt64Array.from(items.flat().map((x : any) => BigInt(x))),
             [items.length, items[0].length]
         );
     } else {
         //flat
         return new Tensor('int64',
-            BigInt64Array.from(items.map(x => BigInt(x))),
+            BigInt64Array.from(items.map((x : any) => BigInt(x))),
             [1, items.length]
         );
     }
@@ -481,7 +479,7 @@ function toI64Tensor(items) {
  * @returns {Tensor} The boolean tensor.
  * @private
  */
-function boolTensor(value) {
+function boolTensor(value: boolean) {
     return new Tensor('bool', [value], [1]);
 }
 
@@ -493,7 +491,7 @@ function boolTensor(value) {
  * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
  * @private
  */
-async function seq2seqForward(self, model_inputs) {
+async function seq2seqForward(self: any, model_inputs: any) {
     let { encoder_outputs, input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     // Encode if needed
     if (!encoder_outputs) {
@@ -521,7 +519,7 @@ async function seq2seqForward(self, model_inputs) {
  * @returns {Promise<Object>} The model's outputs.
  * @private
  */
-async function encoderForward(self, model_inputs) {
+async function encoderForward(self: any, model_inputs: any) {
     const session = self.sessions['model'];
     const encoderFeeds = pick(model_inputs, session.inputNames);
 
@@ -550,7 +548,7 @@ async function encoderForward(self, model_inputs) {
  * @returns {Promise<Object>} The logits and past key values.
  * @private
  */
-async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
+async function decoderForward(self: any, model_inputs: any, is_encoder_decoder = false) {
 
     const session = self.sessions[
         is_encoder_decoder ? 'decoder_model_merged' : 'model'
@@ -583,14 +581,20 @@ function default_merge_input_ids_with_image_features({
     image_features,
     input_ids,
     attention_mask,
+}: {
+    image_token_id: number,
+    inputs_embeds: Tensor,
+    image_features: Tensor,
+    input_ids: Tensor,
+    attention_mask: Tensor,
 }) {
-    const image_tokens = input_ids.tolist().map(ids =>
-        ids.reduce((acc, x, idx) => {
+    const image_tokens = input_ids.tolist().map((ids : any) =>
+        ids.reduce((acc : any, x : any, idx : any) => {
             if (x == image_token_id) acc.push(idx);
             return acc;
         }, [])
     );
-    const n_image_tokens = image_tokens.reduce((acc, x) => acc + x.length, 0);
+    const n_image_tokens = image_tokens.reduce((acc : any, x : any) => acc + x.length, 0);
     const n_image_features = image_features.dims[0];
     if (n_image_tokens !== n_image_features) {
         throw new Error(`Image features and image tokens do not match: tokens: ${n_image_tokens}, features ${n_image_features}`);
@@ -624,7 +628,7 @@ function default_merge_input_ids_with_image_features({
  * @returns {Promise<Tensor>} The model's output tensor
  * @private
  */
-async function imageTextToTextForward(self, {
+async function imageTextToTextForward(self : any, {
     // Produced by the tokenizer/processor:
     input_ids = null,
     attention_mask = null,
@@ -700,7 +704,7 @@ async function imageTextToTextForward(self, {
  * @param {Tensor} attention_mask
  * @returns {{data: BigInt64Array, dims: number[]}}
  */
-function cumsum_masked_fill(attention_mask, start_index = 0) {
+function cumsum_masked_fill(attention_mask: Tensor, start_index = 0) {
     const [bz, seq_len] = attention_mask.dims;
     const attn_mask_data = attention_mask.data;
 
@@ -734,7 +738,7 @@ function cumsum_masked_fill(attention_mask, start_index = 0) {
  *     position_ids = position_ids[:, -input_ids.shape[1] :]
  * ```
  */
-function createPositionIds(model_inputs, past_key_values = null, start_index = 0) {
+function createPositionIds(model_inputs: Record<string, unknown>, past_key_values = null, start_index = 0) {
     const { input_ids, inputs_embeds, attention_mask } = model_inputs;
 
     const { data, dims } = cumsum_masked_fill(attention_mask, start_index);
@@ -746,7 +750,7 @@ function createPositionIds(model_inputs, past_key_values = null, start_index = 0
     return position_ids;
 }
 
-function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
+function decoder_prepare_inputs_for_generation(self: PreTrainedModel, input_ids: Tensor, model_inputs: Record<string, unknown>, generation_config: GenerationConfig) {
     if (model_inputs.past_key_values) {
         const past_length = Object.values(model_inputs.past_key_values)[0].dims.at(-2);
         const { input_ids, attention_mask } = model_inputs;
@@ -793,7 +797,7 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
     return model_inputs;
 }
 
-function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
+function encoder_decoder_prepare_inputs_for_generation(self: PreTrainedModel, input_ids: Tensor, model_inputs: Record<string, unknown>, generation_config: GenerationConfig) {
     if (model_inputs.past_key_values) {
         input_ids = input_ids.map(x => [x.at(-1)]);
     }
@@ -804,7 +808,7 @@ function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_in
     };
 }
 
-function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
+function image_text_to_text_prepare_inputs_for_generation(self: PreTrainedModel, ...args: [Tensor, Record<string, unknown>, GenerationConfig]) {
     if (self.config.is_encoder_decoder) {
         return encoder_decoder_prepare_inputs_for_generation(self, ...args);
     } else {
@@ -812,7 +816,7 @@ function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
     }
 }
 
-function multimodality_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
+function multimodality_prepare_inputs_for_generation(self: PreTrainedModel, input_ids: Tensor, model_inputs: Record<string, unknown>, generation_config: GenerationConfig) {
     const has_past_key_values = !!model_inputs.past_key_values;
 
     if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
@@ -873,7 +877,7 @@ export class PreTrainedModel extends Callable {
      * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {Record<string, Object>} configs Additional configuration files (e.g., generation_config.json).
      */
-    constructor(config, sessions, configs) {
+    constructor(config: PretrainedConfig, sessions: Record<string, any>, configs: Record<string, any>) {
         super();
 
         this.config = config;
@@ -964,7 +968,7 @@ export class PreTrainedModel extends Callable {
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
-    static async from_pretrained(pretrained_model_name_or_path, {
+    static async from_pretrained(pretrained_model_name_or_path: string, {
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -1113,7 +1117,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} model_inputs Object containing input tensors
      * @returns {Promise<Object>} Object containing output tensors
      */
-    async _call(model_inputs) {
+    async _call(model_inputs: Record<string, unknown>) {
         return await this.forward(model_inputs);
     }
 
@@ -1124,7 +1128,7 @@ export class PreTrainedModel extends Callable {
      * @returns {Promise<Object>} The output data from the model in the format specified in the ONNX model.
      * @throws {Error} This method must be implemented in subclasses.
      */
-    async forward(model_inputs) {
+    async forward(model_inputs: Record<string, unknown>) {
         return await this._forward(this, model_inputs);
     }
 
@@ -1142,7 +1146,7 @@ export class PreTrainedModel extends Callable {
      * @param {GenerationConfig} generation_config The generation config.
      * @returns {LogitsProcessorList} generation_config 
      */
-    _get_logits_warper(generation_config) {
+    _get_logits_warper(generation_config: GenerationConfig) {
 
         // instantiate warpers list
         const warpers = new LogitsProcessorList();
@@ -1169,8 +1173,8 @@ export class PreTrainedModel extends Callable {
      * @private
      */
     _get_logits_processor(
-        generation_config,
-        input_ids_seq_length,
+        generation_config: GenerationConfig,
+        input_ids_seq_length: number,
         // encoder_input_ids, TODO
         // prefix_allowed_tokens_fn, TODO
         logits_processor = null
@@ -1300,7 +1304,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} kwargs Additional generation parameters to be used in place of those in the `generation_config` object.
      * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
      */
-    _prepare_generation_config(generation_config, kwargs, cls = GenerationConfig) {
+    _prepare_generation_config(generation_config: GenerationConfig, kwargs: Record<string, unknown>, cls = GenerationConfig) {
         // Create empty generation config (contains defaults)
         // We pass `this.config` so that if `eos_token_id` or `bos_token_id` exist in the model's config, we will use them
         const config = { ...this.config };
@@ -1336,7 +1340,7 @@ export class PreTrainedModel extends Callable {
      * @param {GenerationConfig} generation_config 
      * @param {StoppingCriteriaList} [stopping_criteria=null] 
      */
-    _get_stopping_criteria(generation_config, stopping_criteria = null) {
+    _get_stopping_criteria(generation_config: GenerationConfig, stopping_criteria = null) {
         const criteria = new StoppingCriteriaList();
 
         if (generation_config.max_length !== null) {
@@ -1392,7 +1396,7 @@ export class PreTrainedModel extends Callable {
         }
     }
 
-    prepare_inputs_for_generation(...args) {
+    prepare_inputs_for_generation(...args: [PreTrainedModel, Tensor, Record<string, unknown>, GenerationConfig]) {
         return this._prepare_inputs_for_generation(this, ...args);
     }
 
@@ -1405,7 +1409,7 @@ export class PreTrainedModel extends Callable {
      * @param {boolean} inputs.is_encoder_decoder
      * @returns {Object} The updated model inputs for the next generation iteration.
      */
-    _update_model_kwargs_for_generation({ generated_input_ids, outputs, model_inputs, is_encoder_decoder }) {
+    _update_model_kwargs_for_generation({ generated_input_ids, outputs, model_inputs, is_encoder_decoder }: { generated_input_ids: bigint[][], outputs: Record<string, unknown>, model_inputs: Record<string, unknown>, is_encoder_decoder: boolean }) {
         // update past_key_values
         model_inputs['past_key_values'] = this.getPastKeyValues(outputs, model_inputs.past_key_values);
 
@@ -1438,7 +1442,7 @@ export class PreTrainedModel extends Callable {
      * @param {Record<string, Tensor|number[]>} [params.model_kwargs]
      * @returns {{inputs_tensor: Tensor, model_inputs: Record<string, Tensor>, model_input_name: string}} The model-specific inputs for generation.
      */
-    _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }) {
+    _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }: { inputs: Tensor | null, bos_token_id: number | null, model_kwargs: Record<string, unknown> }) {
         const model_inputs = pick(model_kwargs, this.forward_params);
         const input_name = this.main_input_name;
         if (input_name in model_inputs) {
@@ -1457,7 +1461,7 @@ export class PreTrainedModel extends Callable {
         return { inputs_tensor, model_inputs, model_input_name: input_name };
     }
 
-    async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name, generation_config }) {
+    async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name, generation_config }: { inputs_tensor: Tensor, model_inputs: Record<string, unknown>, model_input_name: string, generation_config: GenerationConfig }) {
         if (
             this.sessions['model'].inputNames.includes('inputs_embeds')
             && !model_inputs.inputs_embeds
@@ -1511,7 +1515,7 @@ export class PreTrainedModel extends Callable {
      * Prepares `decoder_input_ids` for generation with encoder-decoder models
      * @param {*} param0 
      */
-    _prepare_decoder_input_ids_for_generation({ batch_size, model_input_name, model_kwargs, decoder_start_token_id, bos_token_id, generation_config }) {
+    _prepare_decoder_input_ids_for_generation({ batch_size, model_input_name, model_kwargs, decoder_start_token_id, bos_token_id, generation_config }: { batch_size: number, model_input_name: string, model_kwargs: Record<string, unknown>, decoder_start_token_id: number | null, bos_token_id: number | null, generation_config: GenerationConfig }) {
         let { decoder_input_ids, ...model_inputs } = model_kwargs;
 
         // Prepare input ids if the user has not defined `decoder_input_ids` manually.
@@ -1775,7 +1779,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} pastKeyValues The previous past key values.
      * @returns {Object} An object containing past key values.
      */
-    getPastKeyValues(decoderResults, pastKeyValues, disposeEncoderPKVs = false) {
+    getPastKeyValues(decoderResults: Record<string, unknown>, pastKeyValues: Record<string, unknown>, disposeEncoderPKVs = false) {
         const pkvs = Object.create(null);
 
         for (const name in decoderResults) {
@@ -1810,8 +1814,8 @@ export class PreTrainedModel extends Callable {
      * @param {Object} model_output The output of the model.
      * @returns {{cross_attentions?: Tensor[]}} An object containing attentions.
      */
-    getAttentions(model_output) {
-        const attentions = {};
+    getAttentions(model_output: Record<string, unknown>) {
+        const attentions: Record<string, unknown[]> = {};
 
         for (const attnName of ['cross_attentions', 'encoder_attentions', 'decoder_attentions']) {
             for (const name in model_output) {
@@ -1832,7 +1836,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
      * @param {Object} pastKeyValues An object containing past key values.
      */
-    addPastKeyValues(decoderFeeds, pastKeyValues) {
+    addPastKeyValues(decoderFeeds: Record<string, unknown>, pastKeyValues: Record<string, unknown>) {
         if (pastKeyValues) {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
@@ -1849,7 +1853,7 @@ export class PreTrainedModel extends Callable {
         }
     }
 
-    async encode_image({ pixel_values }) {
+    async encode_image({ pixel_values }: { pixel_values: Tensor }) {
         // image_inputs === { pixel_values }
         const features = (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
         // @ts-expect-error TS2339
@@ -1864,7 +1868,7 @@ export class PreTrainedModel extends Callable {
         return features;
     }
 
-    async encode_text({ input_ids }) {
+    async encode_text({ input_ids }: { input_ids: Tensor }) {
         // text_inputs === { input_ids, attention_mask }
         return (await sessionRun(this.sessions['embed_tokens'], { input_ids })).inputs_embeds;
     }
@@ -1884,7 +1888,11 @@ export class BaseModelOutput extends ModelOutput {
      * @param {Tensor} [output.hidden_states] Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
      * @param {Tensor} [output.attentions] Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
      */
-    constructor({ last_hidden_state, hidden_states = null, attentions = null }) {
+    last_hidden_state : Tensor;
+    hidden_states : Tensor[] | null;
+    attentions : Tensor[] | null;
+
+    constructor({ last_hidden_state, hidden_states = null, attentions = null }: { last_hidden_state: Tensor, hidden_states?: Tensor[] | null, attentions?: Tensor[] | null }) {
         super();
         this.last_hidden_state = last_hidden_state;
         this.hidden_states = hidden_states;
@@ -1929,7 +1937,7 @@ export class WhisperModel extends WhisperPreTrainedModel { }
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
-    _prepare_generation_config(generation_config, kwargs) {
+    _prepare_generation_config(generation_config: GenerationConfig, kwargs: Record<string, unknown>) {
         return /** @type {WhisperGenerationConfig} */ (super._prepare_generation_config(generation_config, kwargs, WhisperGenerationConfig));
     }
 
@@ -1937,7 +1945,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * 
      * @param {WhisperGenerationConfig} generation_config 
      */
-    _retrieve_init_tokens(generation_config) {
+    _retrieve_init_tokens(generation_config: GenerationConfig) {
         // prefix tokens are of the form: 
         //  - Multilingual: <|startoftranscript|> <|lang_id|> <|task|> [<|notimestamps|>]
         //  - English-only: <|startoftranscript|> [<|notimestamps|>]
@@ -2074,7 +2082,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @param {number} [time_precision=0.02] Precision of the timestamps in seconds
      * @returns {Tensor} tensor containing the timestamps in seconds for each predicted token
      */
-    _extract_token_timestamps(generate_outputs, alignment_heads, num_frames = null, time_precision = 0.02) {
+    _extract_token_timestamps(generate_outputs: Record<string, unknown>, alignment_heads: number[][], num_frames = null, time_precision = 0.02) {
         if (!generate_outputs.cross_attentions) {
             throw new Error(
                 "Model outputs must contain cross attentions to extract timestamps. " +
@@ -2222,7 +2230,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         image_features,
         input_ids,
         attention_mask,
-    }) {
+    } : any) {
 
         // @ts-expect-error TS2339
         const image_token_index = this.config.image_token_index;
@@ -2230,10 +2238,10 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         const idsList = input_ids.tolist();
 
         // NOTE: we use .findIndex instead of .indexOf to perform weak comparison (==) between BigInt and Number
-        const indexOfImage = idsList.map(x => x.findIndex(x => x == image_token_index));
+        const indexOfImage = idsList.map((x : any) => x.findIndex((x : any) => x == image_token_index));
 
-        const noImages = indexOfImage.every(x => x === -1);
-        const allImages = indexOfImage.every(x => x !== -1);
+        const noImages = indexOfImage.every((x : any) => x === -1);
+        const allImages = indexOfImage.every((x : any) => x !== -1);
         if (!noImages && !allImages) {
             // Check for padding reasons
             throw new Error('Every input should contain either 0 or 1 image token.');
@@ -2307,7 +2315,7 @@ export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel 
         image_features,
         input_ids,
         attention_mask,
-    }) {
+    }: { inputs_embeds: Tensor, image_features: Tensor, input_ids: Tensor, attention_mask: Tensor }) {
         return {
             inputs_embeds: cat([
                 image_features, // image embeds
@@ -2320,7 +2328,7 @@ export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel 
         }
     }
 
-    async _prepare_inputs_embeds({ input_ids, pixel_values, inputs_embeds, attention_mask }) {
+    async _prepare_inputs_embeds({ input_ids, pixel_values, inputs_embeds, attention_mask }: { input_ids: Tensor | null, pixel_values: Tensor | null, inputs_embeds: Tensor | null, attention_mask: Tensor | null }) {
         if (!input_ids && !pixel_values) {
             throw new Error('Either `input_ids` or `pixel_values` should be provided.');
         }
@@ -2402,12 +2410,11 @@ export class PaliGemmaPreTrainedModel extends PreTrainedModel {
 }
 
 export class PaliGemmaForConditionalGeneration extends PaliGemmaPreTrainedModel {
-    _merge_input_ids_with_image_features(kwargs) {
+    _merge_input_ids_with_image_features(kwargs: { image_features: Tensor, input_ids: Tensor, attention_mask: Tensor }) {
         const vision_hidden_size = kwargs.image_features.dims.at(-1);
         const reshaped_image_hidden_states = kwargs.image_features.view(-1, vision_hidden_size);
 
         return default_merge_input_ids_with_image_features({
-            // @ts-ignore
             image_token_id: this.config.image_token_index,
             ...kwargs,
             image_features: reshaped_image_hidden_states,
@@ -2433,17 +2440,16 @@ export class Idefics3PreTrainedModel extends PreTrainedModel {
  */
 export class Idefics3ForConditionalGeneration extends Idefics3PreTrainedModel {
 
-    async encode_image({ pixel_values, pixel_attention_mask }) {
+    async encode_image({ pixel_values, pixel_attention_mask }: { pixel_values: Tensor, pixel_attention_mask: Tensor }) {
         const features = (await sessionRun(this.sessions['vision_encoder'], { pixel_values, pixel_attention_mask })).image_features;
         return features;
     }
 
-    _merge_input_ids_with_image_features(kwargs) {
+    _merge_input_ids_with_image_features(kwargs: { image_features: Tensor, input_ids: Tensor, attention_mask: Tensor }) {
         const vision_hidden_size = kwargs.image_features.dims.at(-1);
         const reshaped_image_hidden_states = kwargs.image_features.view(-1, vision_hidden_size);
 
         return default_merge_input_ids_with_image_features({
-            // @ts-ignore
             image_token_id: this.config.image_token_id,
             ...kwargs,
             image_features: reshaped_image_hidden_states,
@@ -2576,7 +2582,7 @@ export class CLIPModel extends CLIPPreTrainedModel { }
  */
 export class CLIPTextModel extends CLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -2613,7 +2619,7 @@ export class CLIPTextModel extends CLIPPreTrainedModel {
  */
 export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -2627,7 +2633,7 @@ export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
  */
 export class CLIPVisionModel extends CLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -2664,7 +2670,7 @@ export class CLIPVisionModel extends CLIPPreTrainedModel {
  */
 export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -2789,7 +2795,7 @@ export class SiglipTextModel extends SiglipPreTrainedModel {
  */
 export class SiglipVisionModel extends CLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -2809,7 +2815,7 @@ export class ChineseCLIPModel extends ChineseCLIPPreTrainedModel { }
 export class JinaCLIPPreTrainedModel extends PreTrainedModel { }
 
 export class JinaCLIPModel extends JinaCLIPPreTrainedModel {
-    async forward(model_inputs) {
+    async forward(model_inputs : any) {
         const missing_text_inputs = !model_inputs.input_ids;
         const missing_image_inputs = !model_inputs.pixel_values;
 
@@ -2859,7 +2865,7 @@ export class JinaCLIPTextModel extends JinaCLIPPreTrainedModel {
 
 export class JinaCLIPVisionModel extends JinaCLIPPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path : string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -4427,7 +4433,7 @@ export class ClapModel extends ClapPreTrainedModel { }
  */
 export class ClapTextModelWithProjection extends ClapPreTrainedModel {
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+    static async from_pretrained(pretrained_model_name_or_path : string, options = {}) {
         return super.from_pretrained(pretrained_model_name_or_path, {
             ...options,
             // Update default model file name if not provided
@@ -4597,7 +4603,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
      * @param {Tensor} outputs The output tensor from the model.
      * @returns {Tensor} The filtered output tensor.
      */
-    _apply_and_filter_by_delay_pattern_mask(outputs) {
+    _apply_and_filter_by_delay_pattern_mask(outputs : any) {
         const [bs_x_codebooks, seqLength] = outputs.dims;
         // @ts-expect-error TS2339
         const num_codebooks = this.config.decoder.num_codebooks;
@@ -4630,7 +4636,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
     }
 
 
-    prepare_inputs_for_generation(input_ids, model_inputs, generation_config) {
+    prepare_inputs_for_generation(input_ids : any, model_inputs : any, generation_config : any) {
         // apply the delay pattern mask
         let clonedInputIds = structuredClone(input_ids);
         for (let i = 0; i < clonedInputIds.length; ++i) {
@@ -4658,7 +4664,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
      * @param {import('./generation/parameters.js').GenerationFunctionParameters} options
      * @returns {Promise<ModelOutput|Tensor>} The output of the model, which can contain the generated token ids, attentions, and scores.
      */
-    async generate(options) {
+    async generate(options : any) {
 
         const output_ids = await super.generate(options);
 
@@ -4706,14 +4712,17 @@ export class MultiModalityCausalLM extends MultiModalityPreTrainedModel {
     /**
      * @param {ConstructorParameters<typeof MultiModalityPreTrainedModel>} args
      */
-    constructor(...args) {
+
+    _generation_mode : string;
+    sessions : any;
+    constructor(...args : any) {
         super(...args);
 
         // State-based approach to switch out which heads to use during generation
         this._generation_mode = 'text';
     }
 
-    async forward(model_inputs) {
+    async forward(model_inputs : any) {
         const mode = this._generation_mode ?? 'text';
 
         // TODO support re-using PKVs for input_ids.dims[1] !== 1
@@ -4758,7 +4767,7 @@ export class MultiModalityCausalLM extends MultiModalityPreTrainedModel {
     /**
      * @param {import('./generation/parameters.js').GenerationFunctionParameters} options
      */
-    async generate(options) {
+    async generate(options : any) {
         this._generation_mode = 'text';
         return super.generate(options);
     }
@@ -4766,7 +4775,7 @@ export class MultiModalityCausalLM extends MultiModalityPreTrainedModel {
     /**
      * @param {import('./generation/parameters.js').GenerationFunctionParameters} options
      */
-    async generate_images(options) {
+    async generate_images(options : any) {
         this._generation_mode = 'image';
 
         const start_num_tokens = (options.inputs ?? options[this.main_input_name]).dims[1];
@@ -4797,7 +4806,10 @@ export class MultiModalityCausalLM extends MultiModalityPreTrainedModel {
 }
 
 export class MgpstrModelOutput extends ModelOutput {
-    constructor({ char_logits, bpe_logits, wp_logits }) {
+    char_logits : Tensor;
+    bpe_logits : Tensor;
+    wp_logits : Tensor;
+    constructor({ char_logits, bpe_logits, wp_logits } : any) {
         super();
         this.char_logits = char_logits;
         this.bpe_logits = bpe_logits;
@@ -4819,7 +4831,7 @@ export class MgpstrForSceneTextRecognition extends MgpstrPreTrainedModel {
     /**
      * @param {any} model_inputs
      */
-    async _call(model_inputs) {
+    async _call(model_inputs : any) {
         return new MgpstrModelOutput(await super._call(model_inputs));
     }
 }
@@ -4866,9 +4878,9 @@ export class PatchTSMixerForPrediction extends PatchTSMixerPreTrainedModel { }
 export class PretrainedMixin {
     /**
      * Mapping from model type to model class.
-     * @type {Map<string, Object>[]}
+     * @type {Map<string, any>[] | null}
      */
-    static MODEL_CLASS_MAPPINGS = null;
+    static MODEL_CLASS_MAPPINGS: Map<string, any>[] | null = null;
 
     /**
      * Whether to attempt to instantiate the base class (`PretrainedModel`) if 
@@ -4878,7 +4890,7 @@ export class PretrainedMixin {
 
 
     /** @type {typeof PreTrainedModel.from_pretrained} */
-    static async from_pretrained(pretrained_model_name_or_path, {
+    static async from_pretrained(pretrained_model_name_or_path : string, {
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -4929,30 +4941,11 @@ export class PretrainedMixin {
 }
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
-    ['bert', ['BertModel', BertModel]],
-    ['modernbert', ['ModernBertModel', ModernBertModel]],
-    ['nomic_bert', ['NomicBertModel', NomicBertModel]],
-    ['roformer', ['RoFormerModel', RoFormerModel]],
-    ['electra', ['ElectraModel', ElectraModel]],
-    ['esm', ['EsmModel', EsmModel]],
-    ['convbert', ['ConvBertModel', ConvBertModel]],
-    ['camembert', ['CamembertModel', CamembertModel]],
-    ['deberta', ['DebertaModel', DebertaModel]],
-    ['deberta-v2', ['DebertaV2Model', DebertaV2Model]],
-    ['mpnet', ['MPNetModel', MPNetModel]],
-    ['albert', ['AlbertModel', AlbertModel]],
-    ['distilbert', ['DistilBertModel', DistilBertModel]],
-    ['roberta', ['RobertaModel', RobertaModel]],
-    ['xlm', ['XLMModel', XLMModel]],
-    ['xlm-roberta', ['XLMRobertaModel', XLMRobertaModel]],
     ['clap', ['ClapModel', ClapModel]],
     ['clip', ['CLIPModel', CLIPModel]],
-    ['clipseg', ['CLIPSegModel', CLIPSegModel]],
     ['chinese_clip', ['ChineseCLIPModel', ChineseCLIPModel]],
     ['siglip', ['SiglipModel', SiglipModel]],
     ['jina_clip', ['JinaCLIPModel', JinaCLIPModel]],
-    ['mobilebert', ['MobileBertModel', MobileBertModel]],
-    ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
     ['wav2vec2-bert', ['Wav2Vec2BertModel', Wav2Vec2BertModel]],
     ['unispeech', ['UniSpeechModel', UniSpeechModel]],
@@ -4964,62 +4957,18 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['pyannote', ['PyAnnoteModel', PyAnnoteModel]],
     ['wespeaker-resnet', ['WeSpeakerResNetModel', WeSpeakerResNetModel]],
 
-    ['detr', ['DetrModel', DetrModel]],
-    ['rt_detr', ['RTDetrModel', RTDetrModel]],
-    ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
-    ['vit', ['ViTModel', ViTModel]],
-    ['ijepa', ['IJepaModel', IJepaModel]],
-    ['pvt', ['PvtModel', PvtModel]],
-    ['vit_msn', ['ViTMSNModel', ViTMSNModel]],
     ['vit_mae', ['ViTMAEModel', ViTMAEModel]],
     ['groupvit', ['GroupViTModel', GroupViTModel]],
-    ['fastvit', ['FastViTModel', FastViTModel]],
-    ['mobilevit', ['MobileViTModel', MobileViTModel]],
-    ['mobilevitv2', ['MobileViTV2Model', MobileViTV2Model]],
-    ['owlvit', ['OwlViTModel', OwlViTModel]],
-    ['owlv2', ['Owlv2Model', Owlv2Model]],
-    ['beit', ['BeitModel', BeitModel]],
-    ['deit', ['DeiTModel', DeiTModel]],
-    ['hiera', ['HieraModel', HieraModel]],
-    ['convnext', ['ConvNextModel', ConvNextModel]],
-    ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
-    ['dinov2', ['Dinov2Model', Dinov2Model]],
-    ['dinov2_with_registers', ['Dinov2WithRegistersModel', Dinov2WithRegistersModel]],
-    ['resnet', ['ResNetModel', ResNetModel]],
-    ['swin', ['SwinModel', SwinModel]],
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
-    ['yolos', ['YolosModel', YolosModel]],
-    ['dpt', ['DPTModel', DPTModel]],
-    ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
-    ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
 
     ['decision_transformer', ['DecisionTransformerModel', DecisionTransformerModel]],
     ['patchtst', ['PatchTSTForPrediction', PatchTSTModel]],
     ['patchtsmixer', ['PatchTSMixerForPrediction', PatchTSMixerModel]],
 
-    ['mobilenet_v1', ['MobileNetV1Model', MobileNetV1Model]],
-    ['mobilenet_v2', ['MobileNetV2Model', MobileNetV2Model]],
-    ['mobilenet_v3', ['MobileNetV3Model', MobileNetV3Model]],
-    ['mobilenet_v4', ['MobileNetV4Model', MobileNetV4Model]],
-
-    ['maskformer', ['MaskFormerModel', MaskFormerModel]],
     ['mgp-str', ['MgpstrForSceneTextRecognition', MgpstrForSceneTextRecognition]],
-]);
-
-const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
-    ['t5', ['T5Model', T5Model]],
-    ['longt5', ['LongT5Model', LongT5Model]],
-    ['mt5', ['MT5Model', MT5Model]],
-    ['bart', ['BartModel', BartModel]],
-    ['mbart', ['MBartModel', MBartModel]],
-    ['marian', ['MarianModel', MarianModel]],
-    ['whisper', ['WhisperModel', WhisperModel]],
-    ['m2m_100', ['M2M100Model', M2M100Model]],
-    ['blenderbot', ['BlenderbotModel', BlenderbotModel]],
-    ['blenderbot-small', ['BlenderbotSmallModel', BlenderbotSmallModel]],
 ]);
 
 
@@ -5108,7 +5057,6 @@ const MODEL_FOR_MULTIMODALITY_MAPPING_NAMES = new Map([
 ]);
 
 const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
-    ['vision-encoder-decoder', ['VisionEncoderDecoderModel', VisionEncoderDecoderModel]],
     ['idefics3', ['Idefics3ForConditionalGeneration', Idefics3ForConditionalGeneration]],
 ]);
 
@@ -5122,11 +5070,6 @@ const MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES = new Map([
     ['paligemma', ['PaliGemmaForConditionalGeneration', PaliGemmaForConditionalGeneration]],
 ]);
 
-
-const MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES = new Map([
-    ['segformer', ['SegformerForSemanticSegmentation', SegformerForSemanticSegmentation]],
-    ['sapiens', ['SapiensForSemanticSegmentation', SapiensForSemanticSegmentation]],
-]);
 
 const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
     ['sam', ['SamModel', SamModel]],
@@ -5146,13 +5089,6 @@ const MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES = new Map([
     ['wavlm', ['WavLMForXVector', WavLMForXVector]],
 ]);
 
-const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
-    ['unispeech-sat', ['UniSpeechSatForAudioFrameClassification', UniSpeechSatForAudioFrameClassification]],
-    ['wavlm', ['WavLMForAudioFrameClassification', WavLMForAudioFrameClassification]],
-    ['wav2vec2', ['Wav2Vec2ForAudioFrameClassification', Wav2Vec2ForAudioFrameClassification]],
-    ['pyannote', ['PyAnnoteForAudioFrameClassification', PyAnnoteForAudioFrameClassification]],
-]);
-
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
     ['vitmatte', ['VitMatteForImageMatting', VitMatteForImageMatting]],
 ]);
@@ -5164,10 +5100,6 @@ const MODEL_FOR_TIME_SERIES_PREDICTION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
-])
-
-const MODEL_FOR_NORMAL_ESTIMATION_MAPPING_NAMES = new Map([
-    ['sapiens', ['SapiensForNormalEstimation', SapiensForNormalEstimation]],
 ])
 
 const MODEL_FOR_POSE_ESTIMATION_MAPPING_NAMES = new Map([
@@ -5184,31 +5116,21 @@ const MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES = new Map([
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
-    [MODEL_MAPPING_NAMES_ENCODER_DECODER, MODEL_TYPES.EncoderDecoder],
     [MODEL_MAPPING_NAMES_DECODER_ONLY, MODEL_TYPES.DecoderOnly],
-    [MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_CAUSAL_LM_MAPPING_NAMES, MODEL_TYPES.DecoderOnly],
     [MODEL_FOR_MULTIMODALITY_MAPPING_NAMES, MODEL_TYPES.MultiModality],
-    [MODEL_FOR_MASKED_LM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Vision2Seq],
     [MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES, MODEL_TYPES.ImageTextToText],
-    [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_UNIVERSAL_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TIME_SERIES_PREDICTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_NORMAL_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_POSE_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.MaskGeneration],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 
     // Custom:
     [MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -5250,9 +5172,7 @@ for (const [name, model, type] of CUSTOM_MAPPING) {
  * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    /** @type {Map<string, Object>[]} */
-    // @ts-ignore
-    static MODEL_CLASS_MAPPINGS = MODEL_CLASS_TYPE_MAPPING.map(x => x[0]);
+    static MODEL_CLASS_MAPPINGS = MODEL_CLASS_TYPE_MAPPING.map(x => x[0]) as Map<string, any>[];
     static BASE_IF_FAIL = true;
 }
 
@@ -5331,20 +5251,12 @@ export class AutoModelForXVector extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES];
 }
 
-export class AutoModelForAudioFrameClassification extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES];
-}
-
 export class AutoModelForImageMatting extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES];
 }
 
 export class AutoModelForImageToImage extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
-}
-
-export class AutoModelForNormalEstimation extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_NORMAL_ESTIMATION_MAPPING_NAMES];
 }
 
 export class AutoModelForPoseEstimation extends PretrainedMixin {
@@ -5367,7 +5279,12 @@ export class Seq2SeqLMOutput extends ModelOutput {
      * @param {Tensor} [output.decoder_attentions] Attentions weights of the decoder, after the attention softmax, used to compute the weighted average in the self-attention heads.
      * @param {Tensor} [output.cross_attentions] Attentions weights of the decoder's cross-attention layer, after the attention softmax, used to compute the weighted average in the cross-attention heads.
      */
-    constructor({ logits, past_key_values, encoder_outputs, decoder_attentions = null, cross_attentions = null }) {
+    logits: Tensor;
+    past_key_values: Tensor;
+    encoder_outputs: Tensor;
+    decoder_attentions: Tensor | null;
+    cross_attentions: Tensor | null;
+    constructor({ logits, past_key_values, encoder_outputs, decoder_attentions = null, cross_attentions = null }: { logits: Tensor, past_key_values: Tensor, encoder_outputs: Tensor, decoder_attentions: Tensor | null, cross_attentions: Tensor | null }) {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
@@ -5387,14 +5304,12 @@ export class SequenceClassifierOutput extends ModelOutput {
      * @param {Record<string, Tensor>} [output.attentions] Object of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length, sequence_length)`.
      * Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
      */
-    constructor({ logits, ...attentions }) {
+    logits: Tensor;
+    attentions: Record<string, Tensor>;
+    constructor({ logits, ...attentions }: { logits: Tensor, [key: string]: Tensor }) {
         super();
         this.logits = logits;
-        const attentions_list = Object.values(attentions);
-        if (attentions_list.length > 0) {
-            // Only set attentions if they are not empty
-            this.attentions = attentions_list;
-        }
+        this.attentions = attentions;
     }
 }
 
@@ -5407,7 +5322,9 @@ export class XVectorOutput extends ModelOutput {
      * @param {Tensor} output.logits Classification hidden states before AMSoftmax, of shape `(batch_size, config.xvector_output_dim)`.
      * @param {Tensor} output.embeddings Utterance embeddings used for vector similarity-based retrieval, of shape `(batch_size, config.xvector_output_dim)`.
      */
-    constructor({ logits, embeddings }) {
+    logits: Tensor;
+    embeddings: Tensor;
+    constructor({ logits, embeddings }: { logits: Tensor, embeddings: Tensor }) {
         super();
         this.logits = logits;
         this.embeddings = embeddings;
@@ -5422,7 +5339,8 @@ export class TokenClassifierOutput extends ModelOutput {
      * @param {Object} output The output of the model.
      * @param {Tensor} output.logits Classification scores (before SoftMax).
      */
-    constructor({ logits }) {
+    logits: Tensor;
+    constructor({ logits }: { logits: Tensor }) {
         super();
         this.logits = logits;
     }
@@ -5436,7 +5354,8 @@ export class MaskedLMOutput extends ModelOutput {
      * @param {Object} output The output of the model.
      * @param {Tensor} output.logits Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
      */
-    constructor({ logits }) {
+    logits: Tensor;
+    constructor({ logits }: { logits: Tensor }) {
         super();
         this.logits = logits;
     }
@@ -5451,7 +5370,9 @@ export class QuestionAnsweringModelOutput extends ModelOutput {
      * @param {Tensor} output.start_logits Span-start scores (before SoftMax).
      * @param {Tensor} output.end_logits Span-end scores (before SoftMax).
      */
-    constructor({ start_logits, end_logits }) {
+    start_logits: Tensor;
+    end_logits: Tensor;
+    constructor({ start_logits, end_logits }: { start_logits: Tensor, end_logits: Tensor }) {
         super();
         this.start_logits = start_logits;
         this.end_logits = end_logits;
@@ -5467,7 +5388,8 @@ export class CausalLMOutput extends ModelOutput {
      * @param {Object} output The output of the model.
      * @param {Tensor} output.logits Prediction scores of the language modeling head (scores for each vocabulary token before softmax).
      */
-    constructor({ logits }) {
+    logits: Tensor;
+    constructor({ logits }: { logits: Tensor }) {
         super();
         this.logits = logits;
     }
@@ -5483,7 +5405,9 @@ export class CausalLMOutputWithPast extends ModelOutput {
      * @param {Tensor} output.past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
      * that can be used (see `past_key_values` input) to speed up sequential decoding.
      */
-    constructor({ logits, past_key_values }) {
+    logits: Tensor;
+    past_key_values: Tensor;
+    constructor({ logits, past_key_values }: { logits: Tensor, past_key_values: Tensor }) {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
@@ -5495,7 +5419,8 @@ export class ImageMattingOutput extends ModelOutput {
      * @param {Object} output The output of the model.
      * @param {Tensor} output.alphas Estimated alpha values, of shape `(batch_size, num_channels, height, width)`.
      */
-    constructor({ alphas }) {
+    alphas: Tensor;
+    constructor({ alphas }: { alphas: Tensor }) {
         super();
         this.alphas = alphas;
     }
@@ -5511,7 +5436,9 @@ export class VitsModelOutput extends ModelOutput {
      * @param {Tensor} output.spectrogram The log-mel spectrogram predicted at the output of the flow model.
      * This spectrogram is passed to the Hi-Fi GAN decoder model to obtain the final audio waveform.
      */
-    constructor({ waveform, spectrogram }) {
+    waveform: Tensor;
+    spectrogram: Tensor;
+    constructor({ waveform, spectrogram }: { waveform: Tensor, spectrogram: Tensor }) {
         super();
         this.waveform = waveform;
         this.spectrogram = spectrogram;

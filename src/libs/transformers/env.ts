@@ -121,6 +121,13 @@ const localModelPath = RUNNING_LOCALLY
  * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
 
+export interface Environment {
+    customCache: {
+        match: (request: string) => Promise<Response | undefined>;
+        put: (request: string, response: Response) => Promise<void>;
+    } | null;
+}
+
 /** @type {TransformersEnvironment} */
 export const env = {
     version: VERSION,

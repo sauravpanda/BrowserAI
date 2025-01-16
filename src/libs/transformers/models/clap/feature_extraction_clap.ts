@@ -5,7 +5,11 @@ import { mel_filter_bank, spectrogram, window_function } from '../../utils/audio
 
 export class ClapFeatureExtractor extends FeatureExtractor {
 
-    constructor(config) {
+    mel_filters: any;
+    mel_filters_slaney: any;
+    window: any;
+
+    constructor(config: any) {
         super(config);
 
         this.mel_filters = mel_filter_bank(
@@ -54,7 +58,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<Tensor>} An object containing the mel spectrogram data as a Float32Array, its dimensions as an array of numbers, and a boolean indicating whether the waveform was longer than the max length.
      * @private
      */
-    async _get_input_mel(waveform, max_length, truncation, padding) {
+    async _get_input_mel(waveform: Float32Array|Float64Array, max_length: number, truncation: string, padding: string) {
 
         /** @type {Tensor} */
         let input_mel;
@@ -113,7 +117,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      * @param {number} [max_length=null] The maximum number of frames to return.
      * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    async _extract_fbank_features(waveform, mel_filters, max_length = null) {
+    async _extract_fbank_features(waveform: Float32Array|Float64Array, mel_filters: any, max_length = null) {
         // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
         return spectrogram(
             waveform,
@@ -139,7 +143,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
-    async _call(audio, {
+    async _call(audio: Float32Array|Float64Array, {
         max_length = null,
     } = {}) {
         validate_audio_inputs(audio, 'ClapFeatureExtractor');

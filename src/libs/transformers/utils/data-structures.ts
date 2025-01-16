@@ -1,4 +1,3 @@
-
 /**
  * @file Custom data structures.
  * 
@@ -245,7 +244,7 @@ export class CharTrie {
      * @param {string} text The string to add to the trie.
      */
     push(text: string) {
-        let node = this.root;
+        let node = this._root;
         for (const ch of text) {
             let child = node.children.get(ch);
             if (child === undefined) {
@@ -269,8 +268,9 @@ export class CharTrie {
         let prefix = "";
         for (const ch of text) {
             prefix += ch;
-            node = node.children.get(ch);
-            if (node === undefined) return;
+            const nextNode = node.children.get(ch);
+            if (nextNode === undefined) return;
+            node = nextNode;
             if (node.isLeaf) {
                 yield prefix;
             }
@@ -403,6 +403,7 @@ export class TokenLattice {
         while (node.prev !== null) {
             results.push(node.clone());
             const n = node.clone();
+            if (!n.prev) break;
             node = n.prev.clone();
         }
 

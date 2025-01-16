@@ -926,10 +926,10 @@ class NP2FFT {
 }
 
 export class FFT {
-    private fft_length: number;
-    private isPowerOfTwo: boolean;
-    private fft: P2FFT | NP2FFT;
-    private outputBufferSize: number;
+    fft_length: number;
+    isPowerOfTwo: boolean;
+    fft: P2FFT | NP2FFT;
+    outputBufferSize: number;
 
     constructor(fft_length: number) {
         this.fft_length = fft_length;

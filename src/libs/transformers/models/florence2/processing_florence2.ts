@@ -6,15 +6,18 @@ export class Florence2Processor extends Processor {
     static tokenizer_class = AutoTokenizer
     static image_processor_class = AutoImageProcessor
 
-    constructor(config, components) {
+    tasks_answer_post_processing_type: Map<string, string>;
+    task_prompts_without_inputs: Map<string, string>;
+    task_prompts_with_input: Map<string, string>;
+    regexes: Record<string, RegExp>;
+    size_per_bin: number;
+
+    constructor(config: any, components: any) {
         super(config, components);
 
         const {
-            // @ts-expect-error TS2339
             tasks_answer_post_processing_type,
-            // @ts-expect-error TS2339
             task_prompts_without_inputs,
-            // @ts-expect-error TS2339
             task_prompts_with_input,
         } = this.image_processor.config;
 
@@ -39,7 +42,7 @@ export class Florence2Processor extends Processor {
      * @param {string|string[]} text
      * @returns {string[]}
      */
-    construct_prompts(text) {
+    construct_prompts(text: string|string[]) {
         if (typeof text === 'string') {
             text = [text];
         }
@@ -74,7 +77,7 @@ export class Florence2Processor extends Processor {
      * @param {string} task The task to post-process the text for.
      * @param {[number, number]} image_size The size of the image. height x width.
      */
-    post_process_generation(text, task, image_size) {
+    post_process_generation(text: string, task: string, image_size: [number, number]) {
         const task_answer_post_processing_type = this.tasks_answer_post_processing_type.get(task) ?? 'pure_text';
 
         // remove the special tokens
@@ -92,8 +95,8 @@ export class Florence2Processor extends Processor {
             case 'ocr':
                 const key = task_answer_post_processing_type === 'ocr' ? 'quad_boxes' : 'bboxes';
                 const matches = text.matchAll(this.regexes[key]);
-                const labels = [];
-                const items = [];
+                const labels: string[] = [];
+                const items: number[][] = [];
                 for (const [_, label, ...locations] of matches) {
                     // Push new label, or duplicate the last label
                     labels.push(label ? label.trim() : labels.at(-1) ?? '');
@@ -114,7 +117,7 @@ export class Florence2Processor extends Processor {
 
     // NOTE: images and text are switched from the python version
     // `images` is required, `text` is optional
-    async _call(images, text=null, kwargs = {}) {
+    async _call(images: any, text=null, kwargs = {}) {
 
         if (!images && !text){
             throw new Error('Either text or images must be provided');

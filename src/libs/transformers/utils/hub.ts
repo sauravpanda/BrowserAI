@@ -11,9 +11,9 @@ import { env } from '../env.js';
 import { dispatchCallback, ProgressCallback } from './core';
 import { PretrainedConfig } from '../configs.js';
 export interface PretrainedOptions {
-    progress_callback?: ProgressCallback;
-    config?: PretrainedConfig;
-    cache_dir?: string;
+    progress_callback?: null | ProgressCallback;
+    config?: null | PretrainedConfig;
+    cache_dir?: null | string;
     local_files_only?: boolean;
     revision?: string;
 }
@@ -396,7 +396,7 @@ export async function getModelFile(path_or_repo_id: string, filename: string, fa
         // TODO throw error if not available
 
         // If `cache_dir` is not specified, use the default cache directory
-        cache = new FileCache(options.cache_dir ?? env.cacheDir);
+        cache = new FileCache(options.cache_dir ?? env.cacheDir ?? '');
     }
 
     if (!cache && env.useCustomCache) {
@@ -406,7 +406,7 @@ export async function getModelFile(path_or_repo_id: string, filename: string, fa
         }
 
         // Check that the required methods are defined:
-        if (!env.customCache.match || !env.customCache.put) {
+        if (!(env.customCache as Cache).match || !(env.customCache as Cache).put) {
             throw new Error(
                 "`env.customCache` must be an object which implements the `match` and `put` functions of the Web Cache API. " +
                 "For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache"
@@ -505,11 +505,10 @@ export async function getModelFile(path_or_repo_id: string, filename: string, fa
         }
 
         // Only cache the response if:
-        toCacheResponse =
+        toCacheResponse = !!(
             cache                              // 1. A caching system is available
             && typeof Response !== 'undefined' // 2. `Response` is defined (i.e., we are in a browser-like environment)
-            && response instanceof Response    // 3. result is a `Response` object (i.e., not a `FileResponse`)
-            && response.status === 200         // 4. request was successful (status code 200)
+        );
     }
 
     // Start downloading
@@ -546,6 +545,9 @@ export async function getModelFile(path_or_repo_id: string, filename: string, fa
             total: buffer.length,
         })
     } else {
+        if (response instanceof FileResponse) {
+            throw new Error('FileResponse is not supported');
+        }
         buffer = await readResponse(response, data => {
             dispatchCallback(options.progress_callback, {
                 status: 'progress',
@@ -562,10 +564,10 @@ export async function getModelFile(path_or_repo_id: string, filename: string, fa
         toCacheResponse && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
-        (await cache.match(cacheKey) === undefined)
+        (await cache?.match(cacheKey) === undefined)
     ) {
         // NOTE: We use `new Response(buffer, ...)` instead of `response.clone()` to handle LFS files
-        await cache.put(cacheKey, new Response(buffer, {
+        await cache?.put(cacheKey, new Response(buffer, {
             headers: response.headers
         }))
             .catch(err => {
@@ -624,9 +626,11 @@ export async function readResponse(response: Response, progress_callback: (data:
     let buffer = new Uint8Array(total);
     let loaded = 0;
 
-    const reader = response.body.getReader();
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('Response body reader is undefined');
+
     async function read() {
-        const { done, value } = await reader.read();
+        const { done, value } = await reader?.read()!;
         if (done) return;
 
         let newLoaded = loaded + value.length;

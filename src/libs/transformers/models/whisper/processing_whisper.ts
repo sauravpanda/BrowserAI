@@ -1,6 +1,6 @@
-import { AutoFeatureExtractor } from "../auto/feature_extraction_auto.js"
-import { AutoTokenizer } from "../../tokenizers.js"
-import { Processor } from "../../base/processing_utils.js"
+import { AutoFeatureExtractor } from "../auto/feature_extraction_auto"
+import { AutoTokenizer } from "../../tokenizers"
+import { Processor } from "../../base/processing_utils"
 
 /**
  * Represents a WhisperProcessor that extracts features from an audio input.

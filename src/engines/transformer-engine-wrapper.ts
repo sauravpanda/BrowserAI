@@ -1,6 +1,6 @@
 import {
   pipeline, TextGenerationPipeline, FeatureExtractionPipeline, AutomaticSpeechRecognitionPipeline, TextClassificationPipeline, TextToAudioPipeline
-} from '../libs/transformers/transformers.js';
+} from '../libs/transformers/transformers';
 import { ModelConfig } from "../config/models/types";
 
 

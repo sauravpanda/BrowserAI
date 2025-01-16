@@ -9,12 +9,12 @@
 
 import {
     getFile,
-} from './hub.js';
-import { FFT, max } from './maths.js';
+} from './hub';
+import { FFT, max } from './maths';
 import {
     calculateReflectOffset,
-} from './core.js';
-import { Tensor, matmul } from './tensor.js';
+} from './core';
+import { Tensor, matmul } from './tensor';
 
 
 /**
@@ -23,7 +23,7 @@ import { Tensor, matmul } from './tensor.js';
  * @param {number} sampling_rate The sampling rate to use when decoding the audio.
  * @returns {Promise<Float32Array>} The decoded audio as a `Float32Array`.
  */
-export async function read_audio(url, sampling_rate) {
+export async function read_audio(url: string | URL, sampling_rate: number) {
     if (typeof AudioContext === 'undefined') {
         // Running in node or an environment without AudioContext
         throw Error(
@@ -85,7 +85,7 @@ export async function read_audio(url, sampling_rate) {
  * @param {number} a_0 Offset for the generalized cosine window.
  * @returns {Float64Array} The generated window.
  */
-function generalized_cosine_window(M, a_0) {
+function generalized_cosine_window(M: number, a_0: number) {
     if (M < 1) {
         return new Float64Array();
     }
@@ -110,7 +110,7 @@ function generalized_cosine_window(M, a_0) {
  * @param {number} M The length of the Hanning window to generate.
  * @returns {Float64Array} The generated Hanning window.
  */
-export function hanning(M) {
+export function hanning(M: number) {
     return generalized_cosine_window(M, 0.5);
 }
 
@@ -122,15 +122,15 @@ export function hanning(M) {
  * @param {number} M The length of the Hamming window to generate.
  * @returns {Float64Array} The generated Hamming window.
  */
-export function hamming(M) {
+export function hamming(M: number) {
     return generalized_cosine_window(M, 0.54);
 }
 
 
-const HERTZ_TO_MEL_MAPPING = {
-    "htk": (/** @type {number} */ freq) => 2595.0 * Math.log10(1.0 + (freq / 700.0)),
-    "kaldi": (/** @type {number} */ freq) => 1127.0 * Math.log(1.0 + (freq / 700.0)),
-    "slaney": (/** @type {number} */ freq, min_log_hertz = 1000.0, min_log_mel = 15.0, logstep = 27.0 / Math.log(6.4)) =>
+const HERTZ_TO_MEL_MAPPING: { [key: string]: (freq: number) => number } = {
+    "htk": (freq: number) => 2595.0 * Math.log10(1.0 + (freq / 700.0)),
+    "kaldi": (freq: number) => 1127.0 * Math.log(1.0 + (freq / 700.0)),
+    "slaney": (freq: number, min_log_hertz = 1000.0, min_log_mel = 15.0, logstep = 27.0 / Math.log(6.4)) =>
         freq >= min_log_hertz
             ? min_log_mel + Math.log(freq / min_log_hertz) * logstep
             : 3.0 * freq / 200.0,
@@ -142,19 +142,19 @@ const HERTZ_TO_MEL_MAPPING = {
  * @param {string} [mel_scale]
  * @returns {T}
  */
-function hertz_to_mel(freq, mel_scale = "htk") {
+function hertz_to_mel<T extends Float32Array | Float64Array | number>(freq: T, mel_scale = "htk") {
     const fn = HERTZ_TO_MEL_MAPPING[mel_scale];
     if (!fn) {
         throw new Error('mel_scale should be one of "htk", "slaney" or "kaldi".');
     }
 
-    return typeof freq === 'number' ? fn(freq) : freq.map(x => fn(x));
+    return typeof freq === 'number' ? fn(freq) : freq.map((x: number) => fn(x));
 }
 
-const MEL_TO_HERTZ_MAPPING = {
-    "htk": (/** @type {number} */ mels) => 700.0 * (10.0 ** (mels / 2595.0) - 1.0),
-    "kaldi": (/** @type {number} */ mels) => 700.0 * (Math.exp(mels / 1127.0) - 1.0),
-    "slaney": (/** @type {number} */ mels, min_log_hertz = 1000.0, min_log_mel = 15.0, logstep = Math.log(6.4) / 27.0) => mels >= min_log_mel
+const MEL_TO_HERTZ_MAPPING: { [key: string]: (mels: number) => number } = {
+    "htk": (mels: number) => 700.0 * (10.0 ** (mels / 2595.0) - 1.0),
+    "kaldi": (mels: number) => 700.0 * (Math.exp(mels / 1127.0) - 1.0),
+    "slaney": (mels: number, min_log_hertz = 1000.0, min_log_mel = 15.0, logstep = Math.log(6.4) / 27.0) => mels >= min_log_mel
         ? min_log_hertz * Math.exp(logstep * (mels - min_log_mel))
         : 200.0 * mels / 3.0,
 }
@@ -165,7 +165,7 @@ const MEL_TO_HERTZ_MAPPING = {
  * @param {string} [mel_scale]
  * @returns {T}
  */
-function mel_to_hertz(mels, mel_scale = "htk") {
+function mel_to_hertz<T extends Float32Array | Float64Array | number>(mels: T, mel_scale = "htk") {
     const fn = MEL_TO_HERTZ_MAPPING[mel_scale];
     if (!fn) {
         throw new Error('mel_scale should be one of "htk", "slaney" or "kaldi".');
@@ -183,7 +183,7 @@ function mel_to_hertz(mels, mel_scale = "htk") {
 * @param {Float64Array} filter_freqs Center frequencies of the triangular filters to create, in Hz, of shape `(num_mel_filters,)`.
 * @returns {number[][]} of shape `(num_frequency_bins, num_mel_filters)`.
 */
-function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
+function _create_triangular_filter_bank(fft_freqs: Float64Array, filter_freqs: Float64Array) {
     const filter_diff = Float64Array.from(
         { length: filter_freqs.length - 1 },
         (_, i) => filter_freqs[i + 1] - filter_freqs[i]
@@ -221,7 +221,7 @@ function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
  * @param {number} num Number of samples to generate.
  * @returns `num` evenly spaced samples, calculated over the interval `[start, stop]`.
  */
-function linspace(start, end, num) {
+function linspace(start: number, end: number, num: number) {
     const step = (end - start) / (num - 1);
     return Float64Array.from({ length: num }, (_, i) => start + step * i);
 }
@@ -244,12 +244,12 @@ function linspace(start, end, num) {
  * This is a projection matrix to go from a spectrogram to a mel spectrogram.
  */
 export function mel_filter_bank(
-    num_frequency_bins,
-    num_mel_filters,
-    min_frequency,
-    max_frequency,
-    sampling_rate,
-    norm = null,
+    num_frequency_bins: number,
+    num_mel_filters: number,
+    min_frequency: number,
+    max_frequency: number,
+    sampling_rate: number,
+    norm: string | null = null,
     mel_scale = "htk",
     triangularize_in_mel_space = false,
 ) {
@@ -262,7 +262,7 @@ export function mel_filter_bank(
     const mel_freqs = linspace(mel_min, mel_max, num_mel_filters + 2);
 
     let filter_freqs = mel_to_hertz(mel_freqs, mel_scale);
-    let fft_freqs; // frequencies of FFT bins in Hz
+    let fft_freqs: Float64Array; // frequencies of FFT bins in Hz
 
     if (triangularize_in_mel_space) {
         const fft_bin_width = sampling_rate / (num_frequency_bins * 2);
@@ -300,7 +300,7 @@ export function mel_filter_bank(
  * @param {number} right The amount of padding to add to the right.
  * @returns {T} The padded array.
  */
-function padReflect(array, left, right) {
+function padReflect<T extends Float32Array | Float64Array>(array: T, left: number, right: number) {
     // @ts-ignore
     const padded = new array.constructor(array.length + left + right);
     const w = array.length - 1;
@@ -330,7 +330,7 @@ function padReflect(array, left, right) {
  * @param {number} db_range 
  * @returns {T}
  */
-function _db_conversion_helper(spectrogram, factor, reference, min_value, db_range) {
+function _db_conversion_helper<T extends Float32Array | Float64Array>(spectrogram: T, factor: number, reference: number, min_value: number, db_range: number | null) {
     if (reference <= 0) {
         throw new Error('reference must be greater than zero');
     }
@@ -350,7 +350,7 @@ function _db_conversion_helper(spectrogram, factor, reference, min_value, db_ran
         if (db_range <= 0) {
             throw new Error('db_range must be greater than zero');
         }
-        const maxValue = max(spectrogram)[0] - db_range;
+        const maxValue = Number(max(spectrogram)[0]) - db_range;
         for (let i = 0; i < spectrogram.length; ++i) {
             spectrogram[i] = Math.max(spectrogram[i], maxValue);
         }
@@ -378,7 +378,7 @@ function _db_conversion_helper(spectrogram, factor, reference, min_value, db_ran
  * difference between the peak value and the smallest value will never be more than 80 dB. Must be greater than zero.
  * @returns {T} The modified spectrogram in decibels.
  */
-function amplitude_to_db(spectrogram, reference = 1.0, min_value = 1e-5, db_range = null) {
+function amplitude_to_db(spectrogram: Float32Array | Float64Array, reference = 1.0, min_value = 1e-5, db_range = null) {
     return _db_conversion_helper(spectrogram, 20.0, reference, min_value, db_range);
 }
 
@@ -403,7 +403,7 @@ function amplitude_to_db(spectrogram, reference = 1.0, min_value = 1e-5, db_rang
  * difference between the peak value and the smallest value will never be more than 80 dB. Must be greater than zero.
  * @returns {T} The modified spectrogram in decibels.
  */
-function power_to_db(spectrogram, reference = 1.0, min_value = 1e-10, db_range = null) {
+function power_to_db(spectrogram: Float32Array | Float64Array, reference = 1.0, min_value = 1e-10, db_range: number | null = null) {
     return _db_conversion_helper(spectrogram, 10.0, reference, min_value, db_range);
 }
 
@@ -460,18 +460,18 @@ function power_to_db(spectrogram, reference = 1.0, min_value = 1e-10, db_range =
  * @returns {Promise<Tensor>} Spectrogram of shape `(num_frequency_bins, length)` (regular spectrogram) or shape `(num_mel_filters, length)` (mel spectrogram).
  */
 export async function spectrogram(
-    waveform,
-    window,
-    frame_length,
-    hop_length,
+    waveform: Float32Array | Float64Array,
+    window: Float32Array | Float64Array,
+    frame_length: number,
+    hop_length: number,
     {
-        fft_length = null,
+        fft_length = null as number | null,
         power = 1.0,
         center = true,
         pad_mode = "reflect",
         onesided = true,
         preemphasis = null,
-        mel_filters = null,
+        mel_filters = null as number[][] | null,
         mel_floor = 1e-10,
         log_mel = null,
         reference = 1.0,
@@ -602,18 +602,20 @@ export async function spectrogram(
         }
     }
 
-    // TODO: What if `mel_filters` is null?
+    if (!mel_filters) {
+        throw new Error('mel_filters must be provided');
+    }
     const num_mel_filters = mel_filters.length;
 
-    // Perform matrix muliplication:
+    // Perform matrix multiplication:
     // mel_spec = mel_filters @ magnitudes.T
     //  - mel_filters.shape=(80, 201)
     //  - magnitudes.shape=(3000, 201) => magnitudes.T.shape=(201, 3000)
     //  - mel_spec.shape=(80, 3000)
     let mel_spec = await matmul(
         // TODO: Make `mel_filters` a Tensor during initialization
-        new Tensor('float32', mel_filters.flat(), [num_mel_filters, num_frequency_bins]),
-        new Tensor('float32', transposedMagnitudeData, [num_frequency_bins, d1Max]),
+        new Tensor('float32', mel_filters.flat(), [num_mel_filters, num_frequency_bins] as [number, number]),
+        new Tensor('float32', transposedMagnitudeData, [num_frequency_bins, d1Max] as [number, number]),
     );
     if (transpose) {
         mel_spec = mel_spec.transpose(1, 0);
@@ -666,7 +668,7 @@ export async function spectrogram(
  * @param {boolean} [options.center=true] Whether to center the window inside the FFT buffer. Only used when `frame_length` is provided.
  * @returns {Float64Array} The window of shape `(window_length,)` or `(frame_length,)`.
  */
-export function window_function(window_length, name, {
+export function window_function(window_length: number, name: string, {
     periodic = true,
     frame_length = null,
     center = true,

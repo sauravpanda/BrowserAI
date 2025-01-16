@@ -4,7 +4,7 @@
  */
 
 import { mergeArrays } from '../utils/core.js';
-import { is_chinese_char } from '../tokenizers.js';
+import { is_chinese_char, PreTrainedTokenizer } from '../tokenizers.js';
 import { apis } from '../env.js';
 
 export class BaseStreamer {
@@ -12,7 +12,7 @@ export class BaseStreamer {
      * Function that is called by `.generate()` to push new tokens
      * @param {bigint[][]} value 
      */
-    put(value) {
+    put(value: bigint[][]) {
         throw Error('Not implemented');
     }
 
@@ -25,8 +25,8 @@ export class BaseStreamer {
 }
 
 const stdout_write = apis.IS_PROCESS_AVAILABLE
-    ? x => process.stdout.write(x)
-    : x => console.log(x);
+    ? (x: string) => process.stdout.write(x)
+    : (x: string) => console.log(x);
 
 /**
  * Simple text streamer that prints the token(s) to stdout as soon as entire words are formed.
@@ -41,7 +41,17 @@ export class TextStreamer extends BaseStreamer {
      * @param {function(bigint[]): void} [options.token_callback_function=null] Function to call when a new token is generated
      * @param {Object} [options.decode_kwargs={}] Additional keyword arguments to pass to the tokenizer's decode method
      */
-    constructor(tokenizer, {
+
+    tokenizer: PreTrainedTokenizer;
+    skip_prompt: boolean;
+    callback_function: (x: string) => void;
+    token_callback_function: (x: bigint[]) => void;
+    decode_kwargs: any;
+    print_len: number;
+    next_tokens_are_prompt: boolean;
+    token_cache: bigint[];
+
+    constructor(tokenizer: PreTrainedTokenizer, {
         skip_prompt = false,
         callback_function = null,
         token_callback_function = null,
@@ -65,7 +75,7 @@ export class TextStreamer extends BaseStreamer {
      * Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
      * @param {bigint[][]} value 
      */
-    put(value) {
+    put(value: bigint[][]) {
         if (value.length > 1) {
             throw Error('TextStreamer only supports batch size of 1');
         }
@@ -124,7 +134,7 @@ export class TextStreamer extends BaseStreamer {
      * @param {string} text 
      * @param {boolean} stream_end 
      */
-    on_finalized_text(text, stream_end) {
+    on_finalized_text(text: string, stream_end: boolean) {
         if (text.length > 0) {
             this.callback_function?.(text);
         }
@@ -156,7 +166,12 @@ export class WhisperTextStreamer extends TextStreamer {
      * @param {boolean} [options.skip_special_tokens=true] Whether to skip special tokens when decoding
      * @param {Object} [options.decode_kwargs={}] Additional keyword arguments to pass to the tokenizer's decode method
      */
-    constructor(tokenizer, {
+    timestamp_begin: number;
+    time_precision: number;
+    waiting_for_timestamp: boolean;
+
+
+    constructor(tokenizer: PreTrainedTokenizer, {
         skip_prompt = false,
         callback_function = null,
         token_callback_function = null,
@@ -187,7 +202,7 @@ export class WhisperTextStreamer extends TextStreamer {
     /**
      * @param {bigint[][]} value 
      */
-    put(value) {
+    put(value: bigint[][]) {
         if (value.length > 1) {
             throw Error('WhisperTextStreamer only supports batch size of 1');
         }

@@ -1,4 +1,3 @@
-
 /**
  * @module generation/logits_process
  */
@@ -7,11 +6,14 @@ import { Callable } from "../utils/generic";
 import { Tensor } from "../utils/tensor";
 
 import { max, log_softmax } from "../utils/maths";
+import { GenerationConfig } from "./configuration_utils";
+import { WhisperGenerationConfig } from "../models/whisper/generation_whisper";
 
 /**
  * Abstract base class for all logit processors that can be applied during generation.
  */
 export class LogitsProcessor extends Callable {
+        
     /**
      * Apply the processor to the input logits.
      *
@@ -20,7 +22,7 @@ export class LogitsProcessor extends Callable {
      * @param {Tensor} logits The logits to process.
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
-    _call(input_ids: bigint[][], logits: Tensor) {
+    _call(input_ids: bigint[][], logits: Tensor): Tensor {
         throw Error("`_call` should be implemented in a subclass")
     }
 }
@@ -87,7 +89,7 @@ export class LogitsProcessorList extends Callable {
         let toReturn = logits;
         // NOTE: Most processors modify logits inplace
         for (const processor of this.processors) {
-            toReturn = processor(input_ids, toReturn);
+            toReturn = processor._call(input_ids, toReturn);
         }
         return toReturn;
     }
@@ -143,7 +145,8 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
      * Create a ForcedBOSTokenLogitsProcessor.
      * @param {number} bos_token_id The ID of the beginning-of-sequence token to be forced.
      */
-    constructor(bos_token_id) {
+    bos_token_id: number;
+    constructor(bos_token_id: number) {
         super();
         this.bos_token_id = bos_token_id;
     }
@@ -154,12 +157,12 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The logits with BOS token forcing.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === 1) {
                 const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
-                batch_logits_data.fill(-Infinity);
-                batch_logits_data[this.bos_token_id] = 0;
+                (batch_logits_data as Float32Array).fill(-Infinity);
+                (batch_logits_data as Float32Array)[this.bos_token_id] = 0;
             }
         }
         return logits;
@@ -170,12 +173,14 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
  * A logits processor that enforces the specified token as the last generated token when `max_length` is reached.
  */
 export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+    max_length: number;
+    eos_token_id: number | number[];
     /**
      * Create a ForcedEOSTokenLogitsProcessor.
      * @param {number} max_length The maximum length of the sequence to be generated.
      * @param {number|number[]} eos_token_id The id(s) of the *end-of-sequence* token.
      */
-    constructor(max_length, eos_token_id) {
+    constructor(max_length: number, eos_token_id: number | number[]) {
         super();
         this.max_length = max_length;
         this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
@@ -187,13 +192,13 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
      * @param {bigint[][]} input_ids The input ids.
      * @param {Tensor} logits The logits tensor.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === this.max_length - 1) {
                 const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
-                batch_logits_data.fill(-Infinity);
-                for (const eos_token of this.eos_token_id) {
-                    batch_logits_data[eos_token] = 0;
+                (batch_logits_data as Float32Array).fill(-Infinity);
+                for (const eos_token of Array.isArray(this.eos_token_id) ? this.eos_token_id : [this.eos_token_id]) {
+                    (batch_logits_data as Float32Array)[eos_token] = 0;
                 }
             }
         }
@@ -207,12 +212,15 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
  * `begin_suppress_tokens` at not sampled at the begining of the generation.
  */
 export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
+    begin_suppress_tokens: number[];
+    begin_index: number;
+    
     /**
      * Create a SuppressTokensAtBeginLogitsProcessor.
      * @param {number[]} begin_suppress_tokens The IDs of the tokens to suppress.
      * @param {number} begin_index The number of tokens to generate before suppressing tokens.
      */
-    constructor(begin_suppress_tokens, begin_index) {
+    constructor(begin_suppress_tokens: number[], begin_index: number) {
         super();
         this.begin_suppress_tokens = begin_suppress_tokens;
         this.begin_index = begin_index;
@@ -224,7 +232,7 @@ export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The logits with BOS token forcing.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === this.begin_index) {
                 const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
@@ -246,15 +254,20 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
      * @param {import('../models/whisper/generation_whisper.js').WhisperGenerationConfig} generate_config The config object passed to the `generate()` method of a transformer model.
      * @param {number[]} init_tokens The initial tokens of the input sequence.
      */
-    constructor(generate_config, init_tokens) {
+    eos_token_id: number | number[];
+    no_timestamps_token_id: number | null;
+    timestamp_begin: number;
+    begin_index: number;
+    max_initial_timestamp_index: number;
+    constructor(generate_config: WhisperGenerationConfig, init_tokens: number[]) {
         super();
         this.eos_token_id =
             Array.isArray(generate_config.eos_token_id)
-                ? generate_config.eos_token_id[0]
-                : generate_config.eos_token_id;
+                ? generate_config.eos_token_id[0] ?? 0
+                : generate_config.eos_token_id ?? 0;
 
         this.no_timestamps_token_id = generate_config.no_timestamps_token_id;
-        this.timestamp_begin = this.no_timestamps_token_id + 1;
+        this.timestamp_begin = this.no_timestamps_token_id ? this.no_timestamps_token_id + 1 : 0;
 
         this.begin_index = init_tokens.length;
         if (init_tokens.at(-1) === this.no_timestamps_token_id) {
@@ -269,16 +282,18 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits output by the model.
      * @returns {Tensor} The modified logits.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
 
             // suppress <|notimestamps|> which is handled by without_timestamps
-            batch_logits_data[this.no_timestamps_token_id] = -Infinity;
+            if (this.no_timestamps_token_id !== null) {
+                batch_logits_data[this.no_timestamps_token_id] = -Infinity;
+            }
 
             if (input_ids[i].length === this.begin_index - 1) {
-                batch_logits_data.fill(-Infinity);
-                batch_logits_data[this.timestamp_begin] = 0;
+                (batch_logits_data as Float32Array).fill(-Infinity);
+                (batch_logits_data as Float32Array)[this.timestamp_begin] = 0;
                 continue;
             }
 
@@ -289,25 +304,26 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
             if (last_was_timestamp) {
                 if (penultimate_was_timestamp) { // has to be non-timestamp
-                    batch_logits_data.subarray(this.timestamp_begin).fill(-Infinity);
+                    (batch_logits_data as Float32Array).subarray(this.timestamp_begin).fill(-Infinity);
                 } else { // cannot be normal text tokens
-                    batch_logits_data.subarray(0, this.eos_token_id).fill(-Infinity);
+                    const endToken = Array.isArray(this.eos_token_id) ? this.eos_token_id[0] : this.eos_token_id;
+                    (batch_logits_data as Float32Array).subarray(0, endToken).fill(-Infinity);
                 }
             }
 
             // apply the `max_initial_timestamp` option
             if (input_ids[i].length === this.begin_index && this.max_initial_timestamp_index !== null) {
                 const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
-                batch_logits_data.subarray(last_allowed + 1).fill(-Infinity);
+                (batch_logits_data as Float32Array).subarray(last_allowed + 1).fill(-Infinity);
             }
 
             // if sum of probability over timestamps is above any other token, sample timestamp
-            const logprobs = log_softmax(batch_logits_data);
-            const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
-            const max_text_token_logprob = max(logprobs.subarray(0, this.timestamp_begin))[0];
+            const logprobs = log_softmax(batch_logits_data as Float32Array);
+            const timestamp_logprob = Math.log((batch_logits_data as Float32Array).subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
+            const max_text_token_logprob = max((logprobs as Float32Array).subarray(0, this.timestamp_begin))[0];
 
             if (timestamp_logprob > max_text_token_logprob) {
-                batch_logits_data.subarray(0, this.timestamp_begin).fill(-Infinity);
+                (batch_logits_data as Float32Array).subarray(0, this.timestamp_begin).fill(-Infinity);
             }
         }
 
@@ -323,7 +339,8 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * Create a NoRepeatNGramLogitsProcessor.
      * @param {number} no_repeat_ngram_size The no-repeat-ngram size. All ngrams of this size can only occur once.
      */
-    constructor(no_repeat_ngram_size) {
+    no_repeat_ngram_size: number;
+    constructor(no_repeat_ngram_size: number) {
         super();
         this.no_repeat_ngram_size = no_repeat_ngram_size;
     }
@@ -333,7 +350,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {Map<string, number[]>} Map of generated n-grams
      */
-    getNgrams(prevInputIds) {
+    getNgrams(prevInputIds: bigint[]) {
         const curLen = prevInputIds.length;
 
         /**@type {number[][]} */
@@ -364,7 +381,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {number[]} Map of generated n-grams
      */
-    getGeneratedNgrams(bannedNgrams, prevInputIds) {
+    getGeneratedNgrams(bannedNgrams: Map<string, number[]>, prevInputIds: bigint[]) {
         const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - this.no_repeat_ngram_size, prevInputIds.length);
         const banned = bannedNgrams.get(JSON.stringify(ngramIdx.map(Number))) ?? [];
         return banned;
@@ -375,8 +392,8 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {number[]} Map of generated n-grams
      */
-    calcBannedNgramTokens(prevInputIds) {
-        const bannedTokens = [];
+    calcBannedNgramTokens(prevInputIds: bigint[]) {
+        const bannedTokens: number[] = [];
         if (prevInputIds.length + 1 < this.no_repeat_ngram_size) {
             // return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
             return bannedTokens;
@@ -394,7 +411,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The logits with no-repeat-ngram processing.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
             const bannedTokens = this.calcBannedNgramTokens(input_ids[i]);
@@ -424,7 +441,8 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
      * - 1.0 means no penalty. Above 1.0 penalizes previously generated tokens.
      * - Between 0.0 and 1.0 rewards previously generated tokens.
      */
-    constructor(penalty) {
+    penalty: number;
+    constructor(penalty: number) {
         super();
         this.penalty = penalty;
     }
@@ -435,7 +453,7 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The logits with repetition penalty processing.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
             for (const input_id of new Set(input_ids[i])) {
@@ -461,7 +479,9 @@ export class MinLengthLogitsProcessor extends LogitsProcessor {
      * @param {number} min_length The minimum length below which the score of `eos_token_id` is set to negative infinity.
      * @param {number|number[]} eos_token_id The ID/IDs of the end-of-sequence token.
      */
-    constructor(min_length, eos_token_id) {
+    min_length: number;
+    eos_token_id: number | number[];
+    constructor(min_length: number, eos_token_id: number | number[]) {
         super();
         this.min_length = min_length;
         this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
@@ -473,12 +493,13 @@ export class MinLengthLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The processed logits.
      */
-    _call(input_ids, logits) {
+
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length < this.min_length) {
                 const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
 
-                for (const eos_token of this.eos_token_id) {
+                for (const eos_token of Array.isArray(this.eos_token_id) ? this.eos_token_id : [this.eos_token_id]) {
                     batch_logits_data[eos_token] = -Infinity;
                 }
             }
@@ -498,7 +519,10 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
      * @param {number} min_new_tokens The minimum *new* tokens length below which the score of `eos_token_id` is set to negative infinity.
      * @param {number|number[]} eos_token_id The ID/IDs of the end-of-sequence token.
      */
-    constructor(prompt_length_to_skip, min_new_tokens, eos_token_id) {
+    prompt_length_to_skip: number;
+    min_new_tokens: number;
+    eos_token_id: number | number[];
+    constructor(prompt_length_to_skip: number, min_new_tokens: number, eos_token_id: number | number[]) {
         super();
         this.prompt_length_to_skip = prompt_length_to_skip;
         this.min_new_tokens = min_new_tokens;
@@ -511,13 +535,13 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The processed logits.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             const new_tokens_length = input_ids[i].length - this.prompt_length_to_skip;
             if (new_tokens_length < this.min_new_tokens) {
                 const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
 
-                for (const eos_token of this.eos_token_id) {
+                for (const eos_token of Array.isArray(this.eos_token_id) ? this.eos_token_id : [this.eos_token_id]) {
                     batch_logits_data[eos_token] = -Infinity;
                 }
             }
@@ -532,7 +556,9 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
      * @param {number[][]} bad_words_ids List of list of token ids that are not allowed to be generated.
      * @param {number|number[]} eos_token_id The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
      */
-    constructor(bad_words_ids, eos_token_id) {
+    bad_words_ids: number[][];
+    eos_token_id: number | number[];
+    constructor(bad_words_ids: number[][], eos_token_id: number | number[]) {
         super();
         this.bad_words_ids = bad_words_ids;
         this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
@@ -544,7 +570,7 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The processed logits.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         for (let i = 0; i < input_ids.length; ++i) {
             const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
             const ids = input_ids[i];
@@ -565,7 +591,10 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
                     }
                 }
                 if (mark) {
-                    batch_logits_data[bad_word_ids.at(-1)] = -Infinity;
+                    const lastId = bad_word_ids.at(-1);
+                    if (lastId !== undefined) {
+                        batch_logits_data[lastId] = -Infinity;
+                    }
                 }
             }
         }
@@ -589,7 +618,8 @@ export class ClassifierFreeGuidanceLogitsProcessor extends LogitsProcessor {
      * Higher guidance scale encourages the model to generate samples that are more closely linked to the input
      * prompt, usually at the expense of poorer quality.
      */
-    constructor(guidance_scale) {
+    guidance_scale: number;
+    constructor(guidance_scale: number) {
         super();
         if (guidance_scale <= 1) {
             throw new Error(
@@ -605,7 +635,7 @@ export class ClassifierFreeGuidanceLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The processed logits.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         if (logits.dims[0] !== 2 * input_ids.length) {
             throw new Error(
                 `Logits should have twice the batch size of the input ids, the first half of batches corresponding to ` +
@@ -639,7 +669,8 @@ export class TemperatureLogitsWarper extends LogitsWarper {
      * A value smaller than `1` decreases randomness (and vice versa), with `0` being equivalent to shifting
      * all probability mass to the most likely token.
      */
-    constructor(temperature) {
+    temperature: number;
+    constructor(temperature: number) {
         super();
 
         if (typeof temperature !== 'number' || temperature <= 0) {
@@ -659,7 +690,7 @@ export class TemperatureLogitsWarper extends LogitsWarper {
      * @param {Tensor} logits The logits.
      * @returns {Tensor} The processed logits.
      */
-    _call(input_ids, logits) {
+    _call(input_ids: bigint[][], logits: Tensor) {
         const batch_logits_data = /** @type {Float32Array} */(logits.data);
         for (let i = 0; i < batch_logits_data.length; ++i) {
             batch_logits_data[i] /= this.temperature;
@@ -681,7 +712,10 @@ export class TopPLogitsWarper extends LogitsWarper {
      * @param {number} [options.filter_value=-Infinity] All filtered values will be set to this float value.
      * @param {number} [options.min_tokens_to_keep=1] Minimum number of tokens that cannot be filtered.
      */
-    constructor(top_p, {
+    top_p: number;
+    filter_value: number;
+    min_tokens_to_keep: number;
+    constructor(top_p: number, {
         filter_value = -Infinity,
         min_tokens_to_keep = 1,
     } = {}) {
@@ -711,7 +745,9 @@ export class TopKLogitsWarper extends LogitsWarper {
      * @param {number} [options.filter_value=-Infinity] All filtered values will be set to this float value.
      * @param {number} [options.min_tokens_to_keep=1] Minimum number of tokens that cannot be filtered.
      */
-    constructor(top_k, {
+    top_k: number;
+    filter_value: number;
+    constructor(top_k: number, {
         filter_value = -Infinity,
         min_tokens_to_keep = 1,
     } = {}) {

@@ -1,12 +1,12 @@
 import { 
     ImageProcessor,
-} from "../../base/image_processors_utils.js";
+} from "../../base/image_processors_utils";
 
 export class DonutImageProcessor extends ImageProcessor {
-    pad_image(pixelData, imgDims, padSize, options = {}) {
+    pad_image(pixelData: any, imgDims: any, padSize: any, options = {}) {
         const [imageHeight, imageWidth, imageChannels] = imgDims;
 
-        let image_mean = this.image_mean;
+        let image_mean = this.image_mean ?? [0.5, 0.5, 0.5];
         if (!Array.isArray(this.image_mean)) {
             image_mean = new Array(imageChannels).fill(image_mean);
         }
@@ -21,8 +21,6 @@ export class DonutImageProcessor extends ImageProcessor {
         return super.pad_image(pixelData, imgDims, padSize, {
             center: true,
 
-            // Since normalization is done after padding, we need to use certain constant values to ensure the same behaviour is observed.
-            // For more information, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/donut/image_processing_donut.py#L433-L451
             constant_values,
             ...options,
         });

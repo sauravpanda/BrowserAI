@@ -3,7 +3,7 @@ import {
 } from "../../base/image_processors_utils.js";
 
 export class ConvNextImageProcessor extends ImageProcessor {
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         /**
@@ -13,7 +13,7 @@ export class ConvNextImageProcessor extends ImageProcessor {
         this.crop_pct = this.config.crop_pct ?? (224 / 256);
     }
 
-    async resize(image) {
+    async resize(image: any) {
         const shortest_edge = this.size?.shortest_edge;
         if (shortest_edge === undefined) {
             throw new Error(`Size dictionary must contain 'shortest_edge' key.`);

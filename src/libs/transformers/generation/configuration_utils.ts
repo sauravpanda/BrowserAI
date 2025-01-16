@@ -382,7 +382,7 @@ export class GenerationConfig {
      * @param {GenerationConfig|import('../configs.js').PretrainedConfig} config 
      */
     constructor(config: GenerationConfig | PretrainedConfig) {
-        Object.assign(this, pick(config, Object.getOwnPropertyNames(this) as Array<keyof GenerationConfig>));
+        Object.assign(this, pick(config, Object.getOwnPropertyNames(this)));
     }
 }
 

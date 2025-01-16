@@ -14,21 +14,26 @@ import {
     getModelJSON,
 } from './utils/hub';
 
-import { max, min, round } from './utils/maths.js';
-import { Tensor } from './utils/tensor.js';
+import { max, min, round } from './utils/maths';
+import { Tensor } from './utils/tensor';
 
 import {
     PriorityQueue,
     TokenLattice,
     CharTrie,
-} from './utils/data-structures.js';
+} from './utils/data-structures';
 
 import { Template } from '@huggingface/jinja';
-
+import {PretrainedOptions} from './utils/hub';
 import {
     WHISPER_LANGUAGE_MAPPING
-} from './models/whisper/common_whisper.js';
+} from './models/whisper/common_whisper';
 
+
+type TokenizerProperties = {
+    legacy?: boolean;
+}
+type PretrainedTokenizerOptions = PretrainedOptions & TokenizerProperties
 /**
  * @typedef {Object} TokenizerProperties Additional tokenizer-specific properties.
  * @property {boolean} [legacy=false] Whether or not the `legacy` behavior of the tokenizer should be used.
@@ -41,7 +46,7 @@ import {
  * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
  * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
-async function loadTokenizer(pretrained_model_name_or_path, options) {
+async function loadTokenizer(pretrained_model_name_or_path: string, options: PretrainedTokenizerOptions) {
 
     const info = await Promise.all([
         getModelJSON(pretrained_model_name_or_path, 'tokenizer.json', true, options),
@@ -64,7 +69,7 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
  * @param {RegExp} regex The regex to split on.
  * @returns {string[]} The split string.
  */
-function regexSplit(text, regex) {
+function regexSplit(text: string, regex: RegExp) {
     const result = [];
     let prev = 0;
     for (const match of text.matchAll(regex)) {
@@ -90,7 +95,7 @@ function regexSplit(text, regex) {
  * @param {boolean} invert Whether to invert the pattern.
  * @returns {RegExp|null} The compiled pattern.
  */
-function createPattern(pattern, invert = true) {
+function createPattern(pattern: {Regex: string, String: string}, invert = true) {
 
     if (pattern.Regex !== undefined) {
         // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
@@ -123,7 +128,7 @@ function createPattern(pattern, invert = true) {
  * @param {Object} obj The object to convert.
  * @returns {Map<string, any>} The map.
  */
-function objectToMap(obj) {
+function objectToMap(obj: object) {
     return new Map(Object.entries(obj));
 }
 
@@ -132,7 +137,7 @@ function objectToMap(obj) {
  * @param {Tensor} tensor The tensor to convert.
  * @returns {number[]} The tensor as a list.
  */
-function prepareTensorForDecode(tensor) {
+function prepareTensorForDecode(tensor: Tensor) {
     const dims = tensor.dims;
     switch (dims.length) {
         case 1:
@@ -152,7 +157,7 @@ function prepareTensorForDecode(tensor) {
  * @param {string} text The text to clean up.
  * @returns {string} The cleaned up text.
  */
-function clean_up_tokenization(text) {
+function clean_up_tokenization(text: string) {
     // Clean up a list of simple English tokenization artifacts
     // like spaces before punctuations and abbreviated forms
     return text.replace(/ \./g, '.')
@@ -172,7 +177,7 @@ function clean_up_tokenization(text) {
  * @param {string} text The text to remove accents from.
  * @returns {string} The text with accents removed.
  */
-function remove_accents(text) {
+function remove_accents(text: string) {
     return text.replace(/\p{M}/gu, '');
 }
 
@@ -181,7 +186,7 @@ function remove_accents(text) {
  * @param {string} text The text to lowercase and remove accents from.
  * @returns {string} The lowercased text with accents removed.
  */
-function lowercase_and_remove_accent(text) {
+function lowercase_and_remove_accent(text: string) {
     return remove_accents(text.toLowerCase());
 }
 
@@ -220,7 +225,7 @@ export function is_chinese_char(cp) {
  * @param {number} unk_token_id The value to fuse on.
  * @private
  */
-function fuse_unk(arr, tokens_to_ids, unk_token_id) {
+function fuse_unk(arr: string[], tokens_to_ids: Map<string, any>, unk_token_id: number) {
     const fused = [];
     let i = 0;
     while (i < arr.length) {
@@ -245,7 +250,7 @@ function fuse_unk(arr, tokens_to_ids, unk_token_id) {
  * @param {string} text The text to split.
  * @returns {string[]} The split string.
  */
-function whitespace_split(text) {
+function whitespace_split(text: string) {
     return text.match(/\S+/g) || [];
 }
 
@@ -283,14 +288,29 @@ class AddedToken {
      * @param {boolean} [config.normalized=false] Whether this token should be normalized.
      * @param {boolean} [config.special=false] Whether this token is special.
      */
-    constructor(config) {
+    content: string;
+    id: number;
+    single_word?: boolean;
+    lstrip?: boolean;
+    rstrip?: boolean;
+    special?: boolean;
+    normalized?: boolean;
+    constructor(config: {
+        content: string;
+        id: number;
+        single_word?: boolean;
+        lstrip?: boolean;
+        rstrip?: boolean;
+        special?: boolean;
+        normalized?: boolean;
+    }) {
         this.content = config.content;
         this.id = config.id;
         this.single_word = config.single_word ?? false;
         this.lstrip = config.lstrip ?? false;
         this.rstrip = config.rstrip ?? false;
         this.special = config.special ?? false;
-        this.normalized = config.normalized ?? null;
+        this.normalized = config.normalized ?? false;
     }
 }
 
@@ -304,7 +324,30 @@ export class TokenizerModel extends Callable {
      * Creates a new instance of TokenizerModel.
      * @param {Object} config The configuration object for the TokenizerModel.
      */
-    constructor(config) {
+    vocab: string[];
+    tokens_to_ids: Map<string, number>;
+    unk_token_id: number | undefined;
+    unk_token: string | undefined;
+    end_of_word_suffix: string | undefined;
+    fuse_unk: boolean;
+    config: {
+        vocab: string[];
+        tokens_to_ids: Map<string, number>;
+        unk_token_id: number | undefined;
+        unk_token: string | undefined;
+        end_of_word_suffix: string | undefined;
+        fuse_unk: boolean;
+    };
+
+    
+    constructor(config: {
+        vocab: string[];
+        tokens_to_ids: Map<string, number>;
+        unk_token_id: number | undefined;
+        unk_token: string | undefined;
+        end_of_word_suffix: string | undefined;
+        fuse_unk: boolean;
+    }) {
         super();
         this.config = config;
 
@@ -332,7 +375,15 @@ export class TokenizerModel extends Callable {
      * @returns {TokenizerModel} A new instance of a TokenizerModel.
      * @throws Will throw an error if the TokenizerModel type in the config is not recognized.
      */
-    static fromConfig(config, ...args) {
+    static fromConfig(config: {
+        type: string;
+        vocab: string[];
+        tokens_to_ids: Map<string, number>;
+        unk_token_id: number | undefined;
+        unk_token: string | undefined;
+        end_of_word_suffix: string | undefined;
+        fuse_unk: boolean;
+    }, ...args: any[]) {
         switch (config.type) {
             case 'WordPiece':
                 return new WordPieceTokenizer(config);
@@ -364,7 +415,7 @@ export class TokenizerModel extends Callable {
      * @param {string[]} tokens The tokens to encode.
      * @returns {string[]} The encoded tokens.
      */
-    _call(tokens) {
+    _call(tokens: string[]) {
         tokens = this.encode(tokens);
         if (this.fuse_unk) {
             // Fuse unknown tokens
@@ -379,7 +430,8 @@ export class TokenizerModel extends Callable {
      * @returns {string[]} The encoded tokens.
      * @throws Will throw an error if not implemented in a subclass.
      */
-    encode(tokens) {
+    encode(tokens: string[]) {
+
         throw Error("encode should be implemented in subclass.")
     }
 
@@ -388,7 +440,7 @@ export class TokenizerModel extends Callable {
      * @param {string[]} tokens The tokens to convert.
      * @returns {number[]} The converted token IDs.
      */
-    convert_tokens_to_ids(tokens) {
+    convert_tokens_to_ids(tokens: string[]) {
         return tokens.map(t => this.tokens_to_ids.get(t) ?? this.unk_token_id);
     }
 
@@ -397,7 +449,7 @@ export class TokenizerModel extends Callable {
      * @param {number[]|bigint[]} ids The token IDs to convert.
      * @returns {string[]} The converted tokens.
      */
-    convert_ids_to_tokens(ids) {
+    convert_ids_to_tokens(ids: number[] | bigint[]) {
         return ids.map(i => this.vocab[i] ?? this.unk_token);
     }
 }
@@ -515,7 +567,12 @@ class Unigram extends TokenizerModel {
      * @param {[string, number][]} config.vocab A 2D array representing a mapping of tokens to scores.
      * @param {Object} moreConfig Additional configuration object for the Unigram model.
      */
-    constructor(config, moreConfig) {
+    constructor(config: {
+        unk_id: number;
+        vocab: [string, number][];
+    }, moreConfig: {
+        eos_token: string;
+    }) {
         super(config);
 
         const vocabSize = config.vocab.length;
@@ -555,7 +612,7 @@ class Unigram extends TokenizerModel {
      * Populates lattice nodes.
      * @param {TokenLattice} lattice The token lattice to populate with nodes.
      */
-    populateNodes(lattice) {
+    populateNodes(lattice: TokenLattice) {
         const chars = lattice.chars;
         const mblen = 1;
         let beginPos = 0;
@@ -588,7 +645,7 @@ class Unigram extends TokenizerModel {
      * @param {string} normalized The normalized string.
      * @returns {string[]} An array of subtokens obtained by encoding the input tokens using the unigram model.
      */
-    tokenize(normalized) {
+    tokenize(normalized: string) {
         const lattice = new TokenLattice(normalized, this.bos_token_id, this.eos_token_id);
         this.populateNodes(lattice);
         return lattice.tokens();
@@ -599,7 +656,7 @@ class Unigram extends TokenizerModel {
      * @param {string[]} tokens The tokens to encode.
      * @returns {string[]} An array of encoded tokens.
      */
-    encode(tokens) {
+    encode(tokens: string[]) {
         const toReturn = [];
         for (const token of tokens) {
             const tokenized = this.tokenize(token);
@@ -666,7 +723,15 @@ class BPE extends TokenizerModel {
      * @param {boolean} [config.byte_fallback=false] Whether to use spm byte-fallback trick (defaults to False)
      * @param {boolean} [config.ignore_merges=false] Whether or not to match tokens with the vocab before using merges.
      */
-    constructor(config) {
+    constructor(config: {
+        vocab: string[];
+        merges: string[] | [string, string][];
+        unk_token: string;
+        end_of_word_suffix: string;
+        continuing_subword_suffix?: string;
+        byte_fallback?: boolean;
+        ignore_merges?: boolean;
+    }) {
         super(config);
 
         /** @type {Map<string, number>} */
@@ -713,7 +778,7 @@ class BPE extends TokenizerModel {
      * @param {string} token The token to encode.
      * @returns {string[]} The BPE encoded tokens.
      */
-    bpe(token) {
+    bpe(token: string) {
         if (token.length === 0) {
             return [];
         }
@@ -905,7 +970,13 @@ class LegacyTokenizerModel extends TokenizerModel {
      * @param {Object} config.vocab A (possibly nested) mapping of tokens to ids.
      * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
      */
-    constructor(config, moreConfig) {
+    constructor(config: {
+        vocab: string[];
+        target_lang?: string;
+    }, moreConfig: {
+        bos_token: string;
+        eos_token: string;
+    }) {
         super(config);
 
         /**@type {Map<string, number>} */
@@ -933,7 +1004,7 @@ class LegacyTokenizerModel extends TokenizerModel {
         }
     }
 
-    encode(tokens) {
+    encode(tokens: string[]) {
         return tokens;
     }
 }
@@ -947,7 +1018,9 @@ class Normalizer extends Callable {
     /**
      * @param {Object} config The configuration object for the normalizer.
      */
-    constructor(config) {
+    constructor(config: {
+        type: string;
+    }) {
         super();
         this.config = config;
     }
@@ -959,7 +1032,9 @@ class Normalizer extends Callable {
      * @returns {Normalizer} A Normalizer object.
      * @throws {Error} If an unknown Normalizer type is specified in the config.
      */
-    static fromConfig(config) {
+    static fromConfig(config: {
+        type: string;
+    }) {
         if (config === null) return null;
         switch (config.type) {
             case 'BertNormalizer':
@@ -996,7 +1071,7 @@ class Normalizer extends Callable {
      * @returns {string} The normalized text.
      * @throws {Error} If this method is not implemented in a subclass.
      */
-    normalize(text) {
+    normalize(text: string) {
         throw Error("normalize should be implemented in subclass.")
     }
 
@@ -1005,7 +1080,7 @@ class Normalizer extends Callable {
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
-    _call(text) {
+    _call(text: string) {
         return this.normalize(text);
     }
 
@@ -1021,7 +1096,7 @@ class Replace extends Normalizer {
      * @param {string} text The input text to be normalized.
      * @returns {string} The normalized text after replacing the pattern with the content.
      */
-    normalize(text) {
+    normalize(text: string) {
         const pattern = createPattern(this.config.pattern);
         return pattern === null
             ? text
@@ -1039,7 +1114,7 @@ class NFC extends Normalizer {
      * @param {string} text The input text to be normalized.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = text.normalize('NFC')
         return text;
     }
@@ -1055,7 +1130,7 @@ class NFKC extends Normalizer {
      * @param {string} text The text to be normalized.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = text.normalize('NFKC')
         return text;
     }
@@ -1070,7 +1145,7 @@ class NFKD extends Normalizer {
      * @param {string} text The text to be normalized.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = text.normalize('NFKD')
         return text;
     }
@@ -1085,7 +1160,7 @@ class StripNormalizer extends Normalizer {
      * @param {string} text The input text.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         if (this.config.strip_left && this.config.strip_right) {
             // Fast path to avoid an extra trim call
             text = text.trim();
@@ -1111,7 +1186,7 @@ class StripAccents extends Normalizer {
      * @param {string} text The input text.
      * @returns {string} The normalized text without accents.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = remove_accents(text);
         return text;
     }
@@ -1127,7 +1202,7 @@ class Lowercase extends Normalizer {
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = text.toLowerCase();
         return text;
     }
@@ -1143,7 +1218,7 @@ class Prepend extends Normalizer {
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         text = this.config.prepend + text;
         return text;
     }
@@ -1159,7 +1234,11 @@ class NormalizerSequence extends Normalizer {
    * @param {Object} config The configuration object.
    * @param {Object[]} config.normalizers An array of Normalizer configuration objects.
    */
-    constructor(config) {
+    constructor(config: {
+        normalizers: {
+            type: string;
+        }[];
+    }) {
         super(config);
         this.normalizers = config.normalizers.map(x => Normalizer.fromConfig(x));
     }
@@ -1168,7 +1247,7 @@ class NormalizerSequence extends Normalizer {
     * @param {string} text The text to normalize.
     * @returns {string} The normalized text.
     */
-    normalize(text) {
+    normalize(text: string) {
         return this.normalizers.reduce((t, normalizer) => {
             return normalizer.normalize(t);
         }, text);
@@ -1186,7 +1265,7 @@ class BertNormalizer extends Normalizer {
      * @param {string} text The input text to tokenize.
      * @returns {string} The tokenized text with whitespace added around CJK characters.
      */
-    _tokenize_chinese_chars(text) {
+    _tokenize_chinese_chars(text: string) {
         /* Adds whitespace around any CJK character. */
         const output = [];
         for (let i = 0; i < text.length; ++i) {
@@ -1208,7 +1287,7 @@ class BertNormalizer extends Normalizer {
      * @param {string} text The text to strip accents from.
      * @returns {string} The text with accents removed.
      */
-    stripAccents(text) {
+    stripAccents(text: string) {
         // "Mark, Nonspacing" (Mn)
         return text.normalize('NFD').replace(/\p{Mn}/gu, '');
     }
@@ -1220,7 +1299,7 @@ class BertNormalizer extends Normalizer {
      * @returns {boolean} Whether `char` is a control character.
      * @private
      */
-    _is_control(char) {
+    _is_control(char: string) {
         switch (char) {
             case '\t':
             case '\n':
@@ -1244,7 +1323,7 @@ class BertNormalizer extends Normalizer {
      * @returns {string} The cleaned text.
      * @private
      */
-    _clean_text(text) {
+    _clean_text(text: string) {
         const output = [];
         for (const char of text) {
             const cp = char.charCodeAt(0);
@@ -1264,7 +1343,7 @@ class BertNormalizer extends Normalizer {
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         if (this.config.clean_text) {
             text = this._clean_text(text);
         }
@@ -1340,7 +1419,7 @@ class PreTokenizer extends Callable {
      * @returns {string[]} The pre-tokenized text.
      * @throws {Error} If the method is not implemented in the subclass.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         throw Error("pre_tokenize_text should be implemented in subclass.")
     }
 
@@ -1350,7 +1429,7 @@ class PreTokenizer extends Callable {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    pre_tokenize(text, options) {
+    pre_tokenize(text: string | string[], options: any) {
         return (Array.isArray(text)
             ? text.map(x => this.pre_tokenize_text(x, options))
             : this.pre_tokenize_text(text, options)
@@ -1363,7 +1442,7 @@ class PreTokenizer extends Callable {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    _call(text, options) {
+    _call(text: string | string[], options: any) {
         return this.pre_tokenize(text, options);
     }
 }
@@ -1378,7 +1457,12 @@ class BertPreTokenizer extends PreTokenizer {
      * 
      * @param {Object} config The configuration object.
      */
-    constructor(config) {
+    constructor(config: {
+        clean_text: boolean;
+        handle_chinese_chars: boolean;
+        lowercase: boolean;
+        strip_accents: boolean;
+    }) {
         super();
         // Construct a pattern which matches the rust implementation:
         // https://github.com/huggingface/tokenizers/blob/b4fcc9ce6e4ad5806e82826f816acfdfdc4fcc67/tokenizers/src/pre_tokenizers/bert.rs#L11
@@ -1392,7 +1476,7 @@ class BertPreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         return text.trim().match(this.pattern) || [];
     }
 }
@@ -1406,7 +1490,10 @@ class ByteLevelPreTokenizer extends PreTokenizer {
      * Creates a new instance of the `ByteLevelPreTokenizer` class.
      * @param {Object} config The configuration object.
      */
-    constructor(config) {
+    constructor(config: {
+        add_prefix_space: boolean;
+        trim_offsets: boolean;
+    }) {
         super();
         this.config = config;
 
@@ -1440,7 +1527,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         // Add a leading space if the option is enabled
         if (this.add_prefix_space && !text.startsWith(' ')) {
             text = ' ' + text;
@@ -1473,7 +1560,11 @@ class SplitPreTokenizer extends PreTokenizer {
      * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
      * @param {boolean} config.invert Whether to split (invert=false) or match (invert=true) the pattern.
      */
-    constructor(config) {
+    constructor(config: {
+        pattern: string | RegExp;
+        behavior: SplitDelimiterBehavior;
+        invert: boolean;
+    }) {
         super();
         this.config = config;
         // TODO support all behaviours (config.behavior)
@@ -1487,7 +1578,7 @@ class SplitPreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         if (this.pattern === null) {
             return [];
         }
@@ -1511,7 +1602,9 @@ class PunctuationPreTokenizer extends PreTokenizer {
      * @param {Object} config The configuration options for the pre-tokenizer.
      * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
      */
-    constructor(config) {
+    constructor(config: {
+        behavior: SplitDelimiterBehavior;
+    }) {
         super();
         this.config = config;
         this.pattern = new RegExp(`[^${PUNCTUATION_REGEX}]+|[${PUNCTUATION_REGEX}]+`, 'gu');
@@ -1523,7 +1616,7 @@ class PunctuationPreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         return text.match(this.pattern) || [];
     }
 }
@@ -1538,7 +1631,9 @@ class DigitsPreTokenizer extends PreTokenizer {
      * @param {Object} config The configuration options for the pre-tokenizer.
      * @param {boolean} config.individual_digits Whether to split on individual digits.
      */
-    constructor(config) {
+    constructor(config: {
+        individual_digits: boolean;
+    }) {
         super();
         this.config = config;
 
@@ -1553,7 +1648,7 @@ class DigitsPreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         return text.match(this.pattern) || [];
     }
 }
@@ -1581,7 +1676,7 @@ class PostProcessor extends Callable {
     /**
      * @param {Object} config The configuration for the post-processor.
      */
-    constructor(config) {
+    constructor(config: any) {
         super();
         this.config = config;
     }
@@ -1593,7 +1688,7 @@ class PostProcessor extends Callable {
      * @returns {PostProcessor} A PostProcessor object created from the given configuration.
      * @throws {Error} If an unknown PostProcessor type is encountered.
      */
-    static fromConfig(config) {
+    static fromConfig(config: any) {
         if (config === null) return null;
         switch (config.type) {
             case 'TemplateProcessing':
@@ -1622,7 +1717,7 @@ class PostProcessor extends Callable {
      * @returns {PostProcessedOutput} The post-processed tokens.
      * @throws {Error} If the method is not implemented in subclass.
      */
-    post_process(tokens, ...args) {
+    post_process(tokens: string[], ...args: any[]) {
         throw Error("post_process should be implemented in subclass.")
     }
 
@@ -1632,7 +1727,7 @@ class PostProcessor extends Callable {
      * @param {...*} args Additional arguments required by the post-processing logic.
      * @returns {PostProcessedOutput} The post-processed tokens.
      */
-    _call(tokens, ...args) {
+    _call(tokens: string[], ...args: any[]) {
         return this.post_process(tokens, ...args);
     }
 }
@@ -1646,7 +1741,7 @@ class BertProcessing extends PostProcessor {
      * @param {string[]} config.cls The special tokens to add to the beginning of the input.
      * @param {string[]} config.sep The special tokens to add to the end of the input.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
         // TODO use all of config: add_prefix_space, trim_offsets
 
@@ -1660,7 +1755,7 @@ class BertProcessing extends PostProcessor {
      * @param {string[]} [tokens_pair=null] An optional second set of input tokens.
      * @returns {PostProcessedOutput} The post-processed tokens with the special tokens added to the beginning and end.
      */
-    post_process(tokens, tokens_pair = null, {
+    post_process(tokens: string[], tokens_pair = null, {
         add_special_tokens = true,
     } = {}) {
         if (add_special_tokens) {
@@ -1695,7 +1790,7 @@ class TemplateProcessing extends PostProcessor {
      * @param {Array} config.single The template for a single sequence of tokens.
      * @param {Array} config.pair The template for a pair of sequences of tokens.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.single = config.single;
@@ -1708,7 +1803,7 @@ class TemplateProcessing extends PostProcessor {
      * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
      * @returns {PostProcessedOutput} An object containing the list of tokens with the special tokens replaced with actual tokens.
      */
-    post_process(tokens, tokens_pair = null, {
+    post_process(tokens: string[], tokens_pair = null, {
         add_special_tokens = true,
     } = {}) {
         const type = tokens_pair === null ? this.single : this.pair
@@ -1747,7 +1842,7 @@ class ByteLevelPostProcessor extends PostProcessor {
      * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
      * @returns {PostProcessedOutput} An object containing the post-processed tokens.
      */
-    post_process(tokens, tokens_pair = null) {
+    post_process(tokens: string[], tokens_pair = null) {
         if (tokens_pair) {
             tokens = mergeArrays(tokens, tokens_pair);
         }
@@ -1766,7 +1861,7 @@ class PostProcessorSequence extends PostProcessor {
      * @param {Object} config The configuration object.
      * @param {Object[]} config.processors The list of post-processors to apply.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.processors = config.processors.map(x => PostProcessor.fromConfig(x));
@@ -1778,7 +1873,7 @@ class PostProcessorSequence extends PostProcessor {
      * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
      * @returns {PostProcessedOutput} An object containing the post-processed tokens.
      */
-    post_process(tokens, tokens_pair = null, options = {}) {
+    post_process(tokens: string[], tokens_pair = null, options = {}) {
         let token_type_ids;
         for (const processor of this.processors) {
             if (processor instanceof ByteLevelPostProcessor) {
@@ -1810,7 +1905,7 @@ class Decoder extends Callable {
     *
     * @param {Object} config The configuration object.
     */
-    constructor(config) {
+    constructor(config: any) {
         super();
         this.config = config;
 
@@ -1827,7 +1922,7 @@ class Decoder extends Callable {
    * @returns {Decoder} A decoder instance.
    * @throws {Error} If an unknown decoder type is provided.
    */
-    static fromConfig(config) {
+    static fromConfig(config: any) {
         if (config === null) return null;
         switch (config.type) {
             case 'WordPiece':
@@ -1864,7 +1959,7 @@ class Decoder extends Callable {
     * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
     */
-    _call(tokens) {
+    _call(tokens: string[]) {
         return this.decode(tokens);
     }
 
@@ -1873,7 +1968,7 @@ class Decoder extends Callable {
     * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
     */
-    decode(tokens) {
+    decode(tokens: string[]) {
         return this.decode_chain(tokens).join('');
     }
 
@@ -1884,7 +1979,7 @@ class Decoder extends Callable {
      * @returns {string[]} The decoded list of tokens.
      * @throws {Error} If the `decode_chain` method is not implemented in the subclass.
      */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         throw Error("`decode_chain` should be implemented in subclass.")
     }
 
@@ -1893,7 +1988,7 @@ class Decoder extends Callable {
 class ReplaceDecoder extends Decoder {
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         const pattern = createPattern(this.config.pattern);
         return pattern === null
             ? tokens
@@ -1903,14 +1998,14 @@ class ReplaceDecoder extends Decoder {
 
 
 class ByteFallback extends Decoder {
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.text_decoder = new TextDecoder();
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
 
         const new_tokens = [];
         let previous_byte_tokens = [];
@@ -1952,14 +2047,18 @@ class ByteFallback extends Decoder {
 class FuseDecoder extends Decoder {
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         return [tokens.join('')];
     }
 }
 
 
 class StripDecoder extends Decoder {
-    constructor(config) {
+    content: string;
+    start: number;
+    stop: number;
+
+    constructor(config: any) {
         super(config);
 
         this.content = this.config.content;
@@ -1968,7 +2067,7 @@ class StripDecoder extends Decoder {
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         return tokens.map(token => {
             let start_cut = 0;
             for (let i = 0; i < this.start; ++i) {
@@ -2008,13 +2107,13 @@ class WordPieceDecoder extends Decoder {
      * @param {string} config.prefix The prefix used for WordPiece encoding.
      * @param {boolean} config.cleanup Whether to cleanup the decoded string.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
         this.cleanup = config.cleanup;
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         return tokens.map((token, i) => {
             if (i !== 0) {
                 if (token.startsWith(this.config.prefix)) {
@@ -2043,7 +2142,11 @@ class ByteLevelDecoder extends Decoder {
      * Create a `ByteLevelDecoder` object.
      * @param {Object} config Configuration object.
      */
-    constructor(config) {
+    byte_decoder: Map<string, number>;
+    text_decoder: TextDecoder;
+    end_of_word_suffix: string | null;
+
+    constructor(config: any) {
         super(config);
 
         this.byte_decoder = UNICODE_TO_BYTES;
@@ -2060,7 +2163,7 @@ class ByteLevelDecoder extends Decoder {
      * @param {string[]} tokens Array of tokens to be decoded.
      * @returns {string} The decoded string.
      */
-    convert_tokens_to_string(tokens) {
+    convert_tokens_to_string(tokens: string[]) {
         const text = tokens.join('');
         const byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         const decoded_text = this.text_decoder.decode(byteArray);
@@ -2068,7 +2171,7 @@ class ByteLevelDecoder extends Decoder {
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         // TODO move to base class (like HF)
         // tokens === filtered_tokens
 
@@ -2109,7 +2212,7 @@ class ByteLevelDecoder extends Decoder {
  */
 class CTCDecoder extends Decoder {
 
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.pad_token = this.config.pad_token;
@@ -2121,7 +2224,7 @@ class CTCDecoder extends Decoder {
      * @param {string[]} tokens Array of tokens to be decoded.
      * @returns {string} The decoded string.
      */
-    convert_tokens_to_string(tokens) {
+    convert_tokens_to_string(tokens: string[]) {
         if (tokens.length === 0) return '';
 
         // group same tokens into non-repeating tokens in CTC style decoding
@@ -2147,7 +2250,7 @@ class CTCDecoder extends Decoder {
 
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         return [this.convert_tokens_to_string(tokens)];
     }
 }
@@ -2163,13 +2266,13 @@ class DecoderSequence extends Decoder {
      * @param {Object} config The configuration object.
      * @param {Object[]} config.decoders The list of decoders to apply.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
         this.decoders = config.decoders.map(x => Decoder.fromConfig(x));
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         // Use reduce to apply each decoder to the tokens
         return this.decoders.reduce((toks, decoder) => {
             return decoder.decode_chain(toks);
@@ -2179,13 +2282,13 @@ class DecoderSequence extends Decoder {
 }
 
 class BPEDecoder extends Decoder {
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.suffix = this.config.suffix;
     }
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         return tokens.map((token, i) => {
             return token.replaceAll(this.suffix, (i === tokens.length - 1) ? '' : ' ')
         });
@@ -2195,7 +2298,7 @@ class BPEDecoder extends Decoder {
 // Custom decoder for VITS
 class VitsDecoder extends Decoder {
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         let decoded = '';
         for (let i = 1; i < tokens.length; i += 2) {
             decoded += tokens[i];
@@ -2218,7 +2321,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
      * @param {string} [config.str_rep=config.replacement] An optional string representation of the replacement character.
      * @param {'first'|'never'|'always'} [config.prepend_scheme='always'] The metaspace prepending scheme.
      */
-    constructor(config) {
+    constructor(config: any) {
         super();
 
         this.addPrefixSpace = config.add_prefix_space;
@@ -2235,7 +2338,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
      * @param {number} [options.section_index] The index of the section to pre-tokenize.
      * @returns {string[]} A new list of pre-tokenized tokens.
      */
-    pre_tokenize_text(text, {
+    pre_tokenize_text(text: string, {
         section_index = undefined,
     } = {}) {
 
@@ -2272,7 +2375,7 @@ class MetaspaceDecoder extends Decoder {
      * @param {boolean} config.add_prefix_space Whether to add a prefix space to the decoded string.
      * @param {string} config.replacement The string to replace spaces with.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
 
         this.addPrefixSpace = config.add_prefix_space;
@@ -2280,7 +2383,7 @@ class MetaspaceDecoder extends Decoder {
     }
 
     /** @type {Decoder['decode_chain']} */
-    decode_chain(tokens) {
+    decode_chain(tokens: string[]) {
         const result = [];
         for (let i = 0; i < tokens.length; ++i) {
             let normalized = tokens[i].replaceAll(this.replacement, ' ');
@@ -2306,7 +2409,7 @@ class Precompiled extends Normalizer {
      * @param {Object} config The configuration object.
      * @param {any} config.precompiled_charsmap Precompiled chars mapping.
      */
-    constructor(config) {
+    constructor(config: any) {
         super(config);
         this.charsmap = config.precompiled_charsmap;
     }
@@ -2316,7 +2419,7 @@ class Precompiled extends Normalizer {
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
-    normalize(text) {
+    normalize(text: string) {
         // As stated in the sentencepiece normalization docs (https://github.com/google/sentencepiece/blob/master/doc/normalization.md#use-pre-defined-normalization-rule),
         // there are 5 pre-defined normalization rules:
         //  1. nmt_nfkc: NFKC normalization with some additional normalization around spaces. (default)
@@ -2407,7 +2510,7 @@ class WhitespaceSplit extends PreTokenizer {
      * Creates an instance of WhitespaceSplit.
      * @param {Object} config The configuration object for the pre-tokenizer.
      */
-    constructor(config) {
+    constructor(config: any) {
         super();
     }
     /**
@@ -2416,7 +2519,7 @@ class WhitespaceSplit extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         return whitespace_split(text);
     }
 }
@@ -2428,7 +2531,10 @@ class ReplacePreTokenizer extends PreTokenizer {
      * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
      * @param {string} config.content What to replace the pattern with.
      */
-    constructor(config) {
+    pattern: string | RegExp;
+    content: string;
+    
+    constructor(config: any) {
         super();
         this.config = config;
         this.pattern = createPattern(this.config.pattern);
@@ -2441,7 +2547,7 @@ class ReplacePreTokenizer extends PreTokenizer {
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by replacing certain characters.
      */
-    pre_tokenize_text(text, options) {
+    pre_tokenize_text(text: string, options: any) {
         if (this.pattern === null) {
             return [text];
         }
@@ -2470,7 +2576,7 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
  * @param {string} side Which side to pad the array.
  * @private
  */
-function padHelper(item, length, value_fn, side) {
+function padHelper(item: Record<string, any[]>, length: number, value_fn: (key: string) => any, side: string) {
     for (const key of Object.keys(item)) {
         const diff = length - item[key].length;
         const value = value_fn(key);
@@ -2489,7 +2595,7 @@ function padHelper(item, length, value_fn, side) {
  * @param {number} length The length to truncate to.
  * @private
  */
-function truncateHelper(item, length) {
+function truncateHelper(item: Record<string, any[]>, length: number) {
     // Setting .length to a lower value truncates the array in-place:
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length
     for (const key of Object.keys(item)) {
@@ -2504,6 +2610,11 @@ function truncateHelper(item, length) {
  * @property {string} content The content of the message.
  */
 
+type Message = {
+    role: string;
+    content: string;
+}
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
@@ -2513,7 +2624,13 @@ export class PreTrainedTokenizer extends Callable {
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
      * @param {Object} tokenizerConfig The config of the tokenizer.
      */
-    constructor(tokenizerJSON, tokenizerConfig) {
+    _tokenizer_config: any;
+    pre_tokenizer: PreTokenizer;
+    normalizer: Normalizer;
+    model: TokenizerModel;
+    post_processor: PostProcessor;
+    decoder: Decoder;
+    constructor(tokenizerJSON: any, tokenizerConfig: any) {
         super();
 
         this._tokenizer_config = tokenizerConfig;
@@ -2526,11 +2643,11 @@ export class PreTrainedTokenizer extends Callable {
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
         // Add added_tokens to model
-        this.special_tokens = [];
-        this.all_special_ids = [];
+        this.special_tokens: string[] = [];
+        this.all_special_ids: number[] = [];
 
         /** @type {AddedToken[]} */
-        this.added_tokens = [];
+        this.added_tokens: AddedToken[] = [];
         for (const addedToken of tokenizerJSON.added_tokens) {
             const token = new AddedToken(addedToken);
             this.added_tokens.push(token);
@@ -2545,7 +2662,7 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         // Update additional_special_tokens
-        this.additional_special_tokens = tokenizerConfig.additional_special_tokens ?? [];
+        this.additional_special_tokens: string[] = tokenizerConfig.additional_special_tokens ?? [];
         this.special_tokens.push(...this.additional_special_tokens);
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
@@ -2652,7 +2769,7 @@ export class PreTrainedTokenizer extends Callable {
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
      */
-    static async from_pretrained(pretrained_model_name_or_path, {
+    static async from_pretrained(pretrained_model_name_or_path: string, {
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -2855,7 +2972,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text The text to encode.
      * @returns {string[]|null} The encoded tokens.
      */
-    _encode_text(text) {
+    _encode_text(text: string | null) {
         if (text === null) return null;
 
         // Actual function which does encoding, for a single text
@@ -2863,8 +2980,8 @@ export class PreTrainedTokenizer extends Callable {
         // normalization and/or pretokenization (which may not preserve special tokens)
         const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
 
-        const tokens = sections.map((x, section_index) => {
-            const addedToken = this.added_tokens.find(t => t.content === x);
+        const tokens = sections.map((x: string, section_index: number) => {
+            const addedToken = this.added_tokens.find((t: AddedToken) => t.content === x);
             if (addedToken !== undefined) {
                 // Ignore added tokens
                 return x
@@ -2910,7 +3027,7 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
-    _encode_plus(text, {
+    _encode_plus(text: string, {
         text_pair = null,
         add_special_tokens = true,
         return_token_type_ids = null,
@@ -2938,7 +3055,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {{tokens: string[], token_type_ids?: number[]}} An object containing the tokens and optionally the token type IDs.
      */
-    _tokenize_helper(text, {
+    _tokenize_helper(text: string, {
         pair = null,
         add_special_tokens = false,
     } = {}) {
@@ -2958,7 +3075,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {string[]} The list of tokens.
      */
-    tokenize(text, {
+    tokenize(text: string, {
         pair = null,
         add_special_tokens = false,
     } = {}) {
@@ -2975,7 +3092,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, {
+    encode(text: string, {
         text_pair = null,
         add_special_tokens = true,
         return_token_type_ids = null,
@@ -2993,7 +3110,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {Object} decode_args (Optional) Object with decoding arguments.
      * @returns {string[]} List of decoded sequences.
      */
-    batch_decode(batch, decode_args = {}) {
+    batch_decode(batch: number[][] | Tensor, decode_args = {}) {
         if (batch instanceof Tensor) {
             batch = batch.tolist();
         }
@@ -3012,7 +3129,7 @@ export class PreTrainedTokenizer extends Callable {
      * @throws {Error} If `token_ids` is not a non-empty array of integers.
      */
     decode(
-        token_ids,
+        token_ids: number[] | bigint[] | Tensor,
         decode_args = {},
     ) {
         if (token_ids instanceof Tensor) {
@@ -3036,7 +3153,7 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {string} The decoded string
      */
     decode_single(
-        token_ids,
+        token_ids: number[] | bigint[] | Tensor,
         {
             skip_special_tokens = false,
             clean_up_tokenization_spaces = null,
@@ -3186,7 +3303,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {Object} [options.tokenizer_kwargs={}] Additional options to pass to the tokenizer.
      * @returns {string | Tensor | number[]| number[][]|BatchEncoding} The tokenized output.
      */
-    apply_chat_template(conversation, {
+    apply_chat_template(conversation: Message[], {
         tools = null,
         documents = null,
         chat_template = null,
@@ -3518,7 +3635,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {Object} options The options to use for decoding.
      * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} The decoded sequences.
      */
-    _decode_asr(sequences, {
+    _decode_asr(sequences: {tokens: bigint[], token_timestamps?: number[], stride: number[]}[], {
         return_timestamps = false,
         return_language = false,
         time_precision = null,
@@ -3822,7 +3939,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @throws {Error} If there is a bug within the function.
      * @private
      */
-    findLongestCommonSequence(sequences, token_timestamp_sequences = null) {
+    findLongestCommonSequence(sequences: number[][], token_timestamp_sequences = null) {
         // It would be much harder to do O(n) because of fault tolerance.
         // We actually have a really good property which is that the total sequence
         // MUST be those subsequences in order.
@@ -3927,7 +4044,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 
     /** @private */
-    collateWordTimestamps(tokens, token_timestamps, language) {
+    collateWordTimestamps(tokens: number[], token_timestamps: number[][], language: string) {
 
         const [words, _, token_indices] = this.combineTokensIntoWords(tokens, language);
 
@@ -3955,7 +4072,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * 
      * @private
      */
-    combineTokensIntoWords(tokens, language, prepend_punctionations = "\"'“¡¿([{-", append_punctuations = "\"'.。,，!！?？:：”)]}、") {
+    combineTokensIntoWords(tokens: number[], language: string, prepend_punctionations = "\"'“¡¿([{-", append_punctuations = "\"'.。,，!！?？:：”)]}、") {
         language = language ?? 'english';
 
         let words, word_tokens, token_indices;
@@ -3972,8 +4089,8 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /** @type {PreTrainedTokenizer['decode']} */
     decode(
-        token_ids,
-        decode_args,
+        token_ids: number[] | bigint[] | Tensor,
+        decode_args: any,
     ) {
         let text;
         // @ts-ignore
@@ -3997,7 +4114,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {Object} decode_args Optional arguments for decoding
      * @private
      */
-    decodeWithTimestamps(token_ids, decode_args) {
+    decodeWithTimestamps(token_ids: number[] | bigint[], decode_args: any) {
         const time_precision = decode_args?.time_precision ?? 0.02;
 
         const timestamp_begin = Array.from(this.all_special_ids).at(-1) + 1;
@@ -4026,7 +4143,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @returns {*}
      * @private
      */
-    splitTokensOnUnicode(tokens) {
+    splitTokensOnUnicode(tokens: number[]) {
         const decoded_full = this.decode(tokens, {
             // @ts-ignore
             decode_with_timestamps: true,
@@ -4070,7 +4187,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {number[]} tokens 
      * @private
      */
-    splitTokensOnSpaces(tokens) {
+    splitTokensOnSpaces(tokens: number[]) {
 
         const [subwords, subword_tokens_list, subword_indices_list] = this.splitTokensOnUnicode(tokens);
 
@@ -4117,7 +4234,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {string} appended 
      * @private
      */
-    mergePunctuations(words, tokens, indices, prepended, appended) {
+    mergePunctuations(words: string[], tokens: number[][], indices: number[][], prepended: string, appended: string) {
 
         const newWords = structuredClone(words);
         const newTokens = structuredClone(tokens);
@@ -4180,7 +4297,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
      * @param {Object} tokenizerConfig The config of the tokenizer.
      */
-    constructor(tokenizerJSON, tokenizerConfig) {
+    constructor(tokenizerJSON: any, tokenizerConfig: any) {
         super(tokenizerJSON, tokenizerConfig);
 
         this.languageRegex = /^(>>\w+<<)\s*/g;
@@ -4200,7 +4317,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
      * @param {string|null} text The text to encode.
      * @returns {Array} The encoded tokens.
      */
-    _encode_text(text) {
+    _encode_text(text: string | null) {
         if (text === null) return null;
 
         // Check if text starts with language code:
@@ -4234,7 +4351,7 @@ export class NougatTokenizer extends PreTrainedTokenizer { }
 
 export class VitsTokenizer extends PreTrainedTokenizer {
 
-    constructor(tokenizerJSON, tokenizerConfig) {
+    constructor(tokenizerJSON: any, tokenizerConfig: any) {
         super(tokenizerJSON, tokenizerConfig);
 
         // Custom decoder function
@@ -4321,7 +4438,7 @@ export class AutoTokenizer {
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
-    static async from_pretrained(pretrained_model_name_or_path, {
+    static async from_pretrained(pretrained_model_name_or_path: string, {
         progress_callback = null,
         config = null,
         cache_dir = null,

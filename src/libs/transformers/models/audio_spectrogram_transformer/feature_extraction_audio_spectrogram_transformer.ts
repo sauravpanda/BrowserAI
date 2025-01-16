@@ -1,11 +1,16 @@
-import { FeatureExtractor, validate_audio_inputs } from '../../base/feature_extraction_utils.js';
-import { Tensor } from '../../utils/tensor.js';
-import { mel_filter_bank, spectrogram, window_function } from '../../utils/audio.js';
+import { FeatureExtractor, validate_audio_inputs } from '../../base/feature_extraction_utils';
+import { Tensor } from '../../utils/tensor';
+import { mel_filter_bank, spectrogram, window_function } from '../../utils/audio';
 
 
 export class ASTFeatureExtractor extends FeatureExtractor {
 
-    constructor(config) {
+    mel_filters : any;
+    window : any;
+    mean : any;
+    std : any;
+
+    constructor(config : any) {
         super(config);
 
         const sampling_rate = this.config.sampling_rate;
@@ -40,7 +45,7 @@ export class ASTFeatureExtractor extends FeatureExtractor {
      * @param {number} max_length The maximum number of frames to return.
      * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    async _extract_fbank_features(waveform, max_length) {
+    async _extract_fbank_features(waveform: Float32Array|Float64Array, max_length: number) {
         // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
         return spectrogram(
             waveform,
@@ -70,7 +75,7 @@ export class ASTFeatureExtractor extends FeatureExtractor {
      * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
      * @returns {Promise<{ input_values: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
-    async _call(audio) {
+    async _call(audio: Float32Array|Float64Array) {
         validate_audio_inputs(audio, 'ASTFeatureExtractor');
 
         const features = await this._extract_fbank_features(audio, this.config.max_length);

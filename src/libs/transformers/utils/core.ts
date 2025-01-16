@@ -96,7 +96,7 @@ export function calculateReflectOffset(i: number, w: number): number {
 
 export function pick<T>(obj: T, keys: Array<keyof T>) {
     return Object.fromEntries(
-        keys.map(k => [k, obj[k]])
+        keys.map(k => [k, obj[k as keyof T]])
     );
 }
 

@@ -15,6 +15,7 @@
 
 import {
     AutoTokenizer,
+    PreTrainedTokenizer,
 } from './tokenizers';
 import {
     AutoModel,
@@ -59,7 +60,8 @@ import {
     topk,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
-
+import { PretrainedOptions } from './utils/hub';
+import { ImageFeatureExtractionPipelineOptions, ImagePipelineInputs, AudioPipelineInputs, TextPipelineConstructorArgs, PipelineType } from './types';
 
 /**
  * @typedef {string | RawImage | URL} ImageInput
@@ -72,7 +74,9 @@ import { RawImage } from './utils/image.js';
  * @returns {Promise<RawImage[]>} returns processed images.
  * @private
  */
-async function prepareImages(images) {
+
+
+async function prepareImages(images: ImagePipelineInputs) {
     if (!Array.isArray(images)) {
         images = [images];
     }
@@ -93,7 +97,7 @@ async function prepareImages(images) {
  * @returns {Promise<Float32Array[]>} The preprocessed audio data.
  * @private
  */
-async function prepareAudios(audios, sampling_rate) {
+async function prepareAudios(audios: AudioPipelineInputs, sampling_rate: number) {
     if (!Array.isArray(audios)) {
         audios = [audios];
     }
@@ -123,7 +127,7 @@ async function prepareAudios(audios, sampling_rate) {
  * @returns {BoundingBox} The bounding box as an object.
  * @private
  */
-function get_bounding_box(box, asInteger) {
+function get_bounding_box(box: number[], asInteger: boolean) {
     if (asInteger) {
         box = box.map(x => x | 0);
     }
@@ -145,7 +149,7 @@ function get_bounding_box(box, asInteger) {
  * The Pipeline class is the class from which all pipelines inherit.
  * Refer to this class for methods shared across different pipelines.
  */
-export class Pipeline extends Callable {
+export abstract class Pipeline extends Callable {
     /**
      * Create a new Pipeline.
      * @param {Object} options An object containing the following properties:
@@ -154,7 +158,22 @@ export class Pipeline extends Callable {
      * @param {PreTrainedTokenizer} [options.tokenizer=null] The tokenizer used by the pipeline (if any).
      * @param {Processor} [options.processor=null] The processor used by the pipeline (if any).
      */
-    constructor({ task, model, tokenizer = null, processor = null }) {
+    task: string;
+    model: PreTrainedModel;
+    tokenizer: PreTrainedTokenizer | null;
+    processor: Processor | null;
+
+    constructor({ 
+        task, 
+        model, 
+        tokenizer = null, 
+        processor = null 
+    }: {
+        task: string;
+        model: PreTrainedModel;
+        tokenizer?: PreTrainedTokenizer | null;
+        processor?: Processor | null;
+    }) {
         super();
         this.task = task;
         this.model = model;
@@ -162,10 +181,11 @@ export class Pipeline extends Callable {
         this.processor = processor;
     }
 
-    /** @type {DisposeType} */
-    async dispose() {
+    async dispose(): Promise<void> {
         await this.model.dispose();
     }
+
+    protected abstract _call(...args: any[]): Promise<any>;
 }
 
 /**
@@ -276,12 +296,12 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
      * Create a new TextGenerationPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    constructor(options: TextPipelineConstructorArgs) {
         super(options);
     }
 
     /** @type {TextGenerationPipelineCallback} */
-    async _call(texts, generate_kwargs = {}) {
+    async _call(texts: string | string[], generate_kwargs = {}) {
         let isBatched = false;
         let isChatInput = false;
 
@@ -432,12 +452,12 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
      * Create a new FeatureExtractionPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    constructor(options: TextPipelineConstructorArgs) {
         super(options);
     }
 
     /** @type {FeatureExtractionPipelineCallback} */
-    async _call(texts, {
+    async _call(texts: string | string[], {
         pooling = /** @type {'none'} */('none'),
         normalize = false,
         quantize = false,
@@ -530,12 +550,12 @@ export class ImageFeatureExtractionPipeline extends (/** @type {new (options: Im
      * Create a new ImageFeatureExtractionPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    constructor(options: ImagePipelineConstructorArgs) {
         super(options);
     }
 
     /** @type {ImageFeatureExtractionPipelineCallback} */
-    async _call(images, {
+    async _call(images: ImagePipelineInputs, {
         pool = null,
     } = {}) {
 
@@ -666,12 +686,12 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * Create a new AutomaticSpeechRecognitionPipeline.
      * @param {TextAudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    constructor(options: TextAudioPipelineConstructorArgs) {
         super(options);
     }
 
     /** @type {AutomaticSpeechRecognitionPipelineCallback} */
-    async _call(audio, kwargs = {}) {
+    async _call(audio: AudioPipelineInputs, kwargs = {}) {
         switch (this.model.config.model_type) {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
@@ -692,7 +712,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @type {AutomaticSpeechRecognitionPipelineCallback}
      * @private
      */
-    async _call_wav2vec2(audio, kwargs) {
+    async _call_wav2vec2(audio: AudioPipelineInputs, kwargs: Partial<AutomaticSpeechRecognitionConfig>) {
         // TODO use kwargs
 
         if (kwargs.language) {
@@ -730,7 +750,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @type {AutomaticSpeechRecognitionPipelineCallback}
      * @private
      */
-    async _call_whisper(audio, kwargs) {
+    async _call_whisper(audio: AudioPipelineInputs, kwargs: Partial<AutomaticSpeechRecognitionConfig>) {
         const return_timestamps = kwargs.return_timestamps ?? false;
         const chunk_length_s = kwargs.chunk_length_s ?? 0;
         const force_full_sequences = kwargs.force_full_sequences ?? false;
@@ -844,7 +864,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @type {AutomaticSpeechRecognitionPipelineCallback}
      * @private
      */
-    async _call_moonshine(audio, kwargs) {
+    async _call_moonshine(audio: AudioPipelineInputs, kwargs: Partial<AutomaticSpeechRecognitionConfig>) {
         const single = !Array.isArray(audio);
         if (single) {
             audio = [/** @type {AudioInput} */ (audio)];
@@ -998,7 +1018,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
      * Create a new TextToAudioPipeline.
      * @param {TextToAudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    constructor(options: TextToAudioPipelineConstructorArgs) {
         super(options);
 
         // TODO: Find a better way for `pipeline` to set the default vocoder
@@ -1007,7 +1027,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
 
 
     /** @type {TextToAudioPipelineCallback} */
-    async _call(text_inputs, {
+    async _call(text_inputs: string | string[], {
         speaker_embeddings = null,
     } = {}) {
 
@@ -1019,7 +1039,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         }
     }
 
-    async _call_text_to_waveform(text_inputs) {
+    async _call_text_to_waveform(text_inputs: string | string[]) {
 
         // Run tokenization
         const inputs = this.tokenizer(text_inputs, {
@@ -1038,7 +1058,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         }
     }
 
-    async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
+    async _call_text_to_spectrogram(text_inputs: string | string[], { speaker_embeddings }: { speaker_embeddings: Tensor | Float32Array | string | URL }) {
 
         // Load vocoder, if not provided
         if (!this.vocoder) {
@@ -1111,12 +1131,15 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
      * Create a new ImageToImagePipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
-    constructor(options) {
+    processor: PreTrainedProcessor;
+
+    constructor(options: ImagePipelineConstructorArgs) {
         super(options);
+        this.processor = options.processor;
     }
 
     /** @type {ImageToImagePipelineCallback} */
-    async _call(images) {
+    async _call(images: ImagePipelineInputs) {
 
         const preparedImages = await prepareImages(images);
         const inputs = await this.processor(preparedImages);
@@ -1133,7 +1156,7 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
     }
 }
 
-const SUPPORTED_TASKS = Object.freeze({
+export const SUPPORTED_TASKS = {
     "text-generation": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextGenerationPipeline,
@@ -1217,17 +1240,17 @@ const SUPPORTED_TASKS = Object.freeze({
         },
         "type": "image",
     },
-})
+} as const;
 
 
 // TODO: Add types for TASK_ALIASES
-const TASK_ALIASES = Object.freeze({
+export const TASK_ALIASES = {
     "asr": "automatic-speech-recognition",
     "text-to-speech": "text-to-audio",
 
     // Add for backwards compatibility
     "embeddings": "feature-extraction",
-});
+} as const;
 
 /**
  * @typedef {keyof typeof SUPPORTED_TASKS} TaskType
@@ -1253,7 +1276,7 @@ const TASK_ALIASES = Object.freeze({
  * @throws {Error} If an unsupported pipeline is requested.
  */
 export async function pipeline(
-    task,
+    task: PipelineType,
     model = null,
     {
         progress_callback = null,
@@ -1325,7 +1348,7 @@ export async function pipeline(
  * @param {import('./utils/hub.js').PretrainedOptions} pretrainedOptions The options to pass to the `from_pretrained` method.
  * @private
  */
-async function loadItems(mapping, model, pretrainedOptions) {
+async function loadItems(mapping: Map<string, any>, model: string, pretrainedOptions: PretrainedOptions) {
 
     const result = Object.create(null);
 
@@ -1350,17 +1373,16 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        if (err.message?.includes('Unsupported model type')) {
+                        if ((err as Error).message?.includes('Unsupported model type')) {
                             // If the error is due to an unsupported model type, we
                             // save the error and try the next class.
-                            e = err;
-                        } else if (err.message?.includes('Could not locate file')) {
-                            e = err;
+                            e = err as Error;
+                        } else if ((err as Error).message?.includes('Could not locate file')) {
+                            e = err as Error;
                         } else {
                             reject(err);
                             return;
                         }
-
                     }
                 }
                 reject(e);

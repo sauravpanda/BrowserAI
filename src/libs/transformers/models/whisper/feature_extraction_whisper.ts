@@ -1,14 +1,14 @@
-import { FeatureExtractor, validate_audio_inputs } from '../../base/feature_extraction_utils.js';
-import { Tensor } from '../../utils/tensor.js';
-import { mel_filter_bank, spectrogram, window_function } from '../../utils/audio.js';
-import { max } from '../../utils/maths.js';
-
+import { FeatureExtractor, validate_audio_inputs } from '../../base/feature_extraction_utils';
+import { Tensor } from '../../utils/tensor';
+import { mel_filter_bank, spectrogram, window_function } from '../../utils/audio';
+import { max } from '../../utils/maths';
+import {AutomaticSpeechRecognitionConfig} from '../../pipelines'
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
-    constructor(config) {
+    constructor(config: Partial<AutomaticSpeechRecognitionConfig>   ) {
         super(config);
 
-        // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
+        // Prefer given `mel_filters` from preprocessor_configon, or calculate them if they don't exist.
         this.config.mel_filters ??= mel_filter_bank(
             Math.floor(1 + this.config.n_fft / 2), // num_frequency_bins
             this.config.feature_size, // num_mel_filters
@@ -27,7 +27,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
      * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    async _extract_fbank_features(waveform) {
+    async _extract_fbank_features(waveform: Float32Array | Float64Array) {
         const features = await spectrogram(
             waveform,
             this.window, // window
@@ -58,7 +58,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
-    async _call(audio) {
+    async _call(audio: AudioPipelineInputs) {
         validate_audio_inputs(audio, 'WhisperFeatureExtractor');
 
         let waveform;

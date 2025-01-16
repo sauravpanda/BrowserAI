@@ -131,7 +131,7 @@ export function post_process_object_detection(
 
             } else {
                 // Get most probable class
-                let maxIndex = max(logit.data)[1];
+                let maxIndex = max(logit.data as Float32Array)[1];
 
                 if (maxIndex === num_classes - 1) {
                     // This is the background class, skip it
@@ -140,7 +140,7 @@ export function post_process_object_detection(
                 // Compute softmax over classes
                 probs = softmax(logit.data);
 
-                if (probs[maxIndex] < threshold) {
+                if (probs[Number(maxIndex)] < threshold) {
                     continue;
                 }
                 indices.push(maxIndex);
@@ -159,8 +159,8 @@ export function post_process_object_detection(
                 }
 
                 info.boxes.push(box);
-                info.classes.push(index);
-                info.scores.push(probs[index]);
+                info.classes.push(Number(index));
+                info.scores.push(probs[Number(index)]);
             }
         }
         toReturn.push(info);
@@ -260,14 +260,14 @@ function remove_low_and_no_objects(
         const cls = class_logits[j];
         const mask = mask_logits[j];
 
-        const pred_label = max(cls.data)[1];
+        const pred_label = max(cls.data as Float32Array)[1];
         if (pred_label === num_labels) {
             // Is the background, so we ignore it
             continue;
         }
 
-        const scores = softmax(cls.data);
-        const pred_score = scores[pred_label];
+        const scores = softmax(cls.data as Float32Array);
+        const pred_score = scores[Number(pred_label)];
         if (pred_score > object_mask_threshold) {
             mask_probs_item.push(mask);
             pred_scores_item.push(pred_score);
@@ -549,9 +549,9 @@ export function post_process_panoptic_segmentation(
 
         // Get segmentation map and segment information of batch item
         let [segmentation, segments] = compute_segments(
-            mask_probs_item,
-            pred_scores_item,
-            pred_labels_item,
+            mask_probs_item as Tensor[],
+            pred_scores_item as number[],
+            pred_labels_item as number[],
             mask_threshold,
             overlap_mask_area_threshold,
             label_ids_to_fuse,
@@ -742,9 +742,9 @@ export class ImageProcessor extends Callable {
 
         const minValue = min(gray_image.data)[0];
         const maxValue = max(gray_image.data)[0];
-        const diff = maxValue - minValue;
+        const diff = BigInt(maxValue) - BigInt(minValue);
 
-        if (diff === 0) {
+        if (Number(diff) === 0) {
             return image;
         }
 
@@ -755,7 +755,7 @@ export class ImageProcessor extends Callable {
         for (let j = 0; j < gray_image.height; ++j) {
             const row = j * gray_image.width;
             for (let i = 0; i < gray_image.width; ++i) {
-                if ((gray_image_data[row + i] - minValue) / diff < threshold) {
+                if ((Number(gray_image_data[row + i]) - Number(minValue)) / Number(diff) < threshold) {
                     // We have a non-zero pixel, so we update the min/max values accordingly
                     x_min = Math.min(x_min, i);
                     y_min = Math.min(y_min, j);
@@ -1048,7 +1048,7 @@ export class ImageProcessor extends Callable {
                 crop_height = this.crop_size.height;
             }
 
-            image = await image.center_crop(crop_width, crop_height);
+            image = await image.center_crop(crop_width as number, crop_height as number);
         }
 
         /** @type {HeightWidth} */

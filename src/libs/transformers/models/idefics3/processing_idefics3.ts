@@ -1,15 +1,15 @@
 
-import { Processor } from "../../base/processing_utils.js";
-import { AutoImageProcessor } from "../auto/image_processing_auto.js";
-import { AutoTokenizer } from "../../tokenizers.js";
-import { RawImage } from "../../utils/image.js";
-import { count } from "../../utils/core.js";
+import { Processor } from "../../base/processing_utils";
+import { AutoImageProcessor } from "../auto/image_processing_auto";
+import { AutoTokenizer } from "../../tokenizers";
+import { RawImage } from "../../utils/image";
+import { count } from "../../utils/core";
 
 /**
  * Prompt with expanded image tokens for when the image is split into patches.
  * @private
  */
-function _prompt_split_image(image_seq_len, image_rows, image_cols, fake_token_around_image, image_token, global_img_token) {
+function _prompt_split_image(image_seq_len: number, image_rows: number, image_cols: number, fake_token_around_image: string, image_token: string, global_img_token: string) {
     let text_split_images = "";
     for (let n_h = 0; n_h < image_rows; ++n_h) {
         for (let n_w = 0; n_w < image_cols; ++n_w) {
@@ -35,7 +35,7 @@ function _prompt_split_image(image_seq_len, image_rows, image_cols, fake_token_a
  * Prompt with expanded image tokens for a single image.
  * @private
  */
-function _prompt_single_image(image_seq_len, fake_token_around_image, image_token, global_img_token) {
+function _prompt_single_image(image_seq_len: number, fake_token_around_image: string, image_token: string, global_img_token: string) {
     return (
         `${fake_token_around_image}` +
         `${global_img_token}` +
@@ -44,7 +44,7 @@ function _prompt_single_image(image_seq_len, fake_token_around_image, image_toke
     );
 }
 
-function get_image_prompt_string(image_rows, image_cols, image_seq_len, fake_token_around_image, image_token, global_img_token) {
+function get_image_prompt_string(image_rows: number, image_cols: number, image_seq_len: number, fake_token_around_image: string, image_token: string, global_img_token: string) {
     if (image_rows === 0 && image_cols === 0) {
         return _prompt_single_image(
             image_seq_len,
@@ -74,7 +74,7 @@ export class Idefics3Processor extends Processor {
      * @param {RawImage|RawImage[]|RawImage[][]} images  
      * @returns {Promise<any>}
      */
-    async _call(text, images = null, options = {}) {
+    async _call(text: string|string[], images: RawImage|RawImage[]|RawImage[][], options: any = {}) {
         options.return_row_col_info ??= true;
 
         let image_inputs;
@@ -103,7 +103,7 @@ export class Idefics3Processor extends Processor {
 
             // Replace the image token with fake tokens around the expanded image token sequence of length `image_seq_len`
             const image_prompt_strings = sample_rows.map(
-                (n_rows, j) => get_image_prompt_string(
+                (n_rows: number, j: number) => get_image_prompt_string(
                     n_rows,
                     sample_cols[j],
                     image_seq_len,

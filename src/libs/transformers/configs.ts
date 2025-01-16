@@ -1,4 +1,3 @@
-
 /**
  * @file Helper module for using model configs. For more information, see the corresponding
  * [Python documentation](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig).
@@ -27,10 +26,12 @@
  * @module configs
  */
 
-import { pick } from './utils/core.js';
+import { TransformersJSConfig } from '@huggingface/transformers/types/configs';
+import { pick } from './utils/core';
 import {
     getModelJSON,
-} from './utils/hub.js';
+    PretrainedOptions,
+} from './utils/hub';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
@@ -50,7 +51,7 @@ import {
  * @param {PretrainedOptions} options Additional options for loading the config.
  * @returns {Promise<Object>} A promise that resolves with information about the loaded config.
  */
-async function loadConfig(pretrained_model_name_or_path, options) {
+async function loadConfig(pretrained_model_name_or_path: string, options: PretrainedOptions) {
     return await getModelJSON(pretrained_model_name_or_path, 'config.json', true, options);
 }
 
@@ -59,11 +60,11 @@ async function loadConfig(pretrained_model_name_or_path, options) {
  * @param {PretrainedConfig} config 
  * @returns {Object} The normalized configuration.
  */
-function getNormalizedConfig(config) {
-    const mapping = {};
+function getNormalizedConfig(config: PretrainedConfig) {
+    const mapping: { [key: string]: string } = {};
 
     let init_normalized_config = {};
-    switch (config.model_type) {
+    switch (config.model_type as unknown as string) {
         // Sub-configs
         case 'llava':
         case 'paligemma':
@@ -207,7 +208,7 @@ function getNormalizedConfig(config) {
             const decoderConfig = getNormalizedConfig(config.decoder);
 
             const add_encoder_pkv = 'num_decoder_layers' in decoderConfig;
-            const result = pick(config, ['model_type', 'is_encoder_decoder']);
+            const result: Record<string, unknown> = pick(config, ['model_type', 'is_encoder_decoder']);
             if (add_encoder_pkv) {
                 // Decoder is part of an encoder-decoder model
                 result.num_decoder_layers = decoderConfig.num_decoder_layers;
@@ -243,12 +244,12 @@ function getNormalizedConfig(config) {
  * @param {PretrainedConfig} config 
  * @returns {Record<string, number[]>}
  */
-export function getKeyValueShapes(config, {
+export function getKeyValueShapes(config: PretrainedConfig, {
     prefix = 'past_key_values',
     batch_size=1,
 } = {}) {
     /** @type {Record<string, number[]>} */
-    const decoderFeeds = {};
+    const decoderFeeds: Record<string, number[]> = {};
     const normalized_config = config.normalized_config;
 
     if (normalized_config.is_encoder_decoder && (
@@ -322,8 +323,6 @@ export function getKeyValueShapes(config, {
  * [Python documentation](https://huggingface.co/docs/transformers/main/en/main_classes/configuration#transformers.PretrainedConfig).
  */
 export class PretrainedConfig {
-    // NOTE: Typo in original
-
     /** @type {string|null} */
     model_type = null;
 
@@ -331,16 +330,19 @@ export class PretrainedConfig {
     is_encoder_decoder = false;
 
     /** @type {number} */
-    max_position_embeddings;
+    max_position_embeddings!: number;
 
     /** @type {TransformersJSConfig} */
-    'transformers.js_config';
+    transformers_js_config!: TransformersJSConfig;
+
+    /** @type {Record<string, any>} */
+    normalized_config!: Record<string, any>;
 
     /**
      * Create a new PreTrainedTokenizer instance.
-     * @param {Object} configJSON The JSON of the config.
+     * @param {Record<string, any>} configJSON The JSON of the config.
      */
-    constructor(configJSON) {
+    constructor(configJSON: Record<string, any>) {
         Object.assign(this, configJSON);
         this.normalized_config = getNormalizedConfig(this);
     }
@@ -354,9 +356,9 @@ export class PretrainedConfig {
      * 
      * @returns {Promise<PretrainedConfig>} A new instance of the `PretrainedConfig` class.
      */
-    static async from_pretrained(pretrained_model_name_or_path, {
+    static async from_pretrained(pretrained_model_name_or_path: string, {
         progress_callback = null,
-        config = null,
+        config = null as any,
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
@@ -384,7 +386,7 @@ export class PretrainedConfig {
  */
 export class AutoConfig {
     /** @type {typeof PretrainedConfig.from_pretrained} */
-    static async from_pretrained(...args) {
+    static async from_pretrained(...args: [string, PretrainedOptions]) {
         return PretrainedConfig.from_pretrained(...args);
     }
 }

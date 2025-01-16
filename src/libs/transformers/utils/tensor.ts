@@ -51,6 +51,8 @@ type DataType = keyof typeof DataTypeMap;
 
 
 export class Tensor {
+    [index: number]: Tensor;  // Add numeric index signature
+
     /** @type {number[]} Dimensions of the tensor. */
     get dims() {
         // @ts-ignore
@@ -1429,7 +1431,7 @@ function fullHelper(
     const numElements = size.reduce((a, b) => a * b, 1);
     return new Tensor(
         dtype as keyof typeof DataTypeMap,
-        (new cls(numElements).fill(fill_value)) as TypedArray,
+        (new cls(numElements).fill(fill_value as number & bigint & boolean)) as TypedArray,
         size
     )
 }
