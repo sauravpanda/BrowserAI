@@ -1,10 +1,10 @@
-import { Processor } from "./base/processing_utils";
-import { GenerationConfig } from "./generation/configuration_utils";
-import { PreTrainedModel } from "./models";
-import { PreTrainedTokenizer } from "./tokenizers";
-import { RawImage } from "./utils/image";
-import { Tensor } from "./utils/tensor";
-import { SUPPORTED_TASKS, TASK_ALIASES } from "./pipelines";
+import { Processor } from './base/processing_utils';
+import { GenerationConfig } from './generation/configuration_utils';
+import { PreTrainedModel } from './models';
+import { PreTrainedTokenizer } from './tokenizers';
+import { RawImage } from './utils/image';
+import { Tensor } from './utils/tensor';
+import { SUPPORTED_TASKS, TASK_ALIASES } from './pipelines';
 // Core types
 export interface Message {
   role: string;
@@ -61,17 +61,17 @@ export type TextImagePipelineConstructorArgs = ModelTokenizerProcessorConstructo
 // Pipeline callbacks
 export type TextGenerationPipelineCallback = (
   texts: string | string[] | Chat | Chat[],
-  options?: Partial<TextGenerationConfig>
+  options?: Partial<TextGenerationConfig>,
 ) => Promise<TextGenerationOutput | TextGenerationOutput[]>;
 
 export type FeatureExtractionPipelineCallback = (
   texts: string | string[],
-  options?: FeatureExtractionPipelineOptions
+  options?: FeatureExtractionPipelineOptions,
 ) => Promise<Tensor>;
 
 export type ImageFeatureExtractionPipelineCallback = (
   images: ImagePipelineInputs,
-  options?: ImageFeatureExtractionPipelineOptions
+  options?: ImageFeatureExtractionPipelineOptions,
 ) => Promise<Tensor>;
 
 // Pipeline options
@@ -89,4 +89,4 @@ export interface ImageFeatureExtractionPipelineOptions {
 // Task types
 export type TaskType = keyof typeof SUPPORTED_TASKS;
 export type AliasType = keyof typeof TASK_ALIASES;
-export type PipelineType = TaskType | AliasType; 
+export type PipelineType = TaskType | AliasType;

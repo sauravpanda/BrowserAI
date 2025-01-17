@@ -1,24 +1,24 @@
 /**
  * @file Module used to configure Transformers.js.
- * 
+ *
  * **Example:** Disable remote models.
  * ```javascript
  * import { env } from '@huggingface/transformers';
  * env.allowRemoteModels = false;
  * ```
- * 
+ *
  * **Example:** Set local model path.
  * ```javascript
  * import { env } from '@huggingface/transformers';
  * env.localModelPath = '/path/to/local/models/';
  * ```
- * 
+ *
  * **Example:** Set cache directory.
  * ```javascript
  * import { env } from '@huggingface/transformers';
  * env.cacheDir = '/path/to/cache/directory/';
  * ```
- * 
+ *
  * @module env
  */
 
@@ -29,9 +29,9 @@ import url from 'url';
 const VERSION = '3.2.4';
 
 // Check if various APIs are available (depends on environment)
-const IS_BROWSER_ENV = typeof window !== "undefined" && typeof window.document !== "undefined";
-const IS_WEBWORKER_ENV = typeof self !== "undefined"  && self.constructor?.name === 'DedicatedWorkerGlobalScope';
-const IS_WEB_CACHE_AVAILABLE = typeof self !== "undefined" && 'caches' in self;
+const IS_BROWSER_ENV = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+const IS_WEBWORKER_ENV = typeof self !== 'undefined' && self.constructor?.name === 'DedicatedWorkerGlobalScope';
+const IS_WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
 const IS_WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 const IS_WEBNN_AVAILABLE = typeof navigator !== 'undefined' && 'ml' in navigator;
 
@@ -44,60 +44,56 @@ const IS_PATH_AVAILABLE = !isEmpty(path);
  * A read-only object containing information about the APIs available in the current environment.
  */
 export const apis = Object.freeze({
-    /** Whether we are running in a browser environment (and not a web worker) */
-    IS_BROWSER_ENV,
+  /** Whether we are running in a browser environment (and not a web worker) */
+  IS_BROWSER_ENV,
 
-    /** Whether we are running in a web worker environment */
-    IS_WEBWORKER_ENV,
+  /** Whether we are running in a web worker environment */
+  IS_WEBWORKER_ENV,
 
-    /** Whether the Cache API is available */
-    IS_WEB_CACHE_AVAILABLE,
+  /** Whether the Cache API is available */
+  IS_WEB_CACHE_AVAILABLE,
 
-    /** Whether the WebGPU API is available */
-    IS_WEBGPU_AVAILABLE,
+  /** Whether the WebGPU API is available */
+  IS_WEBGPU_AVAILABLE,
 
-    /** Whether the WebNN API is available */
-    IS_WEBNN_AVAILABLE,
+  /** Whether the WebNN API is available */
+  IS_WEBNN_AVAILABLE,
 
-    /** Whether the Node.js process API is available */
-    IS_PROCESS_AVAILABLE,
+  /** Whether the Node.js process API is available */
+  IS_PROCESS_AVAILABLE,
 
-    /** Whether we are running in a Node.js environment */
-    IS_NODE_ENV,
+  /** Whether we are running in a Node.js environment */
+  IS_NODE_ENV,
 
-    /** Whether the filesystem API is available */
-    IS_FS_AVAILABLE,
+  /** Whether the filesystem API is available */
+  IS_FS_AVAILABLE,
 
-    /** Whether the path API is available */
-    IS_PATH_AVAILABLE,
+  /** Whether the path API is available */
+  IS_PATH_AVAILABLE,
 });
 
 const RUNNING_LOCALLY = IS_FS_AVAILABLE && IS_PATH_AVAILABLE;
 
 let dirname__ = './';
 if (RUNNING_LOCALLY) {
-    // NOTE: We wrap `import.meta` in a call to `Object` to prevent Webpack from trying to bundle it in CommonJS.
-    // Although we get the warning: "Accessing import.meta directly is unsupported (only property access or destructuring is supported)",
-    // it is safe to ignore since the bundled value (`{}`) isn't used for CommonJS environments (we use __dirname instead).
-    const _import_meta_url = Object(import.meta).url;
+  // NOTE: We wrap `import.meta` in a call to `Object` to prevent Webpack from trying to bundle it in CommonJS.
+  // Although we get the warning: "Accessing import.meta directly is unsupported (only property access or destructuring is supported)",
+  // it is safe to ignore since the bundled value (`{}`) isn't used for CommonJS environments (we use __dirname instead).
+  const _import_meta_url = Object(import.meta).url;
 
-    if (_import_meta_url) {
-        dirname__ = path.dirname(path.dirname(url.fileURLToPath(_import_meta_url))) // ESM
-    } else if (typeof __dirname !== 'undefined') {
-        dirname__ = path.dirname(__dirname) // CommonJS
-    }
+  if (_import_meta_url) {
+    dirname__ = path.dirname(path.dirname(url.fileURLToPath(_import_meta_url))); // ESM
+  } else if (typeof __dirname !== 'undefined') {
+    dirname__ = path.dirname(__dirname); // CommonJS
+  }
 }
 
 // Only used for environments with access to file system
-const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
-    ? path.join(dirname__, '/.cache/')
-    : null;
+const DEFAULT_CACHE_DIR = RUNNING_LOCALLY ? path.join(dirname__, '/.cache/') : null;
 
 // Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
-const localModelPath = RUNNING_LOCALLY
-    ? path.join(dirname__, DEFAULT_LOCAL_MODEL_PATH)
-    : DEFAULT_LOCAL_MODEL_PATH;
+const localModelPath = RUNNING_LOCALLY ? path.join(dirname__, DEFAULT_LOCAL_MODEL_PATH) : DEFAULT_LOCAL_MODEL_PATH;
 
 /**
  * Global variable given visible to users to control execution. This provides users a simple way to configure Transformers.js.
@@ -122,49 +118,47 @@ const localModelPath = RUNNING_LOCALLY
  */
 
 export interface Environment {
-    customCache: {
-        match: (request: string) => Promise<Response | undefined>;
-        put: (request: string, response: Response) => Promise<void>;
-    } | null;
+  customCache: {
+    match: (request: string) => Promise<Response | undefined>;
+    put: (request: string, response: Response) => Promise<void>;
+  } | null;
 }
 
 /** @type {TransformersEnvironment} */
 export const env = {
-    version: VERSION,
+  version: VERSION,
 
-    /////////////////// Backends settings ///////////////////
-    // NOTE: These will be populated later by the backends themselves.
-    backends: {
-        // onnxruntime-web/onnxruntime-node
-        onnx: {},
-    },
+  /////////////////// Backends settings ///////////////////
+  // NOTE: These will be populated later by the backends themselves.
+  backends: {
+    // onnxruntime-web/onnxruntime-node
+    onnx: {},
+  },
 
-    /////////////////// Model settings ///////////////////
-    allowRemoteModels: true,
-    remoteHost: 'https://huggingface.co/',
-    remotePathTemplate: '{model}/resolve/{revision}/',
+  /////////////////// Model settings ///////////////////
+  allowRemoteModels: true,
+  remoteHost: 'https://huggingface.co/',
+  remotePathTemplate: '{model}/resolve/{revision}/',
 
-    allowLocalModels: !(IS_BROWSER_ENV || IS_WEBWORKER_ENV),
-    localModelPath: localModelPath,
-    useFS: IS_FS_AVAILABLE,
+  allowLocalModels: !(IS_BROWSER_ENV || IS_WEBWORKER_ENV),
+  localModelPath: localModelPath,
+  useFS: IS_FS_AVAILABLE,
 
-    /////////////////// Cache settings ///////////////////
-    useBrowserCache: IS_WEB_CACHE_AVAILABLE,
+  /////////////////// Cache settings ///////////////////
+  useBrowserCache: IS_WEB_CACHE_AVAILABLE,
 
-    useFSCache: IS_FS_AVAILABLE,
-    cacheDir: DEFAULT_CACHE_DIR,
+  useFSCache: IS_FS_AVAILABLE,
+  cacheDir: DEFAULT_CACHE_DIR,
 
-    useCustomCache: false,
-    customCache: null,
-    //////////////////////////////////////////////////////
-}
-
+  useCustomCache: false,
+  customCache: null,
+  //////////////////////////////////////////////////////
+};
 
 /**
  * @param {Object} obj
  * @private
  */
 function isEmpty(obj: any) {
-    return Object.keys(obj).length === 0;
+  return Object.keys(obj).length === 0;
 }
-

@@ -1,115 +1,119 @@
 interface InitiateProgressInfo {
-    status: 'initiate';
-    name: string;
-    file: string;
+  status: 'initiate';
+  name: string;
+  file: string;
 }
 
 interface DownloadProgressInfo {
-    status: 'download';
-    name: string;
-    file: string;
+  status: 'download';
+  name: string;
+  file: string;
 }
 
 interface ProgressStatusInfo {
-    status: 'progress';
-    name: string;
-    file: string;
-    progress: number;
-    loaded: number;
-    total: number;
+  status: 'progress';
+  name: string;
+  file: string;
+  progress: number;
+  loaded: number;
+  total: number;
 }
 
 interface DoneProgressInfo {
-    status: 'done';
-    name: string;
-    file: string;
+  status: 'done';
+  name: string;
+  file: string;
 }
 
 interface ReadyProgressInfo {
-    status: 'ready';
-    task: string;
-    model: string;
+  status: 'ready';
+  task: string;
+  model: string;
 }
 
-export type ProgressInfo = InitiateProgressInfo | DownloadProgressInfo | ProgressStatusInfo | DoneProgressInfo | ReadyProgressInfo;
+export type ProgressInfo =
+  | InitiateProgressInfo
+  | DownloadProgressInfo
+  | ProgressStatusInfo
+  | DoneProgressInfo
+  | ReadyProgressInfo;
 export type ProgressCallback = (progressInfo: ProgressInfo) => void;
 
 export function dispatchCallback(progress_callback: ProgressCallback | null | undefined, data: ProgressInfo): void {
-    if (progress_callback) progress_callback(data);
+  if (progress_callback) progress_callback(data);
 }
 
 export function reverseDictionary(data: Record<string, any>): Record<string, any> {
-    return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
+  return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
 }
 
 export function escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function isTypedArray(val: any): boolean {
-    return val?.prototype?.__proto__?.constructor?.name === 'TypedArray';
+  return val?.prototype?.__proto__?.constructor?.name === 'TypedArray';
 }
 
 export function isIntegralNumber(x: any): boolean {
-    return Number.isInteger(x) || typeof x === 'bigint';
+  return Number.isInteger(x) || typeof x === 'bigint';
 }
 
 export function isNullishDimension(x: any): boolean {
-    return x === null || x === undefined || x === -1;
+  return x === null || x === undefined || x === -1;
 }
 
 export function calculateDimensions(arr: any[]): number[] {
-    const dimensions: number[] = [];
-    let current: any = arr;
-    while (Array.isArray(current)) {
-        dimensions.push(current.length);
-        current = current[0];
-    }
-    return dimensions;
+  const dimensions: number[] = [];
+  let current: any = arr;
+  while (Array.isArray(current)) {
+    dimensions.push(current.length);
+    current = current[0];
+  }
+  return dimensions;
 }
 
 export function pop<T>(obj: Record<string, T>, key: string, defaultValue?: T): T {
-    const value = obj[key];
-    if (value !== undefined) {
-        delete obj[key];
-        return value;
-    }
-    if (defaultValue === undefined) {
-        throw Error(`Key ${key} does not exist in object.`);
-    }
-    return defaultValue;
+  const value = obj[key];
+  if (value !== undefined) {
+    delete obj[key];
+    return value;
+  }
+  if (defaultValue === undefined) {
+    throw Error(`Key ${key} does not exist in object.`);
+  }
+  return defaultValue;
 }
 
 export function mergeArrays<T>(...arrs: T[][]): T[] {
-    return Array.prototype.concat.apply([], arrs);
+  return Array.prototype.concat.apply([], arrs);
 }
 
 export function product<T>(...a: T[][]): T[][] {
-    return a.reduce<T[][]>((acc, curr) => 
-        acc.flatMap(d => curr.map(e => [...(Array.isArray(d) ? d as T[] : [d]), e]))
-    , [[]]);
+  return a.reduce<T[][]>(
+    (acc, curr) => acc.flatMap((d) => curr.map((e) => [...(Array.isArray(d) ? (d as T[]) : [d]), e])),
+    [[]],
+  );
 }
 
 export function calculateReflectOffset(i: number, w: number): number {
-    return Math.abs((i + w) % (2 * w) - w);
+  return Math.abs(((i + w) % (2 * w)) - w);
 }
 
 export function pick<T>(obj: T, keys: Array<keyof T>) {
-    return Object.fromEntries(
-        keys.map(k => [k, obj[k as keyof T]])
-    );
+  return Object.fromEntries(keys.map((k) => [k, obj[k as keyof T]]));
 }
 
 export function len(s: string): number {
-    let length = 0;
-    for (const c of s) ++length;
-    return length;
+  let length = 0;
+  for (const c of s) ++length;
+  return length;
 }
 
 export function count<T>(arr: T[] | string, value: T): number {
-    let count = 0;
-    for (const v of arr) {
-        if (v === value) ++count;
-    }
-    return count;
+  let count = 0;
+  for (const v of arr) {
+    if (v === value) ++count;
+  }
+  return count;
 }

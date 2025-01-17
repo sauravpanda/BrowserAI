@@ -1,7 +1,12 @@
-
 /**
  * @module generation/parameters
  */
+
+import { Tensor } from "../utils/tensor";
+import { GenerationConfig } from "./configuration_utils";
+import { LogitsProcessorList } from "./logits_process";
+import { StoppingCriteriaList } from "./stopping_criteria";
+import { BaseStreamer } from "./streamers";
 
 /**
  * @typedef {Object} GenerationFunctionParameters
@@ -33,3 +38,11 @@
  * If the model is an encoder-decoder model, this argument is used to pass the `decoder_input_ids`.
  * @param {any} [kwargs] (`Dict[str, any]`, *optional*):
  */
+export type GenerationFunctionParameters = {
+  inputs: Tensor|null;
+  generation_config: GenerationConfig|null;
+  logits_processor: LogitsProcessorList|null;
+  stopping_criteria: StoppingCriteriaList|null;
+  streamer: BaseStreamer|null;
+  decoder_input_ids: number[]|null;
+};
