@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { BrowserAI } from '@browserai/browserai';
 import posthog from 'posthog-js';
