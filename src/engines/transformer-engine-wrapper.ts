@@ -31,20 +31,12 @@ export class TransformersEngineWrapper {
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
       this.modelType = modelConfig.modelType;
+      options.device = 'webgpu';
 
       // Configure pipeline options with proper worker settings
       const pipelineOptions = {
         progress_callback: options.onProgress,
-        ...options,
-        // Add worker configuration
-        worker: {
-          // Ensure worker has no DOM dependencies
-          env: 'worker',
-          // Disable service workers which may try to access document
-          serviceWorker: false,
-          // Skip DOM checks
-          skipCompatibilityCheck: true,
-        },
+        ...options
       };
 
       this.transformersPipeline = await pipeline(
@@ -135,7 +127,6 @@ export class TransformersEngineWrapper {
       const result = await pipeline(text, {
         speaker_embeddings,
       });
-
       // Convert Float32Array to proper audio buffer format
       const audioData = result.audio;
       if (audioData instanceof Float32Array) {
@@ -149,7 +140,6 @@ export class TransformersEngineWrapper {
         // Create WAV header
         const wavHeader = new ArrayBuffer(44);
         const view = new DataView(wavHeader);
-
         // WAV header details
         this.writeString(view, 0, 'RIFF');
         view.setUint32(4, 36 + pcmData.length * 2, true);
@@ -164,7 +154,6 @@ export class TransformersEngineWrapper {
         view.setUint16(34, 16, true);
         this.writeString(view, 36, 'data');
         view.setUint32(40, pcmData.length * 2, true);
-
         // Combine header and data
         const wavBlob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
         return await wavBlob.arrayBuffer();

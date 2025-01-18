@@ -2625,7 +2625,6 @@ export class PreTrainedTokenizer extends Callable {
         super();
 
         this._tokenizer_config = tokenizerConfig;
-
         // Construct parts of the tokenizer from the JSON
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
@@ -2944,7 +2943,6 @@ export class PreTrainedTokenizer extends Callable {
             // NOTE: In the same way as the python library, we return a batched tensor, regardless of
             // whether we have a single input or multiple inputs.
             const dims = [encodedTokens.length, encodedTokens[0].input_ids.length];
-
             for (const key of Object.keys(encodedTokens[0])) {
                 result[key] = new Tensor(
                     'int64',
@@ -3051,10 +3049,9 @@ export class PreTrainedTokenizer extends Callable {
 
         const input_ids = this.model.convert_tokens_to_ids(tokens);
 
-        const result = {
+        const result: any = {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
-            token_type_ids: null,
         };
         if ((return_token_type_ids ?? this.return_token_type_ids) && token_type_ids) {
             result.token_type_ids = token_type_ids;
