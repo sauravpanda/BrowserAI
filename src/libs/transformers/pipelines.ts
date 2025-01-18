@@ -843,7 +843,7 @@ export class AutomaticSpeechRecognitionPipeline
       // Generate for each set of input features
       for (const chunk of chunks) {
         generation_config.num_frames = Math.floor(chunk.stride[0] / hop_length);
-        console.log(generation_config, chunk);
+        // console.log(generation_config, chunk);
         // NOTE: doing sequentially for now
         const data = await this.model.generate({
           inputs: chunk.input_features,

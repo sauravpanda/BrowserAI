@@ -145,7 +145,7 @@ if (ONNX_ENV?.wasm) {
   // In practice, users should probably self-host the necessary .wasm files.
   ONNX_ENV.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${env.version}/dist/`;
   // https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.2.4/dist/ort-wasm-simd-threaded.jsep.wasm
-  console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
+  // console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
   // TODO: Add support for loading WASM files from cached buffer when we upgrade to onnxruntime-web@1.19.0
   // https://github.com/microsoft/onnxruntime/pull/21534
 

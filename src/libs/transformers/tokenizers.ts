@@ -1868,7 +1868,7 @@ class Decoder extends Callable {
     end_of_word_suffix: string | null;
     trim_offsets: boolean;
     config: any;
-    x: any;
+    // x: any;
     constructor(config: any) {
         super();
         this.config = config;
@@ -1933,7 +1933,7 @@ class Decoder extends Callable {
      * @returns {string} The decoded string.
      */
     decode(tokens: string[]) {
-        return this.x(tokens).join('');
+        return this.decode_chain(tokens).join('');
     }
 
     /**
@@ -3663,12 +3663,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             return_language = false,
             time_precision = null,
             force_full_sequences = true,
-        }: {
-            return_timestamps?: string | null;
-            return_language?: boolean;
-            time_precision?: number | null;
-            force_full_sequences?: boolean;
-        } = {},
+        }: any = {},
     ) {
         // Set force_full_sequences=false if you want streaming
         // TODO add support for `return_language`
@@ -3772,7 +3767,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 // - 4/ Regular text
 
                 if (all_special_ids.has(token)) {
-                    const text = this.decode([token], {});
+                    const text = this.decode([token]);
                     const language = WHISPER_LANGUAGE_MAPPING.get(text.slice(2, -2));
 
                     if (language !== undefined) {
@@ -4117,7 +4112,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 
     /** @type {PreTrainedTokenizer['decode']} */
-    decode(token_ids: number[] | bigint[] | Tensor, decode_args: any) {
+    decode(token_ids: number[] | bigint[] | Tensor, decode_args: any = {}) {
         let text;
         // @ts-ignore
         if (decode_args?.decode_with_timestamps) {

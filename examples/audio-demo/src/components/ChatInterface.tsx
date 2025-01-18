@@ -605,7 +605,7 @@ export default function ChatInterface() {
             const response = await chatAIRef.current?.generateText(transcribedText, {
               maxTokens: 100,
               temperature: 0.7,
-              system_prompt: "You are a helpful assistant who answers questions about the user's input in short and concise manner. Keep answer to 3-5 sentences. "
+              system_prompt: 'You are a helpful assistant who answers questions about the user\'s input in short and concise manner. Keep answer to 3-5 sentences. '
             });
             const chatEndTime = performance.now();
             const chatProcessingTime = chatEndTime - chatStartTime;
