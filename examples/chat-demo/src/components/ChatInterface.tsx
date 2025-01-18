@@ -523,7 +523,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       for await (const chunk of chunks as AsyncIterable<{
         choices: Array<{ delta: { content?: string } }>
       }>) {
-        const newContent = chunk.choices[0]?.delta.content || "";
+        const newContent = chunk.choices[0]?.delta.content || '';
         response += newContent;
         setMessages(prevMessages => {
           if (prevMessages[prevMessages.length - 1]?.isUser) {
@@ -681,7 +681,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
           <div className="header" onClick={() => setShowPrivacyDetails(!showPrivacyDetails)}>
             <span style={{ color: '#a0a0a0' }}>
               📊 We collect anonymous performance metrics
-              {!showPrivacyDetails && " (click to learn more)"}
+              {!showPrivacyDetails && ' (click to learn more)'}
             </span>
             <span style={{ color: '#666' }}>
               {showPrivacyDetails ? '▼' : '▶'}
@@ -723,7 +723,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyPress={e => e.key === 'Enter' && handleSend()}
-                  placeholder={modelLoaded ? "Type your message..." : "Please load a model first"}
+                  placeholder={modelLoaded ? 'Type your message...' : 'Please load a model first'}
                   disabled={!modelLoaded}
                 />
                 <Button 

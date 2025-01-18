@@ -17,7 +17,8 @@
     "modelType": "automatic-speech-recognition",
     "repo": "onnx-community/whisper-tiny.en",
     "pipeline": "automatic-speech-recognition",
-    "defaultQuantization": "q4"
+    "defaultQuantization": "q4",
+    "quantizations": ["q4", "fp16", "int4"]
   },
   "speecht5-tts": {
     "engine": "transformers",

@@ -1,6 +1,6 @@
 {
   "name": "@browserai/browserai",
-  "version": "1.0.11",
+  "version": "1.0.13",
   "private": false,
   "description": "A library for running AI models directly in the browser",
   "main": "dist/index.js",
@@ -20,7 +20,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "repository": {
     "type": "git",
@@ -33,14 +35,20 @@
   },
   "homepage": "https://github.com/sauravpanda/BrowserAI#readme",
   "dependencies": {
-    "@huggingface/transformers": "^3.2.4",
-    "@mlc-ai/web-llm": "^0.2.77"
+    "@huggingface/jinja": "^0.3.2",
+    "@mlc-ai/web-llm": "^0.2.77",
+    "onnxruntime-web": "1.21.0-dev.20241205-d27fecd3d3"
   },
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@webgpu/types": "^0.1.53",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3"
   },

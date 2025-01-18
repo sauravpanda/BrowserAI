@@ -8,13 +8,13 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     
-    /* Remove noEmit and add outDir */
+    /* Output configuration */
     "composite": true,
     "outDir": "./dist",
+    "noEmit": true,
 
     /* Linting */
     "strict": true,

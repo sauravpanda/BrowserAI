@@ -36,3 +36,8 @@ yarn-error.log*
 # Docs
 .next
 out
+
+# Build
+.next
+out
+*package-lock.json

@@ -8,8 +8,8 @@ import transformersModels from '../../config/models/transformers-models.json';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
-  ...mlcModels as Record<string, MLCConfig>,
-  ...transformersModels as Record<string, TransformersConfig>
+  ...(mlcModels as Record<string, MLCConfig>),
+  ...(transformersModels as Record<string, TransformersConfig>),
 };
 
 export class BrowserAI {
@@ -42,14 +42,14 @@ export class BrowserAI {
       engineToUse = 'mlc';
     }
 
-    console.log("Engine to use:", engineToUse);
+    console.log('Engine to use:', engineToUse);
 
     switch (engineToUse) {
-      case "mlc":
+      case 'mlc':
         this.engine = new MLCEngineWrapper();
         await this.engine.loadModel(mlcVersion || modelConfig, options);
         break;
-      case "transformers":
+      case 'transformers':
         this.engine = new TransformersEngineWrapper();
         await this.engine.loadModel(modelConfig, options);
         break;
@@ -60,48 +60,47 @@ export class BrowserAI {
     this.currentModel = modelConfig;
   }
 
-
   async generateText(prompt: string, options: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.engine) {
-      throw new Error("No model loaded. Please call loadModel first.");
+      throw new Error('No model loaded. Please call loadModel first.');
     }
 
     try {
       const result = await this.engine.generateText(prompt, options);
       return result;
     } catch (error) {
-      console.error("Error generating text:", error);
+      console.error('Error generating text:', error);
       throw error;
     }
   }
 
   async transcribeAudio(audio: Blob | Float32Array, options: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.engine) {
-      throw new Error("No model loaded. Please call loadModel first.");
+      throw new Error('No model loaded. Please call loadModel first.');
     }
 
     try {
       if (this.engine instanceof TransformersEngineWrapper) {
         if (audio instanceof Blob) {
           const audioContext = new AudioContext({
-            sampleRate: 16000  // Force 16kHz sample rate
+            sampleRate: 16000, // Force 16kHz sample rate
           });
-          
+
           const arrayBuffer = await audio.arrayBuffer();
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          
+
           // Ensure we get the correct number of samples
           const float32Data = new Float32Array(Math.floor(audioBuffer.length));
           audioBuffer.copyFromChannel(float32Data, 0);
-          
+
           // Clean up
           audioContext.close();
-          
+
           return await this.engine.transcribe(float32Data, options);
         }
         return await this.engine.transcribe(audio, options);
       } else {
-        throw new Error("Engine does not support transcribe method.");
+        throw new Error('Engine does not support transcribe method.');
       }
     } catch (error) {
       console.error('Transcription error:', error);
@@ -147,7 +146,7 @@ export class BrowserAI {
 
   async generateResponse(text: string): Promise<string> {
     if (!this.modelIdentifier) {
-      throw new Error("No model loaded. Please call loadModel first.");
+      throw new Error('No model loaded. Please call loadModel first.');
     }
     if (this.currentModel?.modelName !== this.modelIdentifier) {
       await this.loadModel(this.modelIdentifier);
@@ -161,7 +160,7 @@ export class BrowserAI {
       this.ttsEngine = new TransformersEngineWrapper();
       await this.ttsEngine.loadModel(MODEL_CONFIG['speecht5-tts'], {
         quantized: false,
-        ...options
+        ...options,
       });
     }
 
@@ -169,7 +168,7 @@ export class BrowserAI {
       const audioData = await this.ttsEngine.textToSpeech(text);
       return audioData;
     } catch (error) {
-      console.error("Error generating speech:", error);
+      console.error('Error generating speech:', error);
       throw error;
     }
   }

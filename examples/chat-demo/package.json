@@ -12,8 +12,10 @@
   "dependencies": {
     "@browserai/browserai": "^1.0.11",
     "@emotion/styled": "^11.14.0",
+    "@huggingface/jinja": "^0.3.2",
     "@huggingface/transformers": "^3.2.4",
     "@mlc-ai/web-llm": "^0.2.77",
+    "katex": "^0.16.20",
     "posthog-js": "^1.205.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

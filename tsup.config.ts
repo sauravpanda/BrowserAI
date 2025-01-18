@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup'
+import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -12,7 +12,7 @@ export default defineConfig({
   outExtension({ format }) {
     return {
       js: format === 'esm' ? '.mjs' : '.js'
-    }
+    };
   },
   target: 'es2020',
   platform: 'browser',
@@ -20,8 +20,8 @@ export default defineConfig({
   shims: false,
   noExternal: [],
   esbuildOptions(options) {
-    options.platform = 'neutral'
+    options.platform = 'neutral';
   },
   bundle: true,
-  skipNodeModulesBundle: true
-}) 
+  skipNodeModulesBundle: true,
+}); 

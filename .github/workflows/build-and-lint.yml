@@ -1,0 +1,40 @@
+name: Build and Lint
+
+on:
+  push:
+    branches: [ '**' ]  # Runs on all branches
+  pull_request:
+    branches: [ '**' ]  # Runs on PRs targeting any branch
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    # Add these steps to fix the rollup issue
+    - name: Clean npm cache
+      run: npm cache clean --force
+      
+    - name: Remove existing node_modules and package-lock.json
+      run: |
+        rm -rf node_modules
+        rm -f package-lock.json
+
+    - name: Install dependencies
+      run: npm install
+      working-directory: examples/audio-demo
+
+    - name: Build
+      run: npm run build
+      working-directory: examples/audio-demo 
