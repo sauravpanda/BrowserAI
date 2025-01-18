@@ -473,6 +473,9 @@ export default function ChatInterface() {
   const [voiceProcessingTime, setVoiceProcessingTime] = useState<number>(0);
   const [speakingMessageId, setSpeakingMessageId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<string>('Loading');
+  const [audioAIRef] = useState(new BrowserAI());
+  const [chatAIRef] = useState(new BrowserAI());
+  const [ttsAIRef] = useState(new BrowserAI());
   const [stats, setStats] = useState({
     memoryUsage: 0,
     maxMemory: 0,
@@ -483,20 +486,8 @@ export default function ChatInterface() {
     responseHistory: [] as number[],
   });
 
-  const audioAIRef = useRef<BrowserAI | null>(null);
-  const chatAIRef = useRef<BrowserAI | null>(null);
-  const ttsAIRef = useRef<BrowserAI | null>(null);
-
   const [selectedModel, setSelectedModel] = useState('smollm2-135m-instruct');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioAIRef.current = new BrowserAI();
-      chatAIRef.current = new BrowserAI();
-      ttsAIRef.current = new BrowserAI();
-    }
-  }, []);
 
   useEffect(() => {
     const updateMemoryUsage = async () => {
@@ -558,7 +549,7 @@ export default function ChatInterface() {
       setIsRecording(true);
       setStatus('Recording...');
       setMessages([]);
-      await audioAIRef.current?.startRecording();
+      await audioAIRef.startRecording();
 
       captureAnalytics('start_recording', {
         memoryUsage: stats.memoryUsage,
@@ -579,12 +570,12 @@ export default function ChatInterface() {
     try {
       setStatus('Processing...');
       const startTime = performance.now();
-      const audioBlob = await audioAIRef.current?.stopRecording();
+      const audioBlob = await audioAIRef.stopRecording();
       setIsRecording(false);
 
       if (audioBlob) {
         const audioStartTime = performance.now();
-        const transcription = await audioAIRef.current?.transcribeAudio(audioBlob);
+        const transcription = await audioAIRef.transcribeAudio(audioBlob);
         const audioEndTime = performance.now();
         const audioProcessingTime = audioEndTime - audioStartTime;
         setAudioProcessingTime(audioProcessingTime);
@@ -602,7 +593,7 @@ export default function ChatInterface() {
 
           try {
             const chatStartTime = performance.now();
-            const response = await chatAIRef.current?.generateText(transcribedText, {
+            const response = await chatAIRef.generateText(transcribedText, {
               maxTokens: 100,
               temperature: 0.7,
               system_prompt: 'You are a helpful assistant who answers questions about the user\'s input in short and concise manner. Keep answer to 3-5 sentences. '
@@ -658,8 +649,8 @@ export default function ChatInterface() {
     try {
       setSpeakingMessageId(messageIndex);
       const startTime = performance.now();
-      const audioData = await ttsAIRef.current?.textToSpeech(text);
 
+      const audioData = await ttsAIRef.textToSpeech(text);
       setVoiceProcessingTime(performance.now() - startTime);
       if (audioData) {
         captureAnalytics('text_to_speech_generated', {
@@ -677,7 +668,6 @@ export default function ChatInterface() {
         source.onended = () => {
           setSpeakingMessageId(null);
         };
-
         source.start();
       }
     } catch (error) {
@@ -729,7 +719,7 @@ export default function ChatInterface() {
       const audioLoadStart = performance.now();
       setStatus('Loading audio model...');
       try {
-        await audioAIRef.current?.loadModel('whisper-tiny-en');
+        await audioAIRef.loadModel('whisper-tiny-en');
         console.log('Audio model loaded successfully');
       } catch (error) {
         console.error('Error loading audio model:', error);
@@ -743,7 +733,7 @@ export default function ChatInterface() {
       const ttsLoadStart = performance.now();
       setStatus('Loading TTS model...');
       try {
-        await ttsAIRef.current?.loadModel('speecht5-tts');
+        await ttsAIRef.loadModel('speecht5-tts');
         console.log('TTS model loaded successfully');
       } catch (error) {
         console.error('Error loading TTS model:', error);
@@ -756,7 +746,7 @@ export default function ChatInterface() {
       const chatLoadStart = performance.now();
       setStatus('Loading chat model...');
       try {
-        await chatAIRef.current?.loadModel(selectedModel);
+        await chatAIRef.loadModel(selectedModel);
         console.log('Chat model loaded successfully');
       } catch (error) {
         console.error('Error loading chat model:', error);

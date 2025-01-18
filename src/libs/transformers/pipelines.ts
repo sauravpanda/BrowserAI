@@ -1055,7 +1055,7 @@ export class TextToAudioPipeline
   /** @type {TextToAudioPipelineCallback} */
   async _call(
     text_inputs: string | string[],
-    { speaker_embeddings = null as Tensor | Float32Array | string | URL | null },
+    { speaker_embeddings = null }: { speaker_embeddings: Tensor | Float32Array | string | URL | null },
   ) {
     // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
     if (this.processor) {

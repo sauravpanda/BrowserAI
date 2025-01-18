@@ -42,8 +42,6 @@ export class BrowserAI {
       engineToUse = 'mlc';
     }
 
-    console.log('Engine to use:', engineToUse);
-
     switch (engineToUse) {
       case 'mlc':
         this.engine = new MLCEngineWrapper();
@@ -159,7 +157,8 @@ export class BrowserAI {
     if (!this.ttsEngine) {
       this.ttsEngine = new TransformersEngineWrapper();
       await this.ttsEngine.loadModel(MODEL_CONFIG['speecht5-tts'], {
-        quantized: false,
+        quantized: true,
+        device: 'webgpu',
         ...options,
       });
     }

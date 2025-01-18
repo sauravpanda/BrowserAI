@@ -6,7 +6,7 @@ This project incorporates code and functionality from the following sources:
 - **Source**: [Transformers.js](https://github.com/xenova/transformers.js)
 - **Author**: Xenova
 - **License**: Apache License 2.0
-- **Usage**: We utilize Transformers.js for running machine learning models in the browser.
+- **Usage**: We utilize Transformers.js for running machine learning models in the browser. The original code has been modified to work in a browser environment and converted to TypeScript.
 
 ## Hugging Face
 - **Source**: [Hugging Face](https://huggingface.co/)
