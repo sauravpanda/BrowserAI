@@ -21,7 +21,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
 
     # Add these steps to fix the rollup issue
     - name: Clean npm cache
