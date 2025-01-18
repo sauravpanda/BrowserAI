@@ -3,8 +3,11 @@ import {
   TextGenerationPipeline,
   FeatureExtractionPipeline,
   AutomaticSpeechRecognitionPipeline,
-  TextClassificationPipeline,
   TextToAudioPipeline,
+  ImageToTextPipeline,
+  ImageToImagePipeline,
+  ImageFeatureExtractionPipeline,
+  PipelineType
 } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
 
@@ -13,8 +16,10 @@ export class TransformersEngineWrapper {
     | TextGenerationPipeline
     | FeatureExtractionPipeline
     | AutomaticSpeechRecognitionPipeline
-    | TextClassificationPipeline
     | TextToAudioPipeline
+    | ImageToTextPipeline
+    | ImageToImagePipeline
+    | ImageFeatureExtractionPipeline
     | null = null;
   private modelType: string | null = null;
 
@@ -42,7 +47,11 @@ export class TransformersEngineWrapper {
         },
       };
 
-      this.transformersPipeline = await pipeline(modelConfig.modelType, modelConfig.repo, pipelineOptions);
+      this.transformersPipeline = await pipeline(
+        modelConfig.modelType as PipelineType,
+        modelConfig.repo,
+        pipelineOptions
+      );
     } catch (error) {
       console.error('Error loading Transformers model:', error);
       const message = error instanceof Error ? error.message : String(error);
@@ -69,7 +78,7 @@ export class TransformersEngineWrapper {
     // Convert messages array to text format
     const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n');
 
-    const result = await this.transformersPipeline(prompt, {
+    const result = await (this.transformersPipeline as any)(prompt, {
       temperature: options.temperature ?? 0.1,
       max_new_tokens: options.max_new_tokens ?? 300,
       repetition_penalty: options.repetition_penalty,
@@ -86,7 +95,7 @@ export class TransformersEngineWrapper {
     if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
       throw new Error('Feature extraction pipeline not initialized.');
     }
-    return await this.transformersPipeline(text, {
+    return await (this.transformersPipeline as any)(text, {
       pooling: options.pooling ?? 'mean',
       normalize: options.normalize ?? true,
       ...options,
@@ -101,7 +110,7 @@ export class TransformersEngineWrapper {
 
     const input = audioInput instanceof Blob ? new Float32Array(await audioInput.arrayBuffer()) : (audioInput as any);
 
-    const result = await this.transformersPipeline(input, {
+    const result = await (this.transformersPipeline as any)(input, {
       language: options.language,
       task: options.task,
       return_timestamps: options.return_timestamps,

@@ -3,8 +3,8 @@ import { getFile } from './hub';
 import { env, apis } from '../env';
 import { Tensor } from './tensor';
 
-// Will be empty (or not used) if running in browser or web-worker
-import sharp from 'sharp';
+// // Will be empty (or not used) if running in browser or web-worker
+// import sharp from 'sharp';
 
 let createCanvasFunction: any;
 let ImageDataClass: any;
@@ -136,7 +136,6 @@ export class RawImage {
    * @returns {Promise<RawImage>} The image object.
    */
   static async fromBlob(blob: Blob) {
-    if (IS_BROWSER_OR_WEBWORKER) {
       // Running in environment with canvas
       const img = await loadImageFunction(blob);
 
@@ -146,12 +145,6 @@ export class RawImage {
       ctx.drawImage(img, 0, 0);
 
       return new this(ctx.getImageData(0, 0, img.width, img.height).data, img.width, img.height, 4);
-    } else {
-      // Use sharp.js to read (and possible resize) the image.
-      const img = sharp(await blob.arrayBuffer());
-
-      return await loadImageFunction(img);
-    }
   }
 
   /**
@@ -441,10 +434,7 @@ export class RawImage {
 
       // Convert back so that image has the same number of channels as before
       return paddedImage.convert(numChannels as 1 | 3 | 4);
-    } else {
-      const img = this.toSharp().extend({ left, right, top, bottom });
-      return await loadImageFunction(img);
-    }
+    } 
   }
 
   async crop([x_min, y_min, x_max, y_max]: [number, number, number, number]) {
@@ -486,16 +476,6 @@ export class RawImage {
 
       // Convert back so that image has the same number of channels as before
       return resizedImage.convert(numChannels as 1 | 3 | 4);
-    } else {
-      // Create sharp image from raw data
-      const img = this.toSharp().extract({
-        left: x_min,
-        top: y_min,
-        width: crop_width,
-        height: crop_height,
-      });
-
-      return await loadImageFunction(img);
     }
   }
 
@@ -550,69 +530,6 @@ export class RawImage {
 
       // Convert back so that image has the same number of channels as before
       return resizedImage.convert(numChannels as 1 | 3 | 4);
-    } else {
-      // Create sharp image from raw data
-      let img = this.toSharp();
-
-      if (width_offset >= 0 && height_offset >= 0) {
-        // Cropped image lies entirely within the original image
-        img = img.extract({
-          left: Math.floor(width_offset),
-          top: Math.floor(height_offset),
-          width: crop_width,
-          height: crop_height,
-        });
-      } else if (width_offset <= 0 && height_offset <= 0) {
-        // Cropped image lies entirely outside the original image,
-        // so we add padding
-        const top = Math.floor(-height_offset);
-        const left = Math.floor(-width_offset);
-        img = img.extend({
-          top: top,
-          left: left,
-
-          // Ensures the resulting image has the desired dimensions
-          right: crop_width - this.width - left,
-          bottom: crop_height - this.height - top,
-        });
-      } else {
-        // Cropped image lies partially outside the original image.
-        // We first pad, then crop.
-
-        let y_padding = [0, 0];
-        let y_extract = 0;
-        if (height_offset < 0) {
-          y_padding[0] = Math.floor(-height_offset);
-          y_padding[1] = crop_height - this.height - y_padding[0];
-        } else {
-          y_extract = Math.floor(height_offset);
-        }
-
-        let x_padding = [0, 0];
-        let x_extract = 0;
-        if (width_offset < 0) {
-          x_padding[0] = Math.floor(-width_offset);
-          x_padding[1] = crop_width - this.width - x_padding[0];
-        } else {
-          x_extract = Math.floor(width_offset);
-        }
-
-        img = img
-          .extend({
-            top: y_padding[0],
-            bottom: y_padding[1],
-            left: x_padding[0],
-            right: x_padding[1],
-          })
-          .extract({
-            left: x_extract,
-            top: y_extract,
-            width: crop_width,
-            height: crop_height,
-          });
-      }
-
-      return await loadImageFunction(img);
     }
   }
 
@@ -771,9 +688,6 @@ export class RawImage {
       downloadLink.remove();
     } else if (!env.useFS) {
       throw new Error('Unable to save the image because filesystem is disabled in this environment.');
-    } else {
-      const img = this.toSharp();
-      return await img.toFile(path);
     }
   }
 
@@ -781,14 +695,6 @@ export class RawImage {
     if (IS_BROWSER_OR_WEBWORKER) {
       throw new Error('toSharp() is only supported in server-side environments.');
     }
-
-    return sharp(this.data, {
-      raw: {
-        width: this.width,
-        height: this.height,
-        channels: this.channels,
-      },
-    });
   }
 }
 

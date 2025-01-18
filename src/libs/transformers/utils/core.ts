@@ -100,8 +100,18 @@ export function calculateReflectOffset(i: number, w: number): number {
   return Math.abs(((i + w) % (2 * w)) - w);
 }
 
-export function pick<T>(obj: T, keys: Array<keyof T>) {
-  return Object.fromEntries(keys.map((k) => [k, obj[k as keyof T]]));
+// export function pick<T>(obj: T, keys: Array<keyof T>) {
+//   return Object.fromEntries(keys.map((k) => [k, obj[k as keyof T]]));
+// }
+export function pick(o: any, props: string[]) {
+    return Object.assign(
+        {},
+        ...props.map((prop: string) => {
+            if (o[prop] !== undefined) {
+        return { [prop]: o[prop] };
+      }
+    }),
+  );
 }
 
 export function len(s: string): number {

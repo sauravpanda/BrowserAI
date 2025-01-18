@@ -843,14 +843,11 @@ export class AutomaticSpeechRecognitionPipeline
       // Generate for each set of input features
       for (const chunk of chunks) {
         generation_config.num_frames = Math.floor(chunk.stride[0] / hop_length);
-
+        console.log(generation_config, chunk);
         // NOTE: doing sequentially for now
         const data = await this.model.generate({
           inputs: chunk.input_features,
-          generation_config: generation_config as any,
-          logits_processor: null,
-          stopping_criteria: null,
-          streamer: null,
+          ...generation_config,
         });
 
         // TODO: Right now we only get top beam

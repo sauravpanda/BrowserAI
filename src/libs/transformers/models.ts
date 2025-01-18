@@ -1709,18 +1709,8 @@ export class PreTrainedModel extends Callable {
     logits_processor = null,
     stopping_criteria = null,
     streamer = null,
-
-    // inputs_attention_mask = null,
     ...kwargs
-  }: {
-    inputs: Tensor | null;
-    generation_config: GenerationConfig | null;
-    logits_processor: LogitsProcessor | null;
-    stopping_criteria: StoppingCriteriaList | null;
-    streamer: any | null;
-    // inputs_attention_mask: Tensor | null;
-    // ...kwargs: any;
-  }) {
+  }: any) {
     this._validate_model_class();
 
     // Update generation config with defaults and kwargs
@@ -1728,9 +1718,9 @@ export class PreTrainedModel extends Callable {
 
     // 3. Define model inputs
     let { inputs_tensor, model_inputs, model_input_name } = this._prepare_model_inputs({
-      inputs,
-      model_kwargs: kwargs,
+      inputs: inputs,
       bos_token_id: null,
+      model_kwargs: kwargs,
     });
 
     const is_encoder_decoder = this.config.is_encoder_decoder;

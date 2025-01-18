@@ -7,7 +7,6 @@ export * from './idefics3/image_processing_idefics3';
 export * from './janus/image_processing_janus';
 export * from './jina_clip/image_processing_jina_clip';
 export * from './llava_onevision/image_processing_llava_onevision';
-export * from './mask2former/image_processing_mask2former';
 export * from './phi3_v/image_processing_phi3_v';
 export * from './qwen2_vl/image_processing_qwen2_vl';
 export * from './sam/image_processing_sam';

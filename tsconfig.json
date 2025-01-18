@@ -20,7 +20,7 @@
       "@/*": ["src/*"]
     },
     "declarationDir": "./dist",
-    "typeRoots": ["./src/libs/transformers", "node_modules/@types"]
+    "typeRoots": ["./src/libs/transformers", "node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "examples"],

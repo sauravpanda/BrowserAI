@@ -133,7 +133,7 @@ export class Idefics3ImageProcessor extends ImageProcessor {
       const max_num_patches = Math.max(...all_pixel_values.map((x) => x.dims.at(0)));
 
       pixel_attention_mask = full([batch_size, max_num_patches, h, w], true);
-      const pixel_attention_mask_data = pixel_attention_mask.data;
+      const pixel_attention_mask_data = pixel_attention_mask.data as any;
       const pixel_attention_mask_stride = max_num_patches * h * w;
       for (let i = 0; i < batch_size; ++i) {
         const num_patches: number = all_pixel_values[i].dims[0];
@@ -143,7 +143,6 @@ export class Idefics3ImageProcessor extends ImageProcessor {
           const start_offset = i * pixel_attention_mask_stride + num_patches * h * w;
           const end_offset = (i + 1) * pixel_attention_mask_stride;
 
-          // @ts-expect-error
           pixel_attention_mask_data.fill(false, start_offset, end_offset);
         }
       }

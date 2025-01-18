@@ -1,6 +1,6 @@
 {
   "name": "@browserai/browserai",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "private": false,
   "description": "A library for running AI models directly in the browser",
   "main": "dist/index.js",
@@ -33,8 +33,9 @@
   },
   "homepage": "https://github.com/sauravpanda/BrowserAI#readme",
   "dependencies": {
-    "@huggingface/transformers": "^3.2.4",
-    "@mlc-ai/web-llm": "^0.2.77"
+    "@huggingface/jinja": "^0.3.2",
+    "@mlc-ai/web-llm": "^0.2.77",
+    "onnxruntime-web": "1.21.0-dev.20241205-d27fecd3d3"
   },
   "publishConfig": {
     "access": "public"
