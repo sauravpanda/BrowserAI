@@ -1,19 +1,37 @@
 // src/engines/mlc-engine-wrapper.ts
-import { CreateMLCEngine, MLCEngineInterface } from '@mlc-ai/web-llm';
+import { CreateMLCEngine, MLCEngineInterface, AppConfig, modelLibURLPrefix, modelVersion, prebuiltAppConfig } from '@mlc-ai/web-llm';
 import { ModelConfig } from '../config/models/types';
 
 export class MLCEngineWrapper {
   private mlcEngine: MLCEngineInterface | null = null;
-
+  private appConfig: AppConfig | null = null;
   constructor() {
     this.mlcEngine = null;
   }
 
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
-      const modelIdentifier = modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization);
+      const modelIdentifier = modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization).toLocaleLowerCase();
+      if (modelConfig.modelLibrary) {
+        this.appConfig = {
+          model_list: [
+            {
+              model: "https://huggingface.co/" + modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization),
+              model_id: modelIdentifier,
+              model_lib:
+                modelConfig.modelLibrary.startsWith('http') ? modelConfig.modelLibrary : (modelLibURLPrefix +
+                  modelVersion + modelConfig.modelLibrary),
+            },
+          ],
+        };
+      }
+      else {
+        this.appConfig = prebuiltAppConfig;
+      }
+      console.log(this.appConfig);
       this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
         initProgressCallback: options.onProgress, // Pass progress callback
+        appConfig: this.appConfig,
         ...options, // Pass other options
       });
     } catch (error) {

@@ -648,7 +648,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
             onChange={e => handleModelChange(e.target.value)}
             disabled={loading}
           >
-            <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (360MB)</option>
+            <option value="smollm2-135m-instruct">SmolLM2 135Mdd Instruct (360MB)</option>
             <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
             <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1,75GB)</option>
             <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
