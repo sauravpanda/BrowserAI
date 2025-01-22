@@ -22,7 +22,6 @@
  * @module env
  */
 
-import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
@@ -37,7 +36,7 @@ const IS_WEBNN_AVAILABLE = typeof navigator !== 'undefined' && 'ml' in navigator
 
 const IS_PROCESS_AVAILABLE = typeof process !== 'undefined';
 const IS_NODE_ENV = IS_PROCESS_AVAILABLE && process?.release?.name === 'node';
-const IS_FS_AVAILABLE = !isEmpty(fs);
+const IS_FS_AVAILABLE = false;
 const IS_PATH_AVAILABLE = !isEmpty(path);
 
 /**

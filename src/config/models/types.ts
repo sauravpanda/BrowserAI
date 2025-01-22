@@ -9,6 +9,7 @@ export interface BaseModelConfig {
   defaultParams?: Record<string, any>;
   quantizations?: string[];
   requiredFeatures?: string[];
+  modelLibrary?: string;
 }
 
 export type ModelType =

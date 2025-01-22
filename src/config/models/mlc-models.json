@@ -3,7 +3,7 @@
         "engine": "mlc",
         "modelName": "Llama-3.2-1b-Instruct",
         "modelType": "text-generation",
-        "repo": "Llama-3.2-1B-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/Llama-3.2-1B-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1",
@@ -21,7 +21,7 @@
         "engine": "mlc",
         "modelName": "SmolLM2-135M-Instruct",
         "modelType": "text-generation",
-        "repo": "SmolLM2-135M-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/SmolLM2-135M-Instruct-{quantization}-MLC",
         "quantizations": [
             "q0f32",
             "q0f16"
@@ -43,7 +43,7 @@
         "engine": "mlc",
         "modelName": "SmolLM2-360M-Instruct",
         "modelType": "text-generation",
-        "repo": "SmolLM2-360M-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/SmolLM2-360M-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1",
@@ -64,7 +64,7 @@
         "engine": "mlc",
         "modelName": "SmolLM2-1.7B-Instruct",
         "modelType": "text-generation",
-        "repo": "SmolLM2-1.7B-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/SmolLM2-1.7B-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1"
@@ -80,7 +80,7 @@
         "engine": "mlc",
         "modelName": "Qwen2.5-0.5B-Instruct",
         "modelType": "text-generation",
-        "repo": "Qwen2.5-0.5B-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/Qwen2.5-0.5B-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1",
@@ -94,7 +94,7 @@
         "engine": "mlc",
         "modelName": "gemma-2b-it",
         "modelType": "text-generation",
-        "repo": "gemma-2b-it-{quantization}-MLC",
+        "repo": "mlc-ai/gemma-2b-it-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1"
@@ -109,7 +109,7 @@
         "engine": "mlc",
         "modelName": "TinyLlama-1.1B-Chat-v0.4",
         "modelType": "text-generation",
-        "repo": "TinyLlama-1.1B-Chat-v0.4-{quantization}-MLC",
+        "repo": "mlc-ai/TinyLlama-1.1B-Chat-v0.4-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1"
@@ -121,7 +121,7 @@
         "engine": "mlc",
         "modelName": "Phi-3.5-mini-instruct",
         "modelType": "text-generation",
-        "repo": "Phi-3.5-mini-instruct-{quantization}-MLC",
+        "repo": "mlc-ai/Phi-3.5-mini-instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1"
@@ -133,12 +133,24 @@
         "engine": "mlc",
         "modelName": "Qwen2.5-1.5B-Instruct",
         "modelType": "text-generation",
-        "repo": "Qwen2.5-1.5B-Instruct-{quantization}-MLC",
+        "repo": "mlc-ai/Qwen2.5-1.5B-Instruct-{quantization}-MLC",
         "quantizations": [
             "q4f16_1",
             "q4f32_1"
         ],
         "defaultQuantization": "q4f16_1",
+        "pipeline": "text-generation"
+    },
+    "deepseek-r1-distill-qwen-1.5b": {
+        "engine": "mlc",
+        "modelName": "DeepSeek-R1-Distill-Qwen-1.5B-MLC",
+        "modelType": "text-generation",
+        "modelLibrary": "Qwen2-1.5B-Instruct-q4f32_1-ctx4k_cs1k-webgpu.wasm",
+        "repo": "mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}-MLC",
+        "quantizations": [
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     }
 }

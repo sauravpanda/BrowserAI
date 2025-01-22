@@ -207,7 +207,7 @@ export async function getFile(urlOrPath: URL | string) {
   if (env.useFS && !isValidUrl(urlOrPath.toString(), ['http:', 'https:', 'blob:'])) {
     return new FileResponse(urlOrPath);
   } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
-    const IS_CI = !!process.env?.TESTING_REMOTELY;
+    const IS_CI = false;
     const version = env.version;
 
     const headers = new Headers();
@@ -269,6 +269,7 @@ function handleError(status: number, remoteURL: string, fatal: boolean) {
 
 class FileCache {
   private path: string;
+  private cache:  Map<string, ArrayBuffer>;
 
   /**
    * Instantiate a `FileCache` object.
@@ -276,6 +277,7 @@ class FileCache {
    */
   constructor(path: string) {
     this.path = path;
+    this.cache = new Map();
   }
 
   /**
