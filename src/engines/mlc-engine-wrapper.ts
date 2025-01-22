@@ -11,7 +11,7 @@ export class MLCEngineWrapper {
 
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
-      const modelIdentifier = modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization).toLocaleLowerCase();
+      const modelIdentifier = modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization).split('/')[1];
       if (modelConfig.modelLibrary) {
         this.appConfig = {
           model_list: [
@@ -19,8 +19,8 @@ export class MLCEngineWrapper {
               model: "https://huggingface.co/" + modelConfig.repo.replace('{quantization}', modelConfig.defaultQuantization),
               model_id: modelIdentifier,
               model_lib:
-                modelConfig.modelLibrary.startsWith('http') ? modelConfig.modelLibrary : (modelLibURLPrefix +
-                  modelVersion + modelConfig.modelLibrary),
+                modelConfig?.modelLibrary?.startsWith('http') ? modelConfig.modelLibrary : (modelLibURLPrefix + '/' +
+                  modelVersion + '/' + modelConfig.modelLibrary),
             },
           ],
         };
