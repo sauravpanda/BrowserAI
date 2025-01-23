@@ -25,17 +25,17 @@ import {
   AutoModelForImageToImage,
   AutoModelForImageFeatureExtraction,
   PreTrainedModel,
-} from './models.js';
-import { AutoProcessor } from './models/auto/processing_auto.js';
-import { Processor } from './base/processing_utils.js';
+} from './models';
+import { AutoProcessor } from './models/auto/processing_auto';
+import { Processor } from './base/processing_utils';
 
 import { Callable } from './utils/generic.js';
 
-import { dispatchCallback, product } from './utils/core.js';
-import { softmax, max, round } from './utils/maths.js';
-import { read_audio } from './utils/audio.js';
-import { Tensor, mean_pooling, interpolate_4d, quantize_embeddings, topk } from './utils/tensor.js';
-import { RawImage } from './utils/image.js';
+import { dispatchCallback, product } from './utils/core';
+import { softmax, max, round } from './utils/maths';
+import { read_audio, RawAudio } from './utils/audio';
+import { Tensor, mean_pooling, interpolate_4d, quantize_embeddings, topk } from './utils/tensor';
+import { RawImage } from './utils/image';
 import { PretrainedOptions } from './utils/hub';
 import { ImagePipelineConstructorArgs, Message, TextGenerationOutput, TextImagePipelineConstructorArgs } from './types';
 import {
@@ -1057,10 +1057,13 @@ export class TextToAudioPipeline
     text_inputs: string | string[],
     { speaker_embeddings = null }: { speaker_embeddings: Tensor | Float32Array | string | URL | null },
   ) {
+    console.log("inside call", this.model.config);
     // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
     if (this.processor) {
+      console.log("Found processor:", this.processor)
       return this._call_text_to_spectrogram(text_inputs, { speaker_embeddings });
     } else {
+      console.log("No Processor found, running waveform")
       return this._call_text_to_waveform(text_inputs);
     }
   }
@@ -1077,10 +1080,10 @@ export class TextToAudioPipeline
 
     // @ts-expect-error TS2339
     const sampling_rate = this.model.config.sampling_rate;
-    return {
-      audio: waveform.data,
+    return new RawAudio(
+      waveform.data,
       sampling_rate,
-    };
+    );
   }
 
   async _call_text_to_spectrogram(
@@ -1118,10 +1121,10 @@ export class TextToAudioPipeline
     });
 
     const sampling_rate = (this.processor as any).feature_extractor.config.sampling_rate;
-    return {
-      audio: waveform.data,
-      sampling_rate,
-    };
+    return new RawAudio(
+        waveform.data,
+        sampling_rate,
+    );
   }
 }
 

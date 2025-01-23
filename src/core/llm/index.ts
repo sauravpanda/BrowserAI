@@ -5,6 +5,7 @@ import { TransformersEngineWrapper } from '../../engines/transformer-engine-wrap
 import { ModelConfig, MLCConfig, TransformersConfig } from '../../config/models/types';
 import mlcModels from '../../config/models/mlc-models.json';
 import transformersModels from '../../config/models/transformers-models.json';
+import { TTSEngine } from '@/engines/tts-engine';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
@@ -18,7 +19,7 @@ export class BrowserAI {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
-  private ttsEngine: TransformersEngineWrapper | null = null;
+  private ttsEngine: TTSEngine | null = null;
 
   constructor() {
     this.engine = null;
@@ -155,8 +156,8 @@ export class BrowserAI {
 
   async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<ArrayBuffer> {
     if (!this.ttsEngine) {
-      this.ttsEngine = new TransformersEngineWrapper();
-      await this.ttsEngine.loadModel(MODEL_CONFIG['speecht5-tts'], {
+      this.ttsEngine = new TTSEngine();
+      await this.ttsEngine.loadModel(MODEL_CONFIG['kokoro-tts'], {
         quantized: true,
         device: 'webgpu',
         ...options,
@@ -164,7 +165,7 @@ export class BrowserAI {
     }
 
     try {
-      const audioData = await this.ttsEngine.textToSpeech(text);
+      const audioData = await this.ttsEngine.generateSpeech(text);
       return audioData;
     } catch (error) {
       console.error('Error generating speech:', error);

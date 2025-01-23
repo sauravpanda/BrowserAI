@@ -1,4 +1,4 @@
-import { isNullishDimension } from './core';
+import { isNullishDimension, saveBlob } from './core';
 import { getFile } from './hub';
 import { env, apis } from '../env';
 import { Tensor } from './tensor';

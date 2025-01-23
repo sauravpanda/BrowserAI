@@ -1,6 +1,6 @@
 {
   "name": "@browserai/browserai",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "private": false,
   "description": "A library for running AI models directly in the browser",
   "main": "dist/index.js",
@@ -37,7 +37,8 @@
   "dependencies": {
     "@huggingface/jinja": "^0.3.2",
     "@mlc-ai/web-llm": "^0.2.77",
-    "onnxruntime-web": "1.21.0-dev.20241205-d27fecd3d3"
+    "onnxruntime-web": "1.21.0-dev.20250114-228dd16893",
+    "phonemizer": "^1.2.1"
   },
   "publishConfig": {
     "access": "public"

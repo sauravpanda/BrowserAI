@@ -9,8 +9,9 @@
 
 import { getFile } from './hub';
 import { FFT, max } from './maths';
-import { calculateReflectOffset } from './core';
+import { calculateReflectOffset, saveBlob } from './core';
 import { Tensor, matmul } from './tensor';
+import { apis } from '../env';
 
 /**
  * Helper function to read audio from a path/URL.
@@ -713,3 +714,117 @@ export function window_function(
 
   return window;
 }
+
+/**
+ * Encode audio data to a WAV file.
+ * WAV file specs : https://en.wikipedia.org/wiki/WAV#WAV_File_header
+ * 
+ * Adapted from https://www.npmjs.com/package/audiobuffer-to-wav
+ * @param {Float32Array} samples The audio samples.
+ * @param {number} rate The sample rate.
+ * @returns {ArrayBuffer} The WAV audio buffer.
+ */
+function encodeWAV(samples: Float32Array, rate: number) {
+  let offset = 44;
+  const buffer = new ArrayBuffer(offset + samples.length * 4);
+  const view = new DataView(buffer);
+
+  /* RIFF identifier */
+  writeString(view, 0, "RIFF");
+  /* RIFF chunk length */
+  view.setUint32(4, 36 + samples.length * 4, true);
+  /* RIFF type */
+  writeString(view, 8, "WAVE");
+  /* format chunk identifier */
+  writeString(view, 12, "fmt ");
+  /* format chunk length */
+  view.setUint32(16, 16, true);
+  /* sample format (raw) */
+  view.setUint16(20, 3, true);
+  /* channel count */
+  view.setUint16(22, 1, true);
+  /* sample rate */
+  view.setUint32(24, rate, true);
+  /* byte rate (sample rate * block align) */
+  view.setUint32(28, rate * 4, true);
+  /* block align (channel count * bytes per sample) */
+  view.setUint16(32, 4, true);
+  /* bits per sample */
+  view.setUint16(34, 32, true);
+  /* data chunk identifier */
+  writeString(view, 36, "data");
+  /* data chunk length */
+  view.setUint32(40, samples.length * 4, true);
+
+  for (let i = 0; i < samples.length; ++i, offset += 4) {
+      view.setFloat32(offset, samples[i], true);
+  }
+
+  return buffer;
+}
+
+function writeString(view: DataView, offset: number, string: string) {
+  for (let i = 0; i < string.length; ++i) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+
+
+export class RawAudio {
+
+  /**
+   * Create a new `RawAudio` object.
+   * @param {Float32Array} audio Audio data
+   * @param {number} sampling_rate Sampling rate of the audio data
+   */
+  audio: Float32Array;
+  sampling_rate: number;
+
+  constructor(audio: Float32Array, sampling_rate: number) {
+      this.audio = audio
+      this.sampling_rate = sampling_rate
+  }
+
+  /**
+   * Convert the audio to a wav file buffer.
+   * @returns {ArrayBuffer} The WAV file.
+   */
+  toWav() {
+      return encodeWAV(this.audio, this.sampling_rate)
+  }
+
+  /**
+   * Convert the audio to a blob.
+   * @returns {Blob}
+   */
+  toBlob() {
+      const wav = this.toWav();
+      const blob = new Blob([wav], { type: 'audio/wav' });
+      return blob;
+  }
+
+  toArray() {
+    return this.audio;
+  }
+
+  /**
+   * Save the audio to a wav file.
+   * @param {string} path
+   */
+  async save(path: string) {
+      let fn;
+
+      if (apis.IS_BROWSER_ENV) {
+          if (apis.IS_WEBWORKER_ENV) {
+              throw new Error('Unable to save a file from a Web Worker.')
+          }
+          fn = saveBlob;
+      } else if (apis.IS_FS_AVAILABLE) {
+         throw new Error('Unable to save because filesystem is disabled in this environment.')
+      } else {
+          throw new Error('Unable to save because filesystem is disabled in this environment.')
+      }
+
+      await fn(path, this.toBlob())
+  }
+} 

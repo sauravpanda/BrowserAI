@@ -10,6 +10,7 @@ import {
   PipelineType
 } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
+import { TTSEngine } from './tts-engine';
 
 export class TransformersEngineWrapper {
   private transformersPipeline:
@@ -22,6 +23,7 @@ export class TransformersEngineWrapper {
     | ImageFeatureExtractionPipeline
     | null = null;
   private modelType: string | null = null;
+  private ttsEngine: TTSEngine | null = null;
 
   constructor() {
     this.transformersPipeline = null;
@@ -30,7 +32,16 @@ export class TransformersEngineWrapper {
 
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
+      // Validate required model config properties
+      if (!modelConfig.modelType) {
+        throw new Error('Model configuration missing required "modelType" property');
+      }
+      if (!modelConfig.repo) {
+        throw new Error('Model configuration missing required "repo" property');
+      }
+
       this.modelType = modelConfig.modelType;
+      
       options.device = 'webgpu';
 
       // Configure pipeline options with proper worker settings
@@ -39,11 +50,19 @@ export class TransformersEngineWrapper {
         ...options
       };
 
-      this.transformersPipeline = await pipeline(
-        modelConfig.modelType as PipelineType,
-        modelConfig.repo,
-        pipelineOptions
-      );
+      // Handle TTS models first, before attempting to create other pipelines
+      if (modelConfig.modelType === 'text-to-speech') {
+        this.ttsEngine = new TTSEngine();
+        console.log('Loading TTS model...');
+        await this.ttsEngine.loadModel(modelConfig, options);
+        console.log('TTS model loaded');
+        return; // Exit early for TTS models
+      }
+
+      // For non-TTS models, create the appropriate pipeline
+      const pipelineType = modelConfig.pipeline as PipelineType;
+      this.transformersPipeline = await pipeline(pipelineType, modelConfig.repo, pipelineOptions);
+
     } catch (error) {
       console.error('Error loading Transformers model:', error);
       const message = error instanceof Error ? error.message : String(error);
@@ -114,62 +133,16 @@ export class TransformersEngineWrapper {
   }
 
   // Add text-to-speech method
-  async textToSpeech(text: string) {
-    if (!this.transformersPipeline || this.modelType !== 'text-to-speech') {
-      throw new Error('Text-to-speech pipeline not initialized.');
+  async textToSpeech(text: string, options: any = {}) {
+    if (!this.ttsEngine) {
+      throw new Error('Text-to-speech engine not initialized.');
     }
 
-    const pipeline = this.transformersPipeline as any;
-    const speaker_embeddings =
-      'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
-
     try {
-      const result = await pipeline(text, {
-        speaker_embeddings,
-      });
-      // Convert Float32Array to proper audio buffer format
-      const audioData = result.audio;
-      if (audioData instanceof Float32Array) {
-        // Convert to 16-bit PCM
-        const pcmData = new Int16Array(audioData.length);
-        for (let i = 0; i < audioData.length; i++) {
-          const s = Math.max(-1, Math.min(1, audioData[i]));
-          pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-
-        // Create WAV header
-        const wavHeader = new ArrayBuffer(44);
-        const view = new DataView(wavHeader);
-        // WAV header details
-        this.writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + pcmData.length * 2, true);
-        this.writeString(view, 8, 'WAVE');
-        this.writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true);
-        view.setUint32(24, 16000, true); // Sample rate
-        view.setUint32(28, 32000, true); // Byte rate
-        view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true);
-        this.writeString(view, 36, 'data');
-        view.setUint32(40, pcmData.length * 2, true);
-        // Combine header and data
-        const wavBlob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
-        return await wavBlob.arrayBuffer();
-      }
-
-      return result.audio;
+      return await this.ttsEngine.generateSpeech(text, options);
     } catch (error) {
       console.error('Error in text-to-speech:', error);
       throw error;
-    }
-  }
-
-  // Helper function to write strings to DataView
-  private writeString(view: DataView, offset: number, string: string) {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
     }
   }
 

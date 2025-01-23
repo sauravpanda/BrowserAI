@@ -518,7 +518,6 @@ async function seq2seqForward(self: any, model_inputs: any) {
 async function encoderForward(self: any, model_inputs: any) {
   const session = self.sessions['model'];
   const encoderFeeds = pick(model_inputs, session.inputNames);
-
   if (session.inputNames.includes('inputs_embeds') && !encoderFeeds.inputs_embeds) {
     if (!model_inputs.input_ids) {
       throw new Error('Both `input_ids` and `inputs_embeds` are missing in the model inputs.');
@@ -534,6 +533,7 @@ async function encoderForward(self: any, model_inputs: any) {
       encoderFeeds.input_ids.dims,
     );
   }
+  console.log("encoder forward running here: ", session, encoderFeeds)
   return await sessionRun(session, encoderFeeds);
 }
 
@@ -4629,6 +4629,12 @@ export class PatchTSTForPrediction extends PatchTSTPreTrainedModel {}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// StyleTextToSpeech2 Transformer models
+export class StyleTextToSpeech2PreTrainedModel extends PreTrainedModel { }
+export class StyleTextToSpeech2Model extends StyleTextToSpeech2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // PatchTSMixer Transformer models
 export class PatchTSMixerPreTrainedModel extends PreTrainedModel {}
 
@@ -4758,6 +4764,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
   ['patchtsmixer', ['PatchTSMixerForPrediction', PatchTSMixerModel]],
 
   ['mgp-str', ['MgpstrForSceneTextRecognition', MgpstrForSceneTextRecognition]],
+  ['style_text_to_speech_2', ['StyleTextToSpeech2Model', StyleTextToSpeech2Model]],
 ]);
 
 const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
