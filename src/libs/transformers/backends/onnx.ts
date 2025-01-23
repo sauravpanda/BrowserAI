@@ -21,7 +21,6 @@ import { env, apis } from '../env';
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 // In either case, we select the default export if it exists, otherwise we use the named export.
 import * as ONNX from 'onnxruntime-web';
-
 export { Tensor } from 'onnxruntime-common';
 
 /**
@@ -52,7 +51,6 @@ const supportedDevices: string[] = [];
 
 /** @type {ONNXExecutionProviders[]} */
 let defaultDevices: string[] = [];
-
 // Simplified initialization - removed ORT_SYMBOL check since we're only using web runtime
 if (apis.IS_WEBNN_AVAILABLE) {
   supportedDevices.push('webnn-npu', 'webnn-gpu', 'webnn-cpu', 'webnn');
@@ -108,9 +106,10 @@ let wasmInitPromise: Promise<any> | null = null;
  */
 export async function createInferenceSession(
   buffer: Uint8Array,
-  session_options: import('onnxruntime-common').InferenceSession.SessionOptions,
-  session_config: Object,
+  session_options: any,
+  session_config: any
 ) {
+  const preferredBackend = session_config.backend || 'webgpu';
   if (wasmInitPromise) {
     // A previous session has already initialized the WASM runtime
     // so we wait for it to resolve before creating this new session.

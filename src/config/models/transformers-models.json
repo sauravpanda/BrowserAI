@@ -20,15 +20,16 @@
     "defaultQuantization": "q4",
     "quantizations": ["q4", "fp16", "int4"]
   },
-  "speecht5-tts": {
+  "kokoro-tts": {
     "engine": "transformers",
-    "modelName": "speecht5_tts",
+    "modelName": "kokoro-tts",
     "modelType": "text-to-speech",
-    "repo": "Xenova/speecht5_tts",
+    "repo": "onnx-community/Kokoro-82M-ONNX",
     "pipeline": "text-to-speech",
-    "defaultQuantization": "none",
+    "defaultQuantization": "q4",
+    "quantizations": ["q4", "q8", "fp32", "fp16", "q4f16"],
     "defaultParams": {
-      "speaker_embeddings": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin"
+      "language": "en"
     }
   }
 } 
