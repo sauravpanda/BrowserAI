@@ -184,7 +184,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [MLC AI](https://mlc.ai/) for their incredible mode compilation library and support for webgpu runtime and xgrammar
+- [MLC AI](https://github.com/mlc-ai/mlc-llm) for their incredible mode compilation library and support for webgpu runtime and xgrammar
 - [Hugging Face](https://huggingface.co/) and [Xenova](https://github.com/xenova) for their Transformers.js library, licensed under Apache License 2.0. The original code has been modified to work in a browser environment and converted to TypeScript.
 - All our contributors and supporters!
 
