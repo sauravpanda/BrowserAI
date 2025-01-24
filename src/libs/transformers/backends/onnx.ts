@@ -147,7 +147,7 @@ if (ONNX_ENV?.wasm) {
     mjs: `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${env.version}/dist/ort-wasm-simd-threaded.jsep.mjs`,
   };
   // https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.2.4/dist/ort-wasm-simd-threaded.jsep.wasm
-  console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
+  // console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
   // TODO: Add support for loading WASM files from cached buffer when we upgrade to onnxruntime-web@1.19.0
   // https://github.com/microsoft/onnxruntime/pull/21534
 
@@ -165,7 +165,7 @@ if (ONNX_ENV?.wasm) {
 }
 
 if (ONNX_ENV?.webgpu) {
-  console.log('ONNX_ENV.webgpu', ONNX_ENV.webgpu);
+  // console.log('ONNX_ENV.webgpu', ONNX_ENV.webgpu);
   ONNX_ENV.webgpu.powerPreference = 'high-performance';
 }
 

@@ -1,18 +1,37 @@
+<div align="center">
+
 # BrowserAI 🚀
 
-BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
+### Run Production-Ready LLMs Directly in Your Browser
 
-## 🎥 Demo
+<p align="center">
+  <strong>Simple • Fast • Private • Open Source</strong>
+</p>
 
-[![BrowserAI Demo](https://img.youtube.com/vi/BoxYT6SU7PQ/0.jpg)](https://youtu.be/BoxYT6SU7PQ)
+[Live Demo](https://chat.browserai.dev) •
+[Documentation](https://docs.browserai.dev) •
+[Discord Community](https://discord.gg/p5bBtAUa)
 
-## Why BrowserAI?
+<img src="https://img.youtube.com/vi/BoxYT6SU7PQ/0.jpg" alt="BrowserAI Demo" width="600"/>
 
-- 🔒 **Privacy First**: All processing happens locally - your data never leaves the browser
-- 💰 **Cost Effective**: No server costs or complex infrastructure needed
-- 🌐 **Offline Capable**: Models work offline after initial download
-- 🚀 **Blazing Fast**: WebGPU acceleration for near-native performance
-- 🎯 **Developer Friendly**: Simple API, multiple engine support, ready-to-use models
+</div>
+
+## 🌟 Live Demos
+
+| Demo | Description | Try It |
+|------|-------------|--------|
+| **Chat** | Multi-model chat interface | [chat.browserai.dev](https://chat.browserai.dev) |
+| **Voice Chat** | Full-featured with speech recognition & TTS | [voice-demo.browserai.dev](https://voice-demo.browserai.dev) |
+| **Text-to-Speech** | Powered by Kokoro 82M | [tts-demo.browserai.dev](https://tts-demo.browserai.dev) |
+
+## ⚡ Key Features
+
+- 🔒 **100% Private**: All processing happens locally in your browser
+- 🚀 **WebGPU Accelerated**: Near-native performance
+- 💰 **Zero Server Costs**: No complex infrastructure needed
+- 🌐 **Offline Capable**: Works without internet after initial download
+- 🎯 **Developer Friendly**: Simple sdk with multiple engine support
+- 📦 **Production Ready**: Pre-optimized popular models
 
 ## 🎯 Perfect For
 
@@ -29,23 +48,14 @@ BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
 - 📦 Pre-configured popular models ready to use
 - 🛠️ Easy-to-use API for text generation and more
 
-## 🚀 Live Demos
-
-| Demo | Description | URL | Status |
-|------|-------------|-----|--------|
-| Chat Demo | Simple chat interface with multiple model options | [Try Chat Demo](https://chat.browserai.dev) | ✅ |
-| Voice Chat Demo | Full-featured demo with speech recognition and text-to-speech | [Try Voice Demo](https://voice-demo.browserai.dev) | ✅ |
-| TTS Kokoro Demo | text-to-speech demo powered by Kokoro 82M | [Try TTS Demo](https://tts-demo.browserai.dev) | ✅ |
 
 ## 🚀 Quick Start
-```
-bash
+```bash
 npm install @browserai/browserai
 ```
 
 OR 
-```
-bash
+```bash
 yarn add @browserai/browserai
 ```
 
