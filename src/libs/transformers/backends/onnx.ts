@@ -109,7 +109,6 @@ export async function createInferenceSession(
   session_options: any,
   session_config: any
 ) {
-  const preferredBackend = session_config.backend || 'webgpu';
   if (wasmInitPromise) {
     // A previous session has already initialized the WASM runtime
     // so we wait for it to resolve before creating this new session.
@@ -142,9 +141,13 @@ if (ONNX_ENV?.wasm) {
   // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
   // We use remote wasm files by default to make it easier for newer users.
   // In practice, users should probably self-host the necessary .wasm files.
-  ONNX_ENV.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${env.version}/dist/`;
+
+  ONNX_ENV.wasm.wasmPaths = {
+    wasm: `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${env.version}/dist/ort-wasm-simd-threaded.jsep.wasm`,
+    mjs: `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${env.version}/dist/ort-wasm-simd-threaded.jsep.mjs`,
+  };
   // https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.2.4/dist/ort-wasm-simd-threaded.jsep.wasm
-  // console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
+  console.log('ONNX_ENV.wasm.wasmPaths', ONNX_ENV.wasm.wasmPaths);
   // TODO: Add support for loading WASM files from cached buffer when we upgrade to onnxruntime-web@1.19.0
   // https://github.com/microsoft/onnxruntime/pull/21534
 
@@ -152,6 +155,9 @@ if (ONNX_ENV?.wasm) {
   // However, this is not necessary when using WebGPU, so we default to false.
   ONNX_ENV.wasm.proxy = false;
 
+  // Disable threading to avoid potential issues
+  ONNX_ENV.wasm.numThreads = 1;
+  
   // https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
   if (typeof crossOriginIsolated === 'undefined' || !crossOriginIsolated) {
     ONNX_ENV.wasm.numThreads = 1;
@@ -159,6 +165,7 @@ if (ONNX_ENV?.wasm) {
 }
 
 if (ONNX_ENV?.webgpu) {
+  console.log('ONNX_ENV.webgpu', ONNX_ENV.webgpu);
   ONNX_ENV.webgpu.powerPreference = 'high-performance';
 }
 
