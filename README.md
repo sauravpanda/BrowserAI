@@ -34,7 +34,8 @@ BrowserAI: Run LLMs in the Browser - Simple, Fast, and Open Source!
 | Demo | Description | URL | Status |
 |------|-------------|-----|--------|
 | Chat Demo | Simple chat interface with multiple model options | [Try Chat Demo](https://chat.browserai.dev) | ✅ |
-| Voice Chat Demo | Full-featured demo with speech recognition and text-to-speech | [Try Voice Demo](https://voice-demo.browserai.dev) | ❌ |
+| Voice Chat Demo | Full-featured demo with speech recognition and text-to-speech | [Try Voice Demo](https://voice-demo.browserai.dev) | ✅ |
+| TTS Kokoro Demo | text-to-speech demo powered by Kokoro 82M | [Try TTS Demo](https://tts-demo.browserai.dev) | ✅ |
 
 ## 🚀 Quick Start
 ```
@@ -102,7 +103,7 @@ const transcription = await ai.transcribeAudio(audioBlob);
 ### Text-to-Speech
 ```javascript
 const ai = new BrowserAI();
-await ai.loadModel('speecht5-tts');
+await ai.loadModel('kokoro-tts');
 const audioBuffer = await ai.textToSpeech('Hello, how are you today?');
 // Play the audio using Web Audio API
 const audioContext = new AudioContext();
@@ -132,7 +133,7 @@ More models will be added soon. Request a model by creating an issue.
 ### Transformers Models
 - Llama-3.2-1b-Instruct
 - Whisper-tiny-en (Speech Recognition)
-- SpeechT5-TTS (Text-to-Speech)
+- Kokoro-TTS (Text-to-Speech)
 
 ## 🗺️ Enhanced Roadmap
 

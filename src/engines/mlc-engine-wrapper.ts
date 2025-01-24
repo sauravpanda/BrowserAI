@@ -28,7 +28,7 @@ export class MLCEngineWrapper {
       else {
         this.appConfig = prebuiltAppConfig;
       }
-      console.log(this.appConfig);
+      // console.log(this.appConfig);
       this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
         initProgressCallback: options.onProgress, // Pass progress callback
         appConfig: this.appConfig,

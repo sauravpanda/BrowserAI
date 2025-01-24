@@ -49,25 +49,23 @@ export class TTSEngine {
     try {
       const language = voice.at(0); // "a" or "b"
       const phonemes = await phonemize(text, language);
-      console.log('Phonemes:', phonemes); // Debug log
+      // console.log('Phonemes:', phonemes); // Debug log
 
       const { input_ids } = this.tokenizer(phonemes, {
         truncation: true,
       });
-      console.log('Input IDs:', input_ids); // Debug log
 
       // Select voice style based on number of input tokens
       const num_tokens = Math.max(
         input_ids.dims.at(-1) - 2, // Without padding
         0,
       );
-      console.log('Num tokens:', num_tokens); // Debug log
 
       // Load voice style
       const data = await getVoiceData(voice);
       const offset = num_tokens * STYLE_DIM;
       const voiceData = data.slice(offset, offset + STYLE_DIM);
-      console.log('Voice data length:', voiceData.length); // Debug log
+    //   console.log('Voice data length:', voiceData.length); // Debug log
 
       // Prepare model inputs
       const inputs = {
@@ -75,11 +73,11 @@ export class TTSEngine {
         style: new Tensor("float32", voiceData, [1, STYLE_DIM]),
         speed: new Tensor("float32", [speed], [1]),
       };
-      console.log('Model inputs prepared'); // Debug log
+    //   console.log('Model inputs prepared'); // Debug log
 
       // Generate audio
       const output = await this.model._call(inputs);
-      console.log('Raw audio received:', output);
+    //   console.log('Raw audio received:', output);
       
       if (!output || !output.waveform) {
         throw new Error('Model returned null or undefined waveform');
@@ -97,10 +95,6 @@ export class TTSEngine {
       if (maxValue > 0) {
         audioData = audioData.map(x => x / maxValue);
       }
-
-      console.log('Audio data length:', audioData.length);
-      console.log('Audio data sample:', audioData.slice(0, 10));
-      console.log('Max audio value:', maxValue);
 
       // Convert Float32Array to Int16Array for WAV format
       const int16Array = new Int16Array(audioData.length);
@@ -122,9 +116,9 @@ export class TTSEngine {
       wavBytes.set(new Uint8Array(wavHeader), 0);
       wavBytes.set(new Uint8Array(int16Array.buffer), 44);
 
-      console.log('WAV file size:', wavBytes.length);
-      console.log('Header size:', wavHeader);
-      console.log('Audio data size:', int16Array.byteLength);
+    //   console.log('WAV file size:', wavBytes.length);
+    //   console.log('Header size:', wavHeader);
+    //   console.log('Audio data size:', int16Array.byteLength);
 
       return wavBytes.buffer;
     } catch (error) {
