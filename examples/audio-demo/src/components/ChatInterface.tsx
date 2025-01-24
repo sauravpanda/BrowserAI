@@ -719,7 +719,9 @@ export default function ChatInterface() {
       const audioLoadStart = performance.now();
       setStatus('Loading audio model...');
       try {
-        await audioAIRef.loadModel('whisper-tiny-en');
+        await audioAIRef.loadModel('whisper-tiny-en', {
+          device: 'webgpu'
+        });
         console.log('Audio model loaded successfully');
       } catch (error) {
         console.error('Error loading audio model:', error);
@@ -733,7 +735,7 @@ export default function ChatInterface() {
       const ttsLoadStart = performance.now();
       setStatus('Loading TTS model...');
       try {
-        await ttsAIRef.loadModel('speecht5-tts');
+        await ttsAIRef.loadModel('kokoro-tts');
         console.log('TTS model loaded successfully');
       } catch (error) {
         console.error('Error loading TTS model:', error);
