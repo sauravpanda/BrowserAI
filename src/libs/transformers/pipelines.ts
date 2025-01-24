@@ -1057,10 +1057,10 @@ export class TextToAudioPipeline
     text_inputs: string | string[],
     { speaker_embeddings = null }: { speaker_embeddings: Tensor | Float32Array | string | URL | null },
   ) {
-    console.log("inside call", this.model.config);
+    // console.log("inside call", this.model.config);
     // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
     if (this.processor) {
-      console.log("Found processor:", this.processor)
+      // console.log("Found processor:", this.processor)
       return this._call_text_to_spectrogram(text_inputs, { speaker_embeddings });
     } else {
       console.log("No Processor found, running waveform")

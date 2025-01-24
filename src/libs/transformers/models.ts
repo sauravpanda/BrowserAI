@@ -533,7 +533,7 @@ async function encoderForward(self: any, model_inputs: any) {
       encoderFeeds.input_ids.dims,
     );
   }
-  console.log("encoder forward running here: ", session, encoderFeeds)
+  // console.log("encoder forward running here: ", session, encoderFeeds)
   return await sessionRun(session, encoderFeeds);
 }
 
