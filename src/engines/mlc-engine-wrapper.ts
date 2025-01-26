@@ -41,7 +41,7 @@ export class MLCEngineWrapper {
     }
   }
 
-  async generateText(input: string | Array<{ role: string; content: string }>, options: any = {}) {
+  async generateText(input: string | Record<string, any>[], options: any = {}) {
     if (!this.mlcEngine) {
       throw new Error('MLC Engine not initialized.');
     }
@@ -57,14 +57,13 @@ export class MLCEngineWrapper {
     }
 
     // Set default options
-    if (!options.max_tokens) {
-      options.max_tokens = 300;
-    }
-    if (!options.temperature) {
-      options.temperature = 0.5;
-    }
-
+    options.max_tokens = options.max_tokens || 300;
+    options.temperature = options.temperature || 0.6;
+    options.top_p = options.top_p || 0.95;
+    options.frequency_penalty = options.frequency_penalty || 0.5;
+    options.presence_penalty = options.presence_penalty || 0.5;
     if (options.stream) {
+      options.stream_options = { include_usage: true };
       return this.mlcEngine.chat.completions.create({ messages, ...options });
     }
     const result = await this.mlcEngine.chat.completions.create({ messages, ...options });

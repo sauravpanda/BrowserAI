@@ -27,7 +27,7 @@ const MessageBubble: React.FC<{
         message.isUser ? 'bg-blue-600' : 'bg-gray-700'
       }`}>
         <div className="text-sm">
-            <MessageContent content={message.text} />
+            <MessageContent content={message.text} usage={message.usage} />
         </div>
         <div className="text-xs text-gray-400 mt-1">
           {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -51,6 +51,11 @@ interface EnhancedChatInterfaceProps {
   modelLoaded: boolean;
   selectedModel: string;
   loading: boolean;
+  loadingProgress?: number;
+  loadingStats?: {
+    progress: number;
+    estimatedTimeRemaining: number | null;
+  };
   showPrivacyBanner?: boolean;
   onSend: () => void;
   onInputChange: (value: string) => void;
@@ -65,12 +70,14 @@ const EnhancedChatInterface = ({
     modelLoaded,
     selectedModel,
     loading,
+    loadingProgress = 0,
+    loadingStats = { progress: 0, estimatedTimeRemaining: null },
     showPrivacyBanner = true,
     onSend,
     onInputChange,
     onModelChange,
     onLoadModel
-  }:  EnhancedChatInterfaceProps) => {
+  }: EnhancedChatInterfaceProps) => {
   const [showStats, setShowStats] = useState(true);
   const [showMetricsInfo, setShowMetricsInfo] = useState(true);
   const chatBoxRef = useRef<HTMLDivElement>(null);
@@ -83,6 +90,18 @@ const EnhancedChatInterface = ({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* GitHub Banner */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-2 px-4 text-center">
+        <a 
+          href="https://github.com/sauravpanda/browserai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white hover:text-gray-200 flex items-center justify-center gap-2"
+        >
+          ⭐ Star BrowserAI on GitHub and help us improve it!
+        </a>
+      </div>
+
       {/* Header Section */}
       <header className="py-6 px-4 border-b border-gray-800">
         <div className="max-w-7xl mx-auto">
@@ -101,6 +120,8 @@ const EnhancedChatInterface = ({
             >
               <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (360MB)</option>
               <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
+              <option value="deepseek-r1-distill-qwen-7b">DeepSeek R1 Distill Qwen 7B (5.1GB)</option>
+              <option value="deepseek-r1-distill-llama-8b">DeepSeek R1 Distill Llama 8B (6.1GB)</option>
               <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1.75GB)</option>
               <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
               <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
@@ -125,37 +146,68 @@ const EnhancedChatInterface = ({
         </div>
       </header>
 
-      {/* Metrics Info Banner */}
+      {/* Metrics Info Banner
       {showMetricsInfo && showPrivacyBanner && (
         <div className="max-w-7xl mx-auto px-4 mt-4">
           <CustomAlert onClose={() => setShowMetricsInfo(false)}>
             We collect anonymous performance metrics to improve our service
           </CustomAlert>
         </div>
-      )}
+      )} */}
 
       {/* Main Chat Area */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Current Model Banner */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg p-4 mb-6 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className={`w-2 h-2 rounded-full ${modelLoaded ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
-            <span className="text-lg font-medium">Current Model: {selectedModel}</span>
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg p-4 mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${modelLoaded ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+              <span className="text-lg font-medium">Current Model: {selectedModel}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span>Status:</span>
+              <span className={modelLoaded ? 'text-green-400' : 'text-gray-400'}>
+                {loading ? 'Loading...' : modelLoaded ? 'Active' : 'Not Loaded'}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span>Status:</span>
-            <span className={modelLoaded ? 'text-green-400' : 'text-gray-400'}>
-              {modelLoaded ? 'Active' : 'Not Loaded'}
-            </span>
-          </div>
+          
+          {/* Show progress bar only when loading */}
+          {loading && (
+            <div className="mt-4">
+              <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm text-gray-400">
+                <span>{loadingProgress.toFixed(0)}% complete</span>
+                {loadingStats.estimatedTimeRemaining !== null && (
+                  <span>
+                    {loadingStats.estimatedTimeRemaining > 60 
+                      ? `~${(loadingStats.estimatedTimeRemaining / 60).toFixed(1)} minutes remaining`
+                      : `~${Math.ceil(loadingStats.estimatedTimeRemaining)} seconds remaining`
+                    }
+                  </span>
+                )}
+              </div>
+              {selectedModel.includes('instruct') && (
+                <div className="text-sm text-gray-500 mt-2">
+                  This model includes instruction tuning for better chat responses
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Main chat interface - now always visible */}
         <div className={`flex transition-all duration-300 ${showStats ? 'gap-6' : 'gap-0'}`}>
           {/* Chat Section */}
           <div className={`flex-1 transition-all duration-300 ${showStats ? 'w-3/4' : 'w-full'}`}>            
           <div className="bg-gray-800 rounded-lg h-[600px] mb-4 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-600" ref={chatBoxRef}>
             {messages.map((message, index) => (
-              <MessageBubble key={index} message={message} />
+              <MessageBubble key={index} message={message} usage={message.usage}/>
             ))}
           </div>
             {/* Input Area */}

@@ -1,116 +1,156 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CodeBlock } from './MessageFormatting/CodeBlock';
 import { Latex } from './MessageFormatting/Latex';
+import MarkdownIt from 'markdown-it';
+import styled from '@emotion/styled';
+
+// Initialize markdown-it
+const md = new MarkdownIt();
+
+const ThinkingDropdown = styled.div<{ isOpen: boolean }>`
+  margin-bottom: 1rem;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  overflow: hidden;
+
+  .thinking-header {
+    padding: 0.5rem 1rem;
+    background: #2d2d2d;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    
+    &:hover {
+      background: #363636;
+    }
+  }
+
+  .thinking-content {
+    padding: 1rem;
+    border-top: 1px solid #404040;
+    background: #1a1a1a;
+    color: #a0a0a0;
+  }
+`;
+
+const MarkdownContent = styled.div`
+  line-height: 1.6;
+  
+  p {
+    margin: 1em 0;
+    &:first-child {
+      margin-top: 0;
+    }
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  h1, h2, h3, h4, h5 {
+    margin: 1.5em 0 0.5em 0;
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  ul, ol {
+    margin: 1em 0;
+    padding-left: 2em;
+  }
+
+  li {
+    margin: 0.5em 0;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+`;
+
+const TokenCount = styled.div`
+  color: #666;
+  font-size: 0.8rem;
+  text-align: right;
+  margin-top: 0.5rem;
+  font-family: monospace;
+`;
 
 interface MessageContentProps {
   content: string;
 }
 
-type ContentPart = string | JSX.Element;
+// Add interface for parsed content
+interface ParsedContent {
+  thinking?: string;
+  response: string;
+  isPartial: boolean;
+}
 
 export const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
-  const processContent = (): ContentPart[] => {
-    const parts: ContentPart[] = [];
-    let currentIndex = 0;
-    let key = 0;
+  const [isThinkingVisible, setIsThinkingVisible] = useState(false);
 
-    /**
-     * Updated Regex Patterns:
-     * 1) blockMathRegex: Matches $$...$$, \[...\], and \(...\).
-     * 2) inlineMathRegex: Matches single-$...$ (still allowed if you want).
-     * 3) codeBlockRegex: Loosely matches ```[language?]\n? [any code] ```.
-     */
-
-    // Block math can be $$...$$, \[...\], or \(...\)
-    const blockMathRegex = /(\${2}([\s\S]+?)\${2})|(\\\[[\s\S]+?\\\])|(\\\([\s\S]+?\\\))/g;
-    // Optional inline math with single $...$
-    const inlineMathRegex = /\$([\s\S]+?)\$/g;
-    // Loosen code block matching: optional language tag + optional newline
-    const codeBlockRegex = /```([^`\n]*)\n?([\s\S]*?)```/g;
-
-    while (currentIndex < content.length) {
-      // reset lastIndex for each pattern
-      blockMathRegex.lastIndex = currentIndex;
-      inlineMathRegex.lastIndex = currentIndex;
-      codeBlockRegex.lastIndex = currentIndex;
-
-      const blockMatch = blockMathRegex.exec(content);
-      const inlineMatch = inlineMathRegex.exec(content);
-      const codeMatch = codeBlockRegex.exec(content);
-
-      // Collect whichever matches first in the text
-      const matches = [blockMatch, inlineMatch, codeMatch].filter(Boolean) as RegExpExecArray[];
-      if (matches.length === 0) {
-        // No more matches, push the remaining text
-        parts.push(content.slice(currentIndex));
-        break;
-      }
-
-      // Find the earliest match
-      const nextMatch = matches.reduce((closest, match) => {
-        return (!closest || match.index < closest.index) ? match : closest;
-      });
-
-      // Push any plain text before this match
-      if (nextMatch.index > currentIndex) {
-        parts.push(content.slice(currentIndex, nextMatch.index));
-      }
-
-      if (nextMatch === blockMatch) {
-        // We either have $$...$$, $begin:math:display$...$end:math:display$, or $begin:math:text$...$end:math:text$
-        // Extract the actual LaTeX content by removing delimiters
-        const fullMatch = blockMatch[0];
-        let latexContent = '';
-
-        // $$...$$ is captured by group 2,  $begin:math:display$...$end:math:display$ => group 0 minus the slash brackets, etc.
-        // We'll do a quick clean-up to remove outer delimiters:
-        // e.g. $$E=mc^2$$ => E=mc^2
-        //      $begin:math:display$E=mc^2$end:math:display$ => E=mc^2
-        //      $begin:math:text$E=mc^2$end:math:text$ => E=mc^2
-
-        // Remove the first/last pair of special chars:
-        latexContent = fullMatch
-  // Remove leading delimiters
-  .replace(
-    /^(?:\${2}|\\\$begin:math:display\$|\\\(|\\\[)/,
-    ''
-  )
-  // Remove trailing delimiters
-  .replace(
-    /(?:\${2}|\\\$end:math:display\$|\\\)|\\\])$/,
-    ''
-  );
-
-        parts.push(
-          <Latex key={key++} formula={latexContent.trim()} display={true} />
-        );
-        currentIndex = blockMatch.index + fullMatch.length;
-
-      } else if (nextMatch === inlineMatch) {
-        // $...$ style inline math
-        // The actual content is in inlineMatch[1]
-        parts.push(
-          <Latex key={key++} formula={inlineMatch[1]} display={false} />
-        );
-        currentIndex = inlineMatch.index + inlineMatch[0].length;
-
-      } else if (nextMatch === codeMatch) {
-        // Triple backtick code block
-        const language = codeMatch[1] || 'plaintext';
-        const codeContent = codeMatch[2] || '';
-        parts.push(
-          <CodeBlock
-            key={key++}
-            code={codeContent}
-            language={language.trim() || 'plaintext'}
-          />
-        );
-        currentIndex = codeMatch.index + codeMatch[0].length;
-      }
-    }
-
-    return parts;
+  // Add simple token counting function
+  const countTokens = (text: string): number => {
+    // This is a very basic approximation - for more accurate counts,
+    // you might want to use a proper tokenizer library
+    return Math.ceil(text.length / 4);
   };
 
-  return <>{processContent()}</>;
+  const parseContent = (text: string) => {
+    // Check if we have a partial thinking block
+    if (text.includes('<think>') && !text.includes('</think>')) {
+      const thinkContent = text.split('<think>')[1];
+      return {
+        thinking: thinkContent.trim(),
+        response: '',
+        isPartial: true
+      };
+    }
+
+    // Check for complete thinking block
+    const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>\s*([\s\S]*)/);
+    if (!thinkMatch) return { response: text };
+    
+    return {
+      thinking: thinkMatch[1].trim(),
+      response: thinkMatch[2].trim(),
+      isPartial: false
+    };
+  };
+
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    return <MarkdownContent dangerouslySetInnerHTML={{ __html: md.render(text) }} />;
+  };
+
+  const { thinking, response, isPartial } = parseContent(content);
+
+  return (
+    <div>
+      {thinking && (
+        <ThinkingDropdown isOpen={isThinkingVisible}>
+          <div 
+            className="thinking-header" 
+            onClick={() => setIsThinkingVisible(!isThinkingVisible)}
+          >
+            <span>💭 AI's Thinking Process {isPartial ? '(in progress...)' : ''}</span>
+            <span className="icon">▼</span>
+          </div>
+          {isThinkingVisible && (
+            <div className="thinking-content">
+              {renderMarkdown(thinking)}
+            </div>
+          )}
+        </ThinkingDropdown>
+      )}
+      <div className="response-content">
+        {renderMarkdown(response || (!thinking ? content : ''))}
+      </div>
+      <TokenCount>
+        ~{countTokens(content)} tokens
+      </TokenCount>
+    </div>
+  );
 };

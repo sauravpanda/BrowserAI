@@ -165,7 +165,22 @@ const MainContent = styled.div`
 `;
 
 const ChatContainer = styled.div`
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  
+  .chat-main {
+    flex: 1;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    padding: 1rem;
+    
+    .messages-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
 `;
 
 const Sidebar = styled.div`
@@ -286,6 +301,43 @@ const ErrorMessage = styled.div`
   margin-bottom: 16px;
 `;
 
+const ThinkingDropdown = styled.div<{ isOpen: boolean }>`
+  margin-bottom: 1rem;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #1a1a1a;
+
+  .thinking-header {
+    padding: 8px 12px;
+    background: #2d2d2d;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    font-size: 14px;
+    color: #a0a0a0;
+    
+    &:hover {
+      background: #363636;
+    }
+
+    .icon {
+      font-size: 12px;
+      transition: transform 0.2s;
+      transform: ${props => props.isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
+    }
+  }
+
+  .thinking-content {
+    padding: 12px;
+    color: #a0a0a0;
+    font-size: 14px;
+    line-height: 1.5;
+    border-top: 1px solid #404040;
+  }
+`;
 
 interface ChatInterfaceProps {
   children?: (props: {
@@ -306,12 +358,23 @@ interface ChatInterfaceProps {
     modelLoaded: boolean;
     selectedModel: string;
     loading: boolean;
+    loadingProgress: number;
+    loadingStats: {
+      progress: number;
+      estimatedTimeRemaining: number | null;
+    };
     showPrivacyBanner: boolean;
     onSend: () => void;
     onInputChange: (value: string) => void;
     onModelChange: (model: string) => void;
     onLoadModel: () => void;
   }) => React.ReactNode;
+}
+
+interface LoadingStats {
+  startTime: number;
+  progress: number;
+  estimatedTimeRemaining: number | null;
 }
 
 export default function ChatInterface({ children }: ChatInterfaceProps) {
@@ -337,13 +400,13 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
   const [showPrivacyDetails, setShowPrivacyDetails] = useState(false);
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Initialize PostHog
-    posthog.init('phc_zZuhhgvhx49iRC6ftmFcnVKZrlraLCyPeFbs5mWzmxp', {
-      api_host: 'https://us.i.posthog.com',
-      person_profiles: 'identified_only'
-    });
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStats, setLoadingStats] = useState<LoadingStats>({
+    startTime: 0,
+    progress: 0,
+    estimatedTimeRemaining: null
+  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Get WebGL information
     const canvas = document.createElement('canvas');
@@ -358,123 +421,67 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       hasWebGL2: !!canvas.getContext('webgl2'),
     } : null;
 
-    // Capture page view with enhanced system info
-    posthog.capture('page_view', {
-      // Browser and OS info
-      url: window.location.href,
-      domain: window.location.hostname,
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      screenResolution: `${window.screen.width}x${window.screen.height}`,
-      pixelRatio: window.devicePixelRatio,
-      language: navigator.language,
-      
-      // Hardware capabilities
-      hardwareConcurrency: navigator.hardwareConcurrency,
-      deviceMemory: (navigator as any).deviceMemory,
-      maxTouchPoints: navigator.maxTouchPoints,
-      
-      // Connection info
-      connectionType: (navigator as any).connection?.type,
-      connectionSpeed: (navigator as any).connection?.downlink,
-      connectionSaveData: (navigator as any).connection?.saveData,
-      
-      // Browser capabilities
-      hasSharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-      hasWebGL: !!webGLInfo,
-      webGLInfo,
-      
-      // Performance API support
-      hasPerformanceAPI: 'performance' in window,
-      hasMemoryInfo: 'memory' in performance,
-      
-      // Web Worker support
-      hasWebWorker: 'Worker' in window,
-      
-      // SIMD support
-      hasSIMD: 'Atomics' in window && 'SharedArrayBuffer' in window,
-      
-      // Storage availability
-      localStorageLimit: (() => {
-        try {
-          const limit = Math.pow(2, 31) - 1;
-          return limit;
-        } catch (e) {
-          return null;
-        }
-      })(),
-      
-      // Browser features
-      hasWebAssembly: typeof WebAssembly === 'object',
-      hasIndexedDB: 'indexedDB' in window,
-      
-      // Battery status if available
-      batteryStatus: async () => {
-        try {
-          const battery: any = await (navigator as any).getBattery?.();
-          return battery ? {
-            charging: battery.charging,
-            level: battery.level,
-            chargingTime: battery.chargingTime,
-            dischargingTime: battery.dischargingTime,
-          } : null;
-        } catch {
-          return null;
-        }
-      },
-    });
-  }, []);
 
   const loadModel = async () => {
     setLoading(true);
     setLoadError(null);
     const startTime = performance.now();
     const memoryBefore = (performance as any).memory?.usedJSHeapSize;
-    
+    setLoadingProgress(0);
+    setLoadingStats({
+      startTime,
+      progress: 0,
+      estimatedTimeRemaining: null
+    });
+
     try {
       await browserAI.loadModel(selectedModel, {
         onProgress: (progress: any) => {
-          // Capture loading progress milestones
-          if (progress.progress % 25 === 0) {  // Track at 25%, 50%, 75%, 100%
-            posthog.capture('model_loading_progress', {
-              model: selectedModel,
-              progressPercentage: progress.progress,
-              timeElapsed: performance.now() - startTime,
+          const currentTime = performance.now();
+          const elapsedTime = (currentTime - startTime) / 1000; // in seconds
+          const progressPercent = progress.progress;
+          const text = progress.text;
+          // Calculate estimated time remaining
+          let estimatedTimeRemaining = 0;
+          if (progressPercent > 0) {
+            const timePerPercent = elapsedTime / (progressPercent * 100);
+            estimatedTimeRemaining = timePerPercent * (100 - progressPercent*100);
+            setLoadingProgress(progressPercent * 100);
+            setLoadingStats({
+              startTime,
+              progress: progressPercent,
+              estimatedTimeRemaining
             });
+          } else {
+            if (text.includes('Loading model from cache')) {
+              const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
+              if (match) {
+                const currentShard = parseInt(match[1], 10);
+                const totalShards = parseInt(match[2], 10);
+                const loadingProgress = currentShard / totalShards;
+                
+                // Calculate estimated time remaining
+                const timePerShard = elapsedTime / currentShard;
+                const remainingShards = totalShards - currentShard;
+                estimatedTimeRemaining = timePerShard * remainingShards;
+                
+                // Update progress based on shard loading
+                setLoadingProgress(loadingProgress * 100);
+                setLoadingStats({
+                  startTime,
+                  progress: loadingProgress,
+                  estimatedTimeRemaining
+                });
+                
+              }
+            }
           }
-          console.log(`Loading progress: ${progress.progress}%`);
         }
       });
       
       const loadTime = performance.now() - startTime;
       const memoryAfter = (performance as any).memory?.usedJSHeapSize;
       const memoryIncrease = memoryAfter - memoryBefore;
-      
-      // Capture detailed model load event
-      posthog.capture('model_loaded', {
-        model: selectedModel,
-        loadTime,
-        success: true,
-        
-        // Memory metrics
-        memoryUsageBefore: memoryBefore / (1024 * 1024),  // Convert to MB
-        memoryUsageAfter: memoryAfter / (1024 * 1024),
-        memoryIncrease: memoryIncrease / (1024 * 1024),
-        
-        // System state during load
-        deviceMemory: (navigator as any).deviceMemory,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-        connectionType: (navigator as any).connection?.type,
-        connectionSpeed: (navigator as any).connection?.downlink,
-        
-        // Browser state
-        otherTabsCount: performance?.getEntriesByType('resource').length,
-        hasWebGL2: !!document.createElement('canvas').getContext('webgl2'),
-        
-        // Performance metrics
-        loadTimeSeconds: loadTime / 1000,
-        averageLoadingSpeed: (memoryIncrease / 1024 / 1024) / (loadTime / 1000), // MB/s
-      });
 
       setStats(prev => ({
         ...prev,
@@ -485,18 +492,16 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       const error = err as Error;
       setLoadError(error.message);
       setModelLoaded(false);
-      
-      posthog.capture('model_load_error', {
-        model: selectedModel,
-        error: error.message,
-        errorType: error.name,
-        timeSpentBeforeError: performance.now() - startTime,
-        memoryAtError: (performance as any).memory?.usedJSHeapSize / (1024 * 1024),
-        stackTrace: error.stack,
-      });
+
       console.error('Error loading model:', error);
     }
     setLoading(false);
+    setLoadingProgress(0);
+    setLoadingStats({
+      startTime: 0,
+      progress: 0,
+      estimatedTimeRemaining: null
+    });
   };
 
   const handleModelChange = (newModel: string) => {
@@ -514,16 +519,20 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     try {
       const startTime = performance.now();
       const chunks = await browserAI.generateText(input, {
-        maxTokens: 300,
-        temperature: 0.1,
+        max_tokens: 4096,
+        temperature: 0.6,
+        frequency_penalty: 0.5,
+        presence_penalty: 0.5,
         stream: true,
       });
 
       let response = '';
       for await (const chunk of chunks as AsyncIterable<{
-        choices: Array<{ delta: { content?: string } }>
+        choices: Array<{ delta: { content?: string } }>,
+        usage: any
       }>) {
         const newContent = chunk.choices[0]?.delta.content || '';
+        const newUsage = chunk.usage;
         response += newContent;
         setMessages(prevMessages => {
           if (prevMessages[prevMessages.length - 1]?.isUser) {
@@ -536,17 +545,6 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
         });
       }
       const responseTime = performance.now() - startTime;
-      
-      // Capture message interaction with performance data
-      posthog.capture('message_sent', {
-        model: selectedModel,
-        inputLength: input.length,
-        responseLength: response.length,
-        responseTime,
-        memoryUsage: stats.memoryUsage,
-        peakMemoryUsage: stats.peakMemoryUsage,
-        tokensPerSecond: response.length / (responseTime / 1000)
-      });
 
       setStats(prev => {
         const newResponseHistory = [...prev.responseHistory, responseTime].slice(-10);
@@ -555,7 +553,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
         return {
           ...prev,
           lastDecodingTime: responseTime,
-          tokensPerSecond: response.length / (responseTime / 1000),
+          tokensPerSecond: response.length / (4* responseTime / 1000),
           averageResponseTime: avgResponse,
           responseHistory: newResponseHistory,
           peakMemoryUsage: Math.max(prev.peakMemoryUsage, prev.memoryUsage)
@@ -613,6 +611,15 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     }
   }, [messages]);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Scroll on new messages or content updates
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]); // Scroll when messages array changes
+
   return children ? children({
     stats,
     messages,
@@ -620,6 +627,11 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     modelLoaded,
     selectedModel,
     loading,
+    loadingProgress,
+    loadingStats: {
+      progress: loadingProgress,
+      estimatedTimeRemaining: loadingStats.estimatedTimeRemaining
+    },
     showPrivacyBanner,
     onSend: handleSend,
     onInputChange: (value) => setInput(value),
@@ -709,7 +721,38 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
           {loading ? (
             <LoadingIndicator>
               <Spinner />
-              <div>Loading model...</div>
+              <div style={{ marginBottom: '16px' }}>Loading model...</div>
+              <ProgressBar>
+                <div 
+                  className="fill" 
+                  style={{ width: `${loadingProgress}%` }} 
+                />
+              </ProgressBar>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                marginTop: '8px',
+                fontSize: '14px',
+                color: '#a0a0a0'
+              }}>
+                <span>{loadingProgress.toFixed(0)}% complete</span>
+                {loadingStats.estimatedTimeRemaining !== null && (
+                  <span>
+                    {loadingStats.estimatedTimeRemaining > 60 
+                      ? `~${(loadingStats.estimatedTimeRemaining / 60).toFixed(1)} minutes remaining`
+                      : `~${Math.ceil(loadingStats.estimatedTimeRemaining)} seconds remaining`
+                    }
+                  </span>
+                )}
+              </div>
+              <div style={{ 
+                marginTop: '12px',
+                fontSize: '13px',
+                color: '#666'
+              }}>
+                {selectedModel.includes('instruct') && 
+                  "This model includes instruction tuning for better chat responses"}
+              </div>
             </LoadingIndicator>
           ) : (
             <>
@@ -717,6 +760,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
                 {messages.map((message, index) => (
                   <Message key={index} text={message.text} isUser={message.isUser} />
                 ))}
+                <div ref={messagesEndRef} />
               </ChatBox>
               <InputContainer>
                 <Input
