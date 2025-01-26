@@ -1,0 +1,23 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.database-demo {
+  text-align: left;
+}
+
+.logs {
+  background: #f0f0f0;
+  padding: 1rem;
+  border-radius: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.logs pre {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
