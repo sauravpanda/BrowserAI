@@ -423,6 +423,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
 
 
   const loadModel = async () => {
+    console.log(`[BrowserAI] Starting to load model: ${selectedModel}`);
     setLoading(true);
     setLoadError(null);
     const startTime = performance.now();
@@ -437,10 +438,12 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     try {
       await browserAI.loadModel(selectedModel, {
         onProgress: (progress: any) => {
+          console.log(`[BrowserAI] Loading progress:`, progress);
           const currentTime = performance.now();
           const elapsedTime = (currentTime - startTime) / 1000; // in seconds
           const progressPercent = progress.progress;
           const text = progress.text;
+          console.log(`[BrowserAI] Loading progress:`, progressPercent);
           // Calculate estimated time remaining
           let estimatedTimeRemaining = 0;
           if (progressPercent > 0) {
@@ -480,6 +483,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       });
       
       const loadTime = performance.now() - startTime;
+      console.log(`[BrowserAI] Model loaded successfully in ${loadTime.toFixed(0)}ms`);
       const memoryAfter = (performance as any).memory?.usedJSHeapSize;
       const memoryIncrease = memoryAfter - memoryBefore;
 
@@ -490,10 +494,13 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       setModelLoaded(true);
     } catch (err) {
       const error = err as Error;
+      console.error('[BrowserAI] Error loading model:', {
+        model: selectedModel,
+        error: error.message,
+        stack: error.stack
+      });
       setLoadError(error.message);
       setModelLoaded(false);
-
-      console.error('Error loading model:', error);
     }
     setLoading(false);
     setLoadingProgress(0);
@@ -512,6 +519,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
   const handleSend = async () => {
     if (!input.trim() || !modelLoaded) return;
 
+    console.log(`[BrowserAI] Starting text generation with input length: ${input.length}`);
     const userMessage = { text: input, isUser: true };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -527,10 +535,12 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       });
 
       let response = '';
+      let chunkCount = 0;
       for await (const chunk of chunks as AsyncIterable<{
         choices: Array<{ delta: { content?: string } }>,
         usage: any
       }>) {
+        chunkCount++;
         const newContent = chunk.choices[0]?.delta.content || '';
         const newUsage = chunk.usage;
         response += newContent;
@@ -545,6 +555,11 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
         });
       }
       const responseTime = performance.now() - startTime;
+      console.log('[BrowserAI] Text generation completed:', {
+        responseTimeMs: responseTime.toFixed(0),
+        outputLength: response.length,
+        chunks: chunkCount
+      });
 
       setStats(prev => {
         const newResponseHistory = [...prev.responseHistory, responseTime].slice(-10);
@@ -562,6 +577,11 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
 
     } catch (err) {
       const error = err as Error;
+      console.error('[BrowserAI] Error generating text:', {
+        model: selectedModel,
+        error: error.message,
+        stack: error.stack
+      });
       posthog.capture('message_error', {
         model: selectedModel,
         error: error.message
