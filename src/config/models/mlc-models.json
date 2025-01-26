@@ -152,5 +152,29 @@
         ],
         "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
+    },
+    "deepseek-r1-distill-qwen-7b": {
+        "engine": "mlc",
+        "modelName": "DeepSeek-R1-Distill-Qwen-7B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/DeepSeek-R1-Distill-Qwen-7B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f16_1",
+        "pipeline": "text-generation"
+    },
+    "deepseek-r1-distill-llama-8b": {
+        "engine": "mlc",
+        "modelName": "DeepSeek-R1-Distill-Llama-8B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/DeepSeek-R1-Distill-Llama-8B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f16_1",
+        "pipeline": "text-generation"
     }
 }
