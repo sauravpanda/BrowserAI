@@ -1,0 +1,32 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get package.json version
+        id: package_version
+        run: echo "PACKAGE_VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
+      - name: Get latest release tag
+        id: latest_release
+        run: |
+          LATEST_TAG=$(gh release list --limit 1 --jq '.[0].tagName' || echo "")
+          echo "LATEST_RELEASE_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare versions and create release
+        if: steps.package_version.outputs.PACKAGE_VERSION != steps.latest_release.outputs.LATEST_RELEASE_TAG
+        run: |
+          gh release create v${{ steps.package_version.outputs.PACKAGE_VERSION }} --title "Release v${{ steps.package_version.outputs.PACKAGE_VERSION }}" --notes "Release v${{ steps.package_version.outputs.PACKAGE_VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

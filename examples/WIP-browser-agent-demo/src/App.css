@@ -1,0 +1,18 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  background: #f5f5f5;
+  width: 100%;
+}
+
+.browser-container {
+  border-right: 1px solid #ddd;
+  background: white;
+}
+
+.chat-container {
+  min-width: 320px;
+  max-width: 450px;
+  background: white;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+}

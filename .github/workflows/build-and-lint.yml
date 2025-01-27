@@ -22,19 +22,15 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    # Add these steps to fix the rollup issue
-    - name: Clean npm cache
-      run: npm cache clean --force
-      
-    - name: Remove existing node_modules and package-lock.json
-      run: |
-        rm -rf node_modules
-        rm -f package-lock.json
-
-    - name: Install dependencies
+    # Main project build and lint
+    - name: Install main dependencies
       run: npm install
-      working-directory: examples/audio-demo
 
-    - name: Build
+    - name: Run tests
+      run: npm run test
+
+    - name: Build main project
       run: npm run build
-      working-directory: examples/audio-demo 
+
+    - name: Lint main project
+      run: npm run lint

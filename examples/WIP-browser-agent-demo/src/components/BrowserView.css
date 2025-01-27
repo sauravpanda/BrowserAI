@@ -1,0 +1,23 @@
+.browser-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  .browser-toolbar {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .url-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .browser-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+  }
