@@ -9,3 +9,4 @@ export { default as mlcModels } from './config/models/mlc-models.json';
 export { default as transformersModels } from './config/models/transformers-models.json';
 
 export { DatabaseImpl } from './core/database';
+export { BrowserAgent } from './core/agent/browser-agent';
