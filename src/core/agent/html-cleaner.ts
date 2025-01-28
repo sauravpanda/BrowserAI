@@ -2,11 +2,21 @@ export class HTMLCleaner {
     private tagsToRemove: string[];
     private attributesToRemove: string[];
 
+    /**
+     * Creates an instance of HTMLCleaner.
+     * @param {string[]} [tagsToRemove] - Array of HTML tags to remove from the content
+     * @param {string[]} [attributesToRemove] - Array of HTML attributes to remove from remaining elements
+     */
     constructor(tagsToRemove?: string[], attributesToRemove?: string[]) {
         this.tagsToRemove = tagsToRemove || ['script', 'style', 'noscript', 'svg', 'canvas', 'iframe', 'video', 'audio', 'img', 'form', 'input', 'button', 'select', 'textarea', 'nav', 'aside', 'footer', 'header'];
         this.attributesToRemove = attributesToRemove || ['class', 'id', 'style', 'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout'];
     }
 
+    /**
+     * Cleans HTML content by removing specified tags and attributes, returning only text content.
+     * @param {string} html - The HTML content to clean
+     * @returns {string} Cleaned text content with excess whitespace removed
+     */
     clean(html: string): string {
         let tempElement = document.createElement('div');
         tempElement.innerHTML = html;
@@ -26,6 +36,11 @@ export class HTMLCleaner {
         return textContent;
     }
 
+    /**
+     * Extracts text content from semantically important HTML elements.
+     * @param {string} html - The HTML content to process
+     * @returns {string} Concatenated text content from semantic elements with line breaks
+     */
     cleanSemantic(html: string): string {
         let tempElement = document.createElement('div');
         tempElement.innerHTML = html;
@@ -41,6 +56,11 @@ export class HTMLCleaner {
         return importantText;
     }
 
+    /**
+     * Extracts information about interactive elements from HTML content.
+     * @param {string} html - The HTML content to process
+     * @returns {string} Formatted string containing information about interactive elements
+     */
     cleanForInteractive(html: string): string {
         let tempElement = document.createElement('div');
         tempElement.innerHTML = html;
@@ -77,6 +97,11 @@ export class HTMLCleaner {
         return interactiveContent.trim();
     }
 
+    /**
+     * Preserves the hierarchical structure of HTML content, focusing on headings and paragraphs.
+     * @param {string} html - The HTML content to process
+     * @returns {string} Indented text representation of the document's semantic structure
+     */
     preserveSemanticHierarchy(html: string): string {
         let tempElement = document.createElement('div');
         tempElement.innerHTML = html;
@@ -101,6 +126,11 @@ export class HTMLCleaner {
         return structuredContent.trim();
     }
 
+    /**
+     * Extracts structured data from HTML content, including schema.org metadata and meta tags.
+     * @param {string} html - The HTML content to process
+     * @returns {Record<string, string>} Object containing extracted structured data key-value pairs
+     */
     extractStructuredData(html: string): Record<string, string> {
         let tempElement = document.createElement('div');
         tempElement.innerHTML = html;

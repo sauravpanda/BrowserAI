@@ -47,7 +47,7 @@ export function classifyContent(content: string): ContentClassification {
         .map(([word]) => word);
 
     // Simple classification based on content patterns
-    const classification = determineContentType(content, keywords);
+    const classification = determineContentType(keywords);
 
     return {
         ...classification,
@@ -56,7 +56,7 @@ export function classifyContent(content: string): ContentClassification {
     };
 }
 
-function determineContentType(content: string, keywords: string[]): Pick<ContentClassification, 'type' | 'confidence'> {
+function determineContentType(keywords: string[]): Pick<ContentClassification, 'type' | 'confidence'> {
     const patterns = {
         article: ['article', 'post', 'blog', 'news', 'story'],
         product: ['price', 'buy', 'cart', 'shop', 'product'],

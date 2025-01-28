@@ -129,6 +129,7 @@ const EnhancedChatInterface = ({
               <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
               <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
               <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
+
               {/* <option value="deepseek-r1-distill-qwen-1.5b">DeepSeek R1 Distill Qwen 1.5B (1.5GB)</option> */}
             </select>
             <button 

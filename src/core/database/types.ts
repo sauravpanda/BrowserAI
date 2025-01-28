@@ -5,6 +5,7 @@ export interface Storable {
   export interface DatabaseConfig {
     databaseName: string;
     version?: number;
+    storeName?: string;
   }
   
   export interface Database<T extends Storable> {

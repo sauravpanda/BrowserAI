@@ -11,7 +11,7 @@ class IndexedDBStorage<T extends Storable> implements Storage<T> {
     constructor(config: DatabaseConfig) {
       this.dbName = config.databaseName;
       this.version = config.version || 1;
-      this.storeName = 'defaultStore'; // could be configurable in config
+      this.storeName = config.storeName || 'BrowserAIStore';
 
     }
 
