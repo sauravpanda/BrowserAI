@@ -1,3 +1,5 @@
+// Some of this code is from https://github.com/hexgrad/kokoro/
+
 export const VOICES = Object.freeze({
   af: {
     // Default voice is a 50-50 mix of Bella & Sarah

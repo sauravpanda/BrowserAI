@@ -146,7 +146,7 @@
         "modelName": "DeepSeek-R1-Distill-Qwen-1.5B-MLC",
         "modelType": "text-generation",
         "modelLibrary": "Qwen2-1.5B-Instruct-q4f32_1-ctx4k_cs1k-webgpu.wasm",
-        "repo": "mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}-MLC",
+        "repo": "sauravpanda/DeepSeek-R1-Distill-Qwen-1.5B-MLC",
         "quantizations": [
             "q4f32_1"
         ],

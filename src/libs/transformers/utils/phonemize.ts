@@ -1,5 +1,7 @@
 import { phonemize as espeakng } from "phonemizer";
 
+// Some of this code is from https://github.com/hexgrad/kokoro/
+
 /**
  * Helper function to split a string on a regex, but keep the delimiters.
  * This is required, because the JavaScript `.split()` method does not keep the delimiters,
