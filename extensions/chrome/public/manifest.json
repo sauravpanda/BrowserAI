@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "BrowserAgent - AI Agents in Browser",
+  "version": "1.0.2",
+  "description": "Run private, cost-free AI agents directly in your browser. Automate tasks, enhance browsing, and control your data with local AI.",
+  "action": {
+    "default_title": "Browser AI",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "64": "icons/icon64.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "side_panel": {
+    "default_path": "index.html",
+    "default_width": 400,
+    "openPanelOnly": true
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      }
+    }
+  },
+  "content_scripts": [{
+    "matches": ["https://app.browseragent.dev/dashboard/chrome-extension*"],
+    "js": ["content-script.js"],
+    "css": ["content-script.css"]
+  }],
+
+  "content_security_policy": {
+    "extension_pages": "style-src-elem 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; script-src 'self' 'wasm-unsafe-eval'; default-src 'self' data:; connect-src 'self' data: https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://raw.githubusercontent.com https://cdn-lfs-us-1.hf.co"
+  }
+}
