@@ -176,5 +176,85 @@
         ],
         "defaultQuantization": "q4f16_1",
         "pipeline": "text-generation"
+    },
+    "snowflake-arctic-embed-m-b4": {
+        "engine": "mlc",
+        "modelName": "snowflake-arctic-embed-m-b4",
+        "modelType": "embedding",
+        "repo": "mlc-ai/snowflake-arctic-embed-m-{quantization}-MLC-b4",
+        "quantizations": [
+            "q0f32"
+        ],
+        "defaultQuantization": "q0f32",
+        "pipeline": "embedding",
+        "metadata": {
+            "context_window_size": 512,
+            "download_size_in_mb": {
+                "q0f32": 218
+            },
+            "estimated_vram_in_mb": {
+                "q0f32": 218
+            }
+        }
+    },
+    "snowflake-arctic-embed-s-b4": {
+        "engine": "mlc",
+        "modelName": "snowflake-arctic-embed-s-b4",
+        "modelType": "embedding",
+        "repo": "mlc-ai/snowflake-arctic-embed-s-{quantization}-MLC-b4",
+        "quantizations": [
+            "q0f32"
+        ],
+        "defaultQuantization": "q0f32",
+        "pipeline": "embedding",
+        "metadata": {
+            "context_window_size": 512,
+            "download_size_in_mb": {
+                "q0f32": 66.4
+            },
+            "estimated_vram_in_mb": {
+                "q0f32": 66.4
+            }
+        }
+    },
+    "snowflake-arctic-embed-m-b32": {
+        "engine": "mlc",
+        "modelName": "snowflake-arctic-embed-m-b32",
+        "modelType": "embedding",
+        "repo": "mlc-ai/snowflake-arctic-embed-m-{quantization}-MLC-b32",
+        "quantizations": [
+            "q0f32"
+        ],
+        "defaultQuantization": "q0f32",
+        "pipeline": "embedding",
+        "metadata": {
+            "context_window_size": 512,
+            "download_size_in_mb": {
+                "q0f32": 218
+            },
+            "estimated_vram_in_mb": {
+                "q0f32": 218
+            }
+        }
+    },
+    "snowflake-arctic-embed-s-b32": {
+        "engine": "mlc",
+        "modelName": "snowflake-arctic-embed-s-b32",
+        "modelType": "embedding",
+        "repo": "mlc-ai/snowflake-arctic-embed-s-{quantization}-MLC-b32",
+        "quantizations": [
+            "q0f32"
+        ],
+        "defaultQuantization": "q0f32",
+        "pipeline": "embedding",
+        "metadata": {
+            "context_window_size": 512,
+            "download_size_in_mb": {
+                "q0f32": 66.4
+            },
+            "estimated_vram_in_mb": {
+                "q0f32": 66.4
+            }
+        }
     }
 }

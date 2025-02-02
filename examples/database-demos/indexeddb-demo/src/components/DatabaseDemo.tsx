@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DatabaseImpl } from '@browserai/browserai';
 import { Document } from '../types';
 import './DatabaseDemo.css';
+import { BrowserAI } from '@browserai/browserai';
 
 export function DatabaseDemo() {
     const [logs, setLogs] = useState<string[]>([]);
@@ -9,6 +10,7 @@ export function DatabaseDemo() {
     const [inputText, setInputText] = useState('');
     const [documentId, setDocumentId] = useState('');
     const [documents, setDocuments] = useState<Document[]>([]);
+    const [embeddings, setEmbeddings] = useState<BrowserAI | null>(null);
 
     const addLog = (message: string) => {
         setLogs(prev => [...prev, message]);
@@ -17,28 +19,38 @@ export function DatabaseDemo() {
     useEffect(() => {
         const initDb = async () => {
             const config = {
-                databaseName: 'myAppDB',
-                version: 1
+                databaseName: 'BrowserAI-DB',
+                version: 1,
+                stores: {
+                    documents: { keyPath: 'id' }
+                }
             };
             try {
                 const database = new DatabaseImpl<Document>({ type: 'indexeddb', config });
-                // Wait for initialization to complete
                 await database.initialize({ type: 'indexeddb', config });
+                
+                const browserAI = new BrowserAI();
+                await browserAI.loadModel('snowflake-arctic-embed-m-b32');
+                
                 setDb(database);
+                setEmbeddings(browserAI);
+                addLog('✅ Database and embeddings initialized');
             } catch (error) {
-                addLog(`❌ Error initializing database: ${error instanceof Error ? error.message : String(error)}`);
+                addLog(`❌ Error initializing: ${error instanceof Error ? error.message : String(error)}`);
             }
         };
 
         initDb();
 
         return () => {
-            // Only call close if db is initialized
             if (db) {
                 db.close();
             }
+            if (embeddings) {
+                addLog('✅ Embeddings closed');
+            }
         };
-    }, []); // Remove db from dependencies to avoid recreation
+    }, []);
 
     const refreshDocuments = async () => {
         if (!db) return;
@@ -47,10 +59,17 @@ export function DatabaseDemo() {
     };
 
     const handleStore = async () => {
-        if (!db || !inputText || !documentId) return;
+        if (!db || !embeddings || !inputText || !documentId) return;
         try {
-            await db.store({ id: documentId, text: inputText });
-            addLog(`✅ Stored document with ID: ${documentId}`);
+            const embedding = await embeddings.embed(inputText);
+            console.log(embedding);
+            await db.store({ 
+                id: documentId, 
+                text: inputText,
+                embedding: embedding
+            });
+            
+            addLog(`✅ Stored document with ID: ${documentId} and embedding`);
             await refreshDocuments();
             setInputText('');
             setDocumentId('');
@@ -80,10 +99,17 @@ export function DatabaseDemo() {
     };
 
     const handleUpdate = async () => {
-        if (!db || !inputText || !documentId) return;
+        if (!db || !embeddings || !inputText || !documentId) return;
         try {
-            await db.update({ id: documentId, text: inputText });
-            addLog(`🔄 Updated document with ID: ${documentId}`);
+            const embedding = await embeddings.embed(inputText);
+            
+            await db.update({ 
+                id: documentId, 
+                text: inputText,
+                embedding: embedding
+            });
+            
+            addLog(`🔄 Updated document with ID: ${documentId} and new embedding`);
             await refreshDocuments();
             setInputText('');
             setDocumentId('');

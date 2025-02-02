@@ -161,4 +161,11 @@ export class TransformersEngineWrapper {
         throw new Error(`Unsupported model type: ${this.modelType}`);
     }
   }
+
+  async embed(input: string, options: any = {}) {
+    if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
+      console.debug(`Feature extraction pipeline not initialized. ${input}, ${options}`);
+      throw new Error('Feature extraction pipeline not initialized.');
+    }
+  }
 }
