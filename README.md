@@ -141,6 +141,10 @@ More models will be added soon. Request a model by creating an issue.
 - Qwen2.5-1.5B-Instruct
 - DeepSeek-R1-Distill-Qwen-7B
 - DeepSeek-R1-Distill-Llama-8B
+- Snowflake-Arctic-Embed-M-B32
+- Snowflake-Arctic-Embed-S-B32
+- Snowflake-Arctic-Embed-M-B4
+- Snowflake-Arctic-Embed-S-B4
 
 ### Transformers Models
 - Llama-3.2-1b-Instruct

@@ -70,4 +70,12 @@ export class MLCEngineWrapper {
     const result = await this.mlcEngine.chat.completions.create({ messages, ...options });
     return result.choices[0].message.content;
   }
+
+  async embed(input: string, options: any = {}) {
+    if (!this.mlcEngine) {
+      throw new Error('MLC Engine not initialized.');
+    }
+    const result = await this.mlcEngine.embeddings.create({ input, ...options });
+    return result.data[0].embedding;
+  }
 }

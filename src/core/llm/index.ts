@@ -73,6 +73,13 @@ export class BrowserAI {
     }
   }
 
+  async embed(input: string, options: Record<string, unknown> = {}): Promise<unknown> {
+    if (!this.engine) {
+      throw new Error('No model loaded. Please call loadModel first.');
+    }
+    return await this.engine.embed(input, options);
+  }
+
   async transcribeAudio(audio: Blob | Float32Array, options: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.engine) {
       throw new Error('No model loaded. Please call loadModel first.');
