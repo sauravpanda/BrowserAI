@@ -36,7 +36,7 @@ export function DatabaseDemo() {
                 setEmbeddings(browserAI);
                 addLog('✅ Database and embeddings initialized');
             } catch (error) {
-                addLog(`❌ Error initializing: ${error instanceof Error ? error.message : String(error)}`);
+                addLog(`❌ Error initializing: ${error instanceof Error ? 'An error occurred during initialization.' : 'An unknown error occurred.'}`);
             }
         };
 
