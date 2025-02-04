@@ -114,21 +114,22 @@ export function ChatInterface() {
     return (
         <div className="flex flex-col h-full bg-background">
             {/* Header with model selection and stats */}
-            <div className="p-4 border-b flex flex-col space-y-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="p-4 flex flex-col space-y-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="flex items-center justify-between space-x-2">
                     <div className="flex items-center space-x-2 flex-1">
                         <Select value={selectedModel} onValueChange={setSelectedModel}>
-                            <SelectTrigger className="w-[180px] bg-background">
+                            <SelectTrigger className="w-[180px] select-trigger">
                                 <SelectValue placeholder="Select model" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct</SelectItem>
-                                <SelectItem value="qwen2.5-1.5b-instruct">Qwen 2.5 1.5B Instruct</SelectItem>
-                                <SelectItem value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct</SelectItem>
-                                <SelectItem value="qwen2.5-0.5b-instruct">Qwen 2.5 0.5B Instruct</SelectItem>
+                                <SelectItem value="smollm2-1.7b-instruct" className="dropdown-button">SmolLM2 1.7B Instruct</SelectItem>
+                                <SelectItem value="qwen2.5-1.5b-instruct" className="dropdown-button">Qwen 2.5 1.5B Instruct</SelectItem>
+                                <SelectItem value="llama-3.2-1b-instruct" className="dropdown-button">Llama 3.2 1B Instruct</SelectItem>
+                                <SelectItem value="qwen2.5-0.5b-instruct" className="dropdown-button">Qwen 2.5 0.5B Instruct</SelectItem>
                                 <SelectItem 
                                     value="deepseek-r1-distill-qwen-7b" 
                                     disabled={availableMemory < 2000}
+                                    className="dropdown-button"
                                 >
                                     DeepSeek R1 Distill Qwen 7B (HIGH MEMORY)
                                     {availableMemory < 2000 && " - Insufficient Memory"}
@@ -136,6 +137,7 @@ export function ChatInterface() {
                                 <SelectItem 
                                     value="deepseek-r1-distill-llama-8b"
                                     disabled={availableMemory < 2000}
+                                    className="dropdown-button"
                                 >
                                     DeepSeek R1 Distill Llama 8B (HIGH MEMORY)
                                     {availableMemory < 2000 && " - Insufficient Memory"}
@@ -143,15 +145,15 @@ export function ChatInterface() {
                                 <SelectItem 
                                     value="phi-3.5-mini-instruct"
                                     disabled={availableMemory < 2000}
+                                    className="dropdown-button"
                                 >
                                     Phi 3.5 Mini Instruct (HIGH MEMORY)
                                     {availableMemory < 2000 && " - Insufficient Memory"}
                                 </SelectItem>
-                                <SelectItem value="smollm2-135m-instruct">SmolLM2 135M Instruct</SelectItem>
-                                <SelectItem value="smollm2-360m-instruct">SmolLM2 360M Instruct</SelectItem>
-                                <SelectItem value="gemma-2b-it">Gemma 2B IT</SelectItem>
-                                <SelectItem value="tinyllama-1.1b-chat-v0.4">TinyLLama 1.1B Chat</SelectItem>
-                                
+                                <SelectItem value="smollm2-135m-instruct" className="dropdown-button">SmolLM2 135M Instruct</SelectItem>
+                                <SelectItem value="smollm2-360m-instruct" className="dropdown-button">SmolLM2 360M Instruct</SelectItem>
+                                <SelectItem value="gemma-2b-it" className="dropdown-button">Gemma 2B IT</SelectItem>
+                                <SelectItem value="tinyllama-1.1b-chat-v0.4" className="dropdown-button">TinyLlama 1.1B Chat</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button
@@ -204,7 +206,7 @@ export function ChatInterface() {
             </div>
 
             {/* Input area */}
-            <div className="p-4 border-t bg-background">
+            <div className="p-4 bg-background">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
