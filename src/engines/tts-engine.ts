@@ -84,24 +84,30 @@ export class TTSEngine {
       }
       
       // Convert Tensor to Float32Array and normalize the audio data
-      let audioData = new Float32Array(output.waveform.data);
+      const audioData = new Float32Array(output.waveform.data);
       
       if (audioData.length === 0) {
         throw new Error('Generated audio data is empty');
       }
 
-      // Normalize audio data to prevent extremely small values
-      const maxValue = Math.max(...audioData.map(Math.abs));
+      // Normalize audio data using a more efficient approach
+      const maxValue = audioData.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
+      const normalizedData = maxValue > 0 ? 
+        new Float32Array(audioData.length) : 
+        audioData;
+      
       if (maxValue > 0) {
-        audioData = audioData.map(x => x / maxValue);
+        for (let i = 0; i < audioData.length; i++) {
+          normalizedData[i] = audioData[i] / maxValue;
+        }
       }
 
-      // Convert Float32Array to Int16Array for WAV format
-      const int16Array = new Int16Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        // Convert float to 16-bit PCM
-        const s = Math.max(-1, Math.min(1, audioData[i]));
-        int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      // Convert Float32Array to Int16Array for WAV format more efficiently
+      const int16Array = new Int16Array(normalizedData.length);
+      const int16Factor = 0x7FFF;
+      for (let i = 0; i < normalizedData.length; i++) {
+        const s = normalizedData[i];
+        int16Array[i] = s < 0 ? Math.max(-0x8000, s * 0x8000) : Math.min(0x7FFF, s * int16Factor);
       }
 
       // Create WAV header
