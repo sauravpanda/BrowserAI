@@ -50,13 +50,14 @@ button {
   color: black;
   cursor: pointer;
   transition: background-color 0.25s, color 0.25s;
+  outline: none !important;
 }
 button:hover {
-  background-color: #d3d3d3;
+  background-color: #393939;
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 @media (prefers-color-scheme: light) {
@@ -79,7 +80,7 @@ button:focus-visible {
     color: #151515;
   }
   button:hover {
-    background-color: #333;
+    background-color: #dcdcdc;
   }
 }
 
@@ -116,7 +117,7 @@ button:focus-visible {
 }
 
 .workflow-title {
-  @apply text-lg font-semibold mb-1;
+  @apply text-base font-semibold mb-1;
   text-align: left;
 }
 

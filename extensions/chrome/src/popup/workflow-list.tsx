@@ -23,7 +23,9 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
 
   useEffect(() => {
     // Initial load of workflows
+    console.log('Frontend: Initial load of workflows');
     chrome.runtime.sendMessage({ action: 'getWorkflows' }, (response) => {
+      console.log('Frontend: Got workflows response:', response);
       if (response && response.workflows) {
         setWorkflowList(response.workflows)
       }
@@ -41,12 +43,17 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
   }, [])
 
   const handleWorkflowClick = (workflow: Workflow) => {
+    console.log('Frontend: Clicking workflow:', workflow);
     chrome.runtime.sendMessage(
       { action: 'getWorkflowData', workflowId: workflow.id }, 
       (response) => {
+        console.log('Frontend: Got response:', response);
         if (response && response.workflowData) {
           setSelectedWorkflowData(response.workflowData)
           setSelectedWorkflow(workflow)
+          console.log('Frontend: Set workflow data and selected workflow');
+        } else {
+          console.error('Frontend: No workflow data in response');
         }
       }
     )
@@ -78,10 +85,10 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Workflows</h2>
+      <div className="flex justify-between items-center mb-10">
+        <h2 className="text-lg font-semibold">All workflows</h2>
         <Button 
-          variant="outline" 
+          variant="default"
           size="sm" 
           onClick={handleSyncWorkflows}
           className="flex items-center gap-2"
@@ -91,18 +98,15 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
         </Button>
       </div>
       {workflowList.map((workflow) => (
-        <Card key={workflow.id} className="workflow-container">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start w-full">
-              <div className="flex flex-col items-start">
-                <h2 className="workflow-title">{workflow.name}</h2>
-                <p className="text-sm text-muted-foreground">{workflow.description}</p>
-              </div>
-              <div className="flex items-center ml-4">
-                <Button variant="ghost" className="button-text" onClick={() => handleWorkflowClick(workflow)}>
-                  Details
-                </Button>
-              </div>
+        <Card 
+          key={workflow.id} 
+          className="workflow-container relative hover:bg-accent/50 active:bg-accent/70 transition-colors cursor-pointer"
+          onClick={() => handleWorkflowClick(workflow)}
+        >
+          <CardContent className="p-2">
+            <div className="flex flex-col items-start w-full">
+              <h2 className="workflow-title">{workflow.name}</h2>
+              <p className="text-sm text-muted-foreground">{workflow.description}</p>
             </div>
           </CardContent>
         </Card>
