@@ -58,7 +58,7 @@ export default function Popup() {
   }
 
   return (
-    <div className="w-[400px] h-screen bg-background text-foreground flex flex-col">
+    <div className="w-[350px] h-screen bg-background text-foreground flex flex-col">
       {/* <Header /> */}
       <main className="flex-1 overflow-y-auto bg-background">
         {renderView()}
