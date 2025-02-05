@@ -160,7 +160,6 @@ export function ChatInterface() {
                             variant={modelLoaded ? "secondary" : "default"}
                             onClick={loadModel}
                             disabled={loading}
-                            className="text-foreground"
                         >
                             {loading ? "Loading..." : modelLoaded ? "Loaded" : "Load Model"}
                         </Button>

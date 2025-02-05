@@ -14,9 +14,10 @@ chrome.action.onClicked.addListener((tab) => {
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Validate sender origin for sensitive operations
-  if (!sender.url?.startsWith('https://app.browseragent.dev')) {
-    console.error('Invalid sender origin');
+  // Modify the security check to allow extension pages
+  if (sender.url && !sender.url.startsWith('https://app.browseragent.dev') && 
+      !sender.url.startsWith('chrome-extension://')) {
+    console.error('Invalid sender origin:', sender.url);
     return;
   }
 
@@ -96,22 +97,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Add a handler for getting specific workflow data
   if (message.action === 'getWorkflowData') {
+    console.log('Background: Received getWorkflowData request for ID:', message.workflowId);
     chrome.storage.local.get(['workflowsData'], function(result) {
-        const workflowData = result.workflowsData?.[message.workflowId];
-        sendResponse({ workflowData });
+      console.log('Background: Current workflowsData:', result.workflowsData);
+      const workflowData = result.workflowsData?.[message.workflowId];
+      console.log('Background: Found workflow data:', workflowData);
+      sendResponse({ workflowData });
     });
     return true;
   }
 
   if (message.action === 'getWorkflows') {
+    console.log('Background: Received getWorkflows request');
     chrome.storage.local.get(['workflowsList', 'expiryTimestamp'], function(result) {
-        const now = Date.now();
-        if (result.expiryTimestamp && now > result.expiryTimestamp) {
-            chrome.storage.local.remove(['workflowsList', 'workflowsData', 'encryptionKey', 'expiryTimestamp']);
-            sendResponse({ workflows: [] });
-        } else {
-            sendResponse({ workflows: result.workflowsList || [] });
-        }
+      console.log('Background: Current workflowsList:', result.workflowsList);
+      const now = Date.now();
+      if (result.expiryTimestamp && now > result.expiryTimestamp) {
+        chrome.storage.local.remove(['workflowsList', 'workflowsData', 'encryptionKey', 'expiryTimestamp']);
+        sendResponse({ workflows: [] });
+      } else {
+        sendResponse({ workflows: result.workflowsList || [] });
+      }
     });
     return true;
   }
