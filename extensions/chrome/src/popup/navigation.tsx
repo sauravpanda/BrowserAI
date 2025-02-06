@@ -30,7 +30,7 @@ export function Navigation() {
       </button>
       <button 
         className={`nav-button flex flex-col items-center w-24`}
-        onClick={() => window.open('https://browseragent.dev/upgrade', '_blank')}
+        onClick={() => window.open('https://browseragent.dev/pricing/', '_blank')}
       >
         <ArrowUpCircle className="h-5 w-5 mb-1" />
         <span>Upgrade</span>
