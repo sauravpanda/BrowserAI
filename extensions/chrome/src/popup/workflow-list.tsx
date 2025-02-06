@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw, Info } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
 import { useState, useEffect } from "react"
@@ -47,16 +47,16 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
     chrome.runtime.sendMessage(
       { action: 'getWorkflowData', workflowId: workflow.id }, 
       (response) => {
-        console.log('Frontend: Got response:', response);
+        console.log('Frontend: Got workflow data response:', response);
         if (response && response.workflowData) {
-          setSelectedWorkflowData(response.workflowData)
-          setSelectedWorkflow(workflow)
-          console.log('Frontend: Set workflow data and selected workflow');
+          console.log('Workflow data before setting:', JSON.stringify(response.workflowData, null, 2));
+          setSelectedWorkflowData(response.workflowData);
+          setSelectedWorkflow(workflow);
         } else {
           console.error('Frontend: No workflow data in response');
         }
       }
-    )
+    );
   }
 
   const handleSyncWorkflows = () => {
@@ -65,8 +65,16 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="space-y-4 p-4">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-gradient-to-r from-blue-50/50 to-blue-100/50 dark:from-blue-950/10 dark:to-blue-900/10 border border-blue-100 dark:border-blue-900">
+          <Info className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-muted-foreground">
+            Create new workflows from scratch or from a template in the Browseragent app and click 'Sync Workflows' to access them here.
+          </p>
+        </div>
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
       </div>
     )
   }
@@ -85,8 +93,9 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-lg font-semibold">All workflows</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-base font-semibold">Your Workflows</h2>
+
         <Button 
           variant="default"
           size="sm" 
@@ -97,20 +106,34 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
           Sync Workflows
         </Button>
       </div>
-      {workflowList.map((workflow) => (
-        <Card 
-          key={workflow.id} 
-          className="workflow-container relative hover:bg-accent/50 active:bg-accent/70 transition-colors cursor-pointer"
-          onClick={() => handleWorkflowClick(workflow)}
-        >
-          <CardContent className="p-2">
-            <div className="flex flex-col items-start w-full">
-              <h2 className="workflow-title">{workflow.name}</h2>
-              <p className="text-sm text-muted-foreground">{workflow.description}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+
+      <div className="flex items-start gap-3 p-4 rounded-lg bg-gradient-to-r from-blue-50/50 to-blue-100/50 dark:from-blue-950/10 dark:to-blue-900/10 border border-blue-100 dark:border-blue-900">
+        <Info className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-muted-foreground text-left">
+          Create workflows from scratch or from a template in the Browseragent app and click 'Sync Workflows' to fetch them here.
+        </p>
+      </div>
+
+      {workflowList.length === 0 ? (
+        <div className="text-center text-muted-foreground text-sm py-8">
+          No workflows found
+        </div>
+      ) : (
+        workflowList.map((workflow) => (
+          <Card 
+            key={workflow.id} 
+            className="workflow-container relative hover:bg-accent/50 active:bg-accent/70 transition-colors cursor-pointer"
+            onClick={() => handleWorkflowClick(workflow)}
+          >
+            <CardContent className="p-2">
+              <div className="flex flex-col items-start w-full">
+                <h2 className="workflow-title">{workflow.name}</h2>
+                <p className="text-sm text-muted-foreground">{workflow.description}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   )
 }
