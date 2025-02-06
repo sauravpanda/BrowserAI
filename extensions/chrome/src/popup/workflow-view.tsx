@@ -343,6 +343,7 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
                         )}
                       </div>
                     )}
+
                   </div>
                 </div>
               ))}

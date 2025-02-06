@@ -52,6 +52,8 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
           console.log('Workflow data before setting:', JSON.stringify(response.workflowData, null, 2));
           setSelectedWorkflowData(response.workflowData);
           setSelectedWorkflow(workflow);
+        } else {
+          console.error('Frontend: No workflow data in response');
         }
       }
     );
@@ -93,6 +95,7 @@ export function WorkflowList({ workflows, isLoading }: WorkflowListProps) {
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-base font-semibold">Your Workflows</h2>
+
         <Button 
           variant="default"
           size="sm" 
