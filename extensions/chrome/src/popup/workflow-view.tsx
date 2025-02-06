@@ -254,7 +254,7 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
                     </div>
 
                     {shouldShowContentSection(node) && (
-                      <div className="bg-white dark:bg-gray-900 p-3">
+                      <div className="bg-white dark:bg-gray-950 p-3">
                         {hasPersistedInput(node) && (
                           <div className="w-full">
                             <div className="flex items-start justify-between gap-2">

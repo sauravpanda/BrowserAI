@@ -115,70 +115,72 @@ export function ChatInterface() {
         <div className="flex flex-col h-full bg-background">
             {/* Header with model selection and stats */}
             <div className="p-4 flex flex-col space-y-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="flex items-center justify-between space-x-2">
-                    <div className="flex items-center space-x-2 flex-1">
-                        <Select value={selectedModel} onValueChange={setSelectedModel}>
-                            <SelectTrigger className="w-[180px] select-trigger">
-                                <SelectValue placeholder="Select model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="smollm2-1.7b-instruct" className="dropdown-button">SmolLM2 1.7B Instruct</SelectItem>
-                                <SelectItem value="qwen2.5-1.5b-instruct" className="dropdown-button">Qwen 2.5 1.5B Instruct</SelectItem>
-                                <SelectItem value="llama-3.2-1b-instruct" className="dropdown-button">Llama 3.2 1B Instruct</SelectItem>
-                                <SelectItem value="qwen2.5-0.5b-instruct" className="dropdown-button">Qwen 2.5 0.5B Instruct</SelectItem>
-                                <SelectItem 
-                                    value="deepseek-r1-distill-qwen-7b" 
-                                    disabled={availableMemory < 2000}
-                                    className="dropdown-button"
-                                >
-                                    DeepSeek R1 Distill Qwen 7B (HIGH MEMORY)
-                                    {availableMemory < 2000 && " - Insufficient Memory"}
-                                </SelectItem>
-                                <SelectItem 
-                                    value="deepseek-r1-distill-llama-8b"
-                                    disabled={availableMemory < 2000}
-                                    className="dropdown-button"
-                                >
-                                    DeepSeek R1 Distill Llama 8B (HIGH MEMORY)
-                                    {availableMemory < 2000 && " - Insufficient Memory"}
-                                </SelectItem>
-                                <SelectItem 
-                                    value="phi-3.5-mini-instruct"
-                                    disabled={availableMemory < 2000}
-                                    className="dropdown-button"
-                                >
-                                    Phi 3.5 Mini Instruct (HIGH MEMORY)
-                                    {availableMemory < 2000 && " - Insufficient Memory"}
-                                </SelectItem>
-                                <SelectItem value="smollm2-135m-instruct" className="dropdown-button">SmolLM2 135M Instruct</SelectItem>
-                                <SelectItem value="smollm2-360m-instruct" className="dropdown-button">SmolLM2 360M Instruct</SelectItem>
-                                <SelectItem value="gemma-2b-it" className="dropdown-button">Gemma 2B IT</SelectItem>
-                                <SelectItem value="tinyllama-1.1b-chat-v0.4" className="dropdown-button">TinyLlama 1.1B Chat</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button
-                            variant={modelLoaded ? "secondary" : "default"}
-                            onClick={loadModel}
-                            disabled={loading}
-                        >
-                            {loading ? "Loading..." : modelLoaded ? "Loaded" : "Load Model"}
-                        </Button>
-                    </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {memoryUsage}
-                    </span>
+                {/* Model selector and Load button */}
+                <div className="flex items-center justify-between gap-4">
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                        <SelectTrigger className="w-[220px] select-trigger bg-background hover:bg-background">
+                            <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-gray-950 border-gray-200/50 dark:border-gray-800 border">
+                            <SelectItem value="smollm2-1.7b-instruct" className="dropdown-button">SmolLM2 1.7B Instruct</SelectItem>
+                            <SelectItem value="qwen2.5-1.5b-instruct" className="dropdown-button">Qwen 2.5 1.5B Instruct</SelectItem>
+                            <SelectItem value="llama-3.2-1b-instruct" className="dropdown-button">Llama 3.2 1B Instruct</SelectItem>
+                            <SelectItem value="qwen2.5-0.5b-instruct" className="dropdown-button">Qwen 2.5 0.5B Instruct</SelectItem>
+                            <SelectItem 
+                                value="deepseek-r1-distill-qwen-7b" 
+                                disabled={availableMemory < 2000}
+                                className="dropdown-button"
+                            >
+                                DeepSeek R1 Distill Qwen 7B (HIGH MEMORY)
+                                {availableMemory < 2000 && " - Insufficient Memory"}
+                            </SelectItem>
+                            <SelectItem 
+                                value="deepseek-r1-distill-llama-8b"
+                                disabled={availableMemory < 2000}
+                                className="dropdown-button"
+                            >
+                                DeepSeek R1 Distill Llama 8B (HIGH MEMORY)
+                                {availableMemory < 2000 && " - Insufficient Memory"}
+                            </SelectItem>
+                            <SelectItem 
+                                value="phi-3.5-mini-instruct"
+                                disabled={availableMemory < 2000}
+                                className="dropdown-button"
+                            >
+                                Phi 3.5 Mini Instruct (HIGH MEMORY)
+                                {availableMemory < 2000 && " - Insufficient Memory"}
+                            </SelectItem>
+                            <SelectItem value="smollm2-135m-instruct" className="dropdown-button">SmolLM2 135M Instruct</SelectItem>
+                            <SelectItem value="smollm2-360m-instruct" className="dropdown-button">SmolLM2 360M Instruct</SelectItem>
+                            <SelectItem value="gemma-2b-it" className="dropdown-button">Gemma 2B IT</SelectItem>
+                            <SelectItem value="tinyllama-1.1b-chat-v0.4" className="dropdown-button">TinyLlama 1.1B Chat</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button
+                        variant={modelLoaded ? "secondary" : "default"}
+                        onClick={loadModel}
+                        disabled={loading}
+                        className="ml-auto"
+                    >
+                        {loading ? "Loading..." : modelLoaded ? "Loaded" : "Load Model"}
+                    </Button>
                 </div>
-                
-                {/* Add progress bar */}
-                {loading && (
-                    <div className="w-full bg-secondary rounded-full h-2">
-                        <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${loadingProgress}%` }}
-                        />
-                    </div>
-                )}
+
+                {/* Memory usage stats */}
+                <div className="text-xs text-muted-foreground text-left pl-1">
+                    {memoryUsage}
+                </div>
             </div>
+
+            {/* Add progress bar */}
+            {loading && (
+                <div className="w-full bg-secondary rounded-full h-2">
+                    <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${loadingProgress}%` }}
+                    />
+                </div>
+            )}
 
             {/* Messages area */}
             <div className="flex-1 overflow-auto p-4 space-y-4 bg-background">
@@ -188,10 +190,11 @@ export function ChatInterface() {
                         className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                         <div
-                            className={`max-w-[80%] rounded-2xl p-4 shadow-sm text-left ${message.sender === 'user'
-                                    ? 'bg-primary text-primary-foreground ml-auto'
-                                    : 'bg-secondary/50 text-secondary-foreground mr-auto'
-                                }`}
+                            className={`max-w-[80%] rounded-2xl py-2 px-4 text-left ${
+                                message.sender === 'user'
+                                    ? 'border border-gray-200 dark:border-gray-800 text-foreground'
+                                    : 'bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-foreground'
+                            }`}
                             style={{
                                 borderBottomRightRadius: message.sender === 'user' ? '4px' : '16px',
                                 borderBottomLeftRadius: message.sender === 'bot' ? '4px' : '16px',
