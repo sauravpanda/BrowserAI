@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BrowserAgent - AI Agents in Browser",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Run private, cost-free AI agents directly in your browser. Automate tasks, enhance browsing, and control your data with local AI.",
   "action": {
     "default_title": "Browser AI",
@@ -38,6 +38,13 @@
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       }
+    },
+    "toggle-side-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Toggle the side panel"
     }
   },
   "content_scripts": [{

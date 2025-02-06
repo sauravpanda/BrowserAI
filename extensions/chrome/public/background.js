@@ -121,5 +121,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+});
+
+// Toggle side panel when command is triggered
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'toggle-side-panel') {
+    chrome.windows.getCurrent().then(window => {
+      chrome.sidePanel.open({ windowId: window.id });
+    });
+  }
 }); 
 
