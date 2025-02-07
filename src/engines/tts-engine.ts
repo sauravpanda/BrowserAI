@@ -21,7 +21,7 @@ export class TTSEngine {
       this.model = await StyleTextToSpeech2Model.from_pretrained(modelConfig.repo, {
         progress_callback: options.onProgress,
         dtype: options.dtype || "q4",
-        device:  "wasm",
+        device:  "webgpu",
       });
       
       this.tokenizer = await AutoTokenizer.from_pretrained(modelConfig.repo, {
