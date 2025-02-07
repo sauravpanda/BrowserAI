@@ -491,42 +491,16 @@ export class Tensor {
     }
 
     const this_data = this.data;
+    const fn = (a: number, b: number) => a + (b ** p);
 
     if (dim === null) {
       // @ts-ignore
-      let val = this_data.reduce((a, b) => a + b ** p, 0) ** (1 / p);
+      const val = this_data.reduce(fn, 0) ** (1 / p);
       return new Tensor(this.type, [val], []);
     }
 
-    // Negative indexing
-    dim = safeIndex(dim, this.dims.length);
+    const [type, result, resultDims] = reduce_helper(fn, this, dim, keepdim);
 
-    // Calculate the shape of the resulting array after summation
-    const resultDims = this.dims.slice(); // Copy the original dimensions
-    resultDims[dim] = 1; // Remove the specified axis
-
-    // Create a new array to store the accumulated values
-    // @ts-ignore
-    const result = new this_data.constructor(this_data.length / this.dims[dim]);
-
-    // Iterate over the data array
-    for (let i = 0; i < this_data.length; ++i) {
-      // Calculate the index in the resulting array
-      let resultIndex = 0;
-
-      for (let j = this.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
-        const size = this.dims[j];
-        if (j !== dim) {
-          const index = num % size;
-          resultIndex += index * resultMultiplier;
-          resultMultiplier *= resultDims[j];
-        }
-        num = Math.floor(num / size);
-      }
-
-      // Accumulate the value at the current index
-      result[resultIndex] += this_data[i] ** p;
-    }
 
     if (p !== 1) {
       for (let i = 0; i < result.length; ++i) {
@@ -534,11 +508,8 @@ export class Tensor {
       }
     }
 
-    if (!keepdim) {
-      resultDims.splice(dim, 1);
-    }
+    return new Tensor(type, result, resultDims);
 
-    return new Tensor(this.type, result, resultDims);
   }
 
   /**
@@ -703,6 +674,34 @@ export class Tensor {
   }
 
   /**
+  * Computes input > val element-wise.
+  * @param {number} val The value to compare with.
+  * @returns {Tensor} A boolean tensor that is `true` where input is greater than other and `false` elsewhere.
+  */
+  gt(val: number) {
+    const mask = new Uint8Array(this.data.length);
+    const this_data = this.data;
+    for (let i = 0; i < this_data.length; ++i) {
+      mask[i] = this_data[i] > val ? 1 : 0;
+    }
+    return new Tensor('bool', mask, this.dims);
+  }
+
+  /**
+   * Computes input < val element-wise.
+   * @param {number} val The value to compare with.
+   * @returns {Tensor} A boolean tensor that is `true` where input is less than other and `false` elsewhere.
+   */
+  lt(val: number) {
+    const mask = new Uint8Array(this.data.length);
+    const this_data = this.data;
+    for (let i = 0; i < this_data.length; ++i) {
+      mask[i] = this_data[i] < val ? 1 : 0;
+    }
+    return new Tensor('bool', mask, this.dims);
+  }
+
+  /**
    * In-place version of @see {@link Tensor.clamp}
    */
   clamp_(min: number, max: number) {
@@ -748,17 +747,20 @@ export class Tensor {
 
   min(dim = null, keepdim = false) {
     if (dim !== null) {
-      throw new Error('`dim !== null` not yet implemented.');
+      const val = min(this.data as any)[0];
+      return new Tensor(this.type, [val], [/* scalar */]);
     }
-    const value = min(this.data as any)[0];
-    return new Tensor(this.type, [value], []);
+    const [type, result, resultDims] = reduce_helper((a, b) => Math.min(a, b), this, dim, keepdim, Infinity);
+    return new Tensor(type, result, resultDims);
   }
   max(dim = null, keepdim = false) {
-    if (dim !== null) {
-      throw new Error('`dim !== null` not yet implemented.');
+    if (dim === null) {
+      // None to reduce over all dimensions.
+      const val = max(this.data as any)[0];
+      return new Tensor(this.type, [val], [/* scalar */]);
     }
-    const value = max(this.data as any)[0];
-    return new Tensor(this.type, [value], []);
+    const [type, result, resultDims] = reduce_helper((a, b) => Math.max(a, b), this, dim, keepdim, -Infinity);
+    return new Tensor(type, result, resultDims);
   }
 
   argmin(dim = null, keepdim = false) {
@@ -1250,49 +1252,18 @@ export function stack(tensors: Tensor[], dim: number = 0) {
 }
 
 /**
- * Calculates the standard deviation and mean over the dimensions specified by dim. dim can be a single dimension or `null` to reduce over all dimensions.
- * @param {Tensor} input the input tenso
- * @param {number|null} dim the dimension to reduce. If None, all dimensions are reduced.
- * @param {number} correction difference between the sample size and sample degrees of freedom. Defaults to Bessel's correction, correction=1.
+ * @param {(previousValue: any, currentValue: any, currentIndex?: number, resultIndex?: number) => any} callbackfn
+ * @param {Tensor} input the input tensor.
+ * @param {number|null} dim the dimension to reduce.
  * @param {boolean} keepdim whether the output tensor has dim retained or not.
- * @returns {Tensor[]} A tuple of (std, mean) tensors.
+ * @returns {[DataType, any, number[]]} The reduced tensor data.
  */
-export function std_mean(input: Tensor, dim: number | null = null, correction: number = 1, keepdim: boolean = false) {
-  const inputData = /** @type {Float32Array} */ input.data;
+function reduce_helper(callbackfn: (previousValue: number, currentValue: number, currentIndex?: number| null, resultIndex?: number| null) => number, input: Tensor, dim: number | null = null, keepdim = false, initialValue: number | null = null) {
+  const inputData = input.data;
   const inputDims = input.dims;
 
-  if (dim === null) {
-    // None to reduce over all dimensions.
-    const sum = Array.prototype.reduce.call(inputData, ((a: number, b: number) => a + b) as any, 0) as number;
-    const mean = sum / inputData.length;
-    const std = Math.sqrt(
-      (Array.prototype.reduce.call(inputData, ((a: number, b: number) => a + (b - mean) ** 2) as any, 0) as number) /
-        (inputData.length - correction),
-    );
-
-    const meanTensor = new Tensor(
-      input.type as DataType,
-      [mean],
-      [
-        /* scalar */
-      ],
-    );
-    const stdTensor = new Tensor(
-      input.type as DataType,
-      [std],
-      [
-        /* scalar */
-      ],
-    );
-
-    return [stdTensor, meanTensor];
-  }
-
   // Negative indexing
-  dim = safeIndex(dim, inputDims.length);
-
-  const meanTensor = mean(input, dim, keepdim);
-  const meanTensorData = meanTensor.data;
+  dim = safeIndex(dim as number, inputDims.length);
 
   // Calculate the shape of the resulting array after summation
   const resultDims = inputDims.slice(); // Copy the original dimensions
@@ -1301,9 +1272,13 @@ export function std_mean(input: Tensor, dim: number | null = null, correction: n
   // Create a new array to store the accumulated values
   // @ts-ignore
   const result = new inputData.constructor(inputData.length / inputDims[dim]);
+  if (initialValue !== null) {
+    result.fill(initialValue);
+  }
 
   // Iterate over the data array
   for (let i = 0; i < inputData.length; ++i) {
+
     // Calculate the index in the resulting array
     let resultIndex = 0;
 
@@ -1318,21 +1293,54 @@ export function std_mean(input: Tensor, dim: number | null = null, correction: n
     }
 
     // Accumulate the value at the current index
-    result[resultIndex] += (inputData[i] - meanTensorData[resultIndex]) ** 2;
+    result[resultIndex] = callbackfn(result[resultIndex], inputData[i], i, resultIndex);
   }
 
+  if (!keepdim) resultDims.splice(dim, 1);
+
+  return [input.type, result, resultDims];
+}
+
+/**
+ * Calculates the standard deviation and mean over the dimensions specified by dim. dim can be a single dimension or `null` to reduce over all dimensions.
+ * @param {Tensor} input the input tenso
+ * @param {number|null} dim the dimension to reduce. If None, all dimensions are reduced.
+ * @param {number} correction difference between the sample size and sample degrees of freedom. Defaults to Bessel's correction, correction=1.
+ * @param {boolean} keepdim whether the output tensor has dim retained or not.
+ * @returns {Tensor[]} A tuple of (std, mean) tensors.
+ */
+export function std_mean(input: Tensor, dim: number | null = null, correction = 1, keepdim = false) {
+  const inputData: any = /** @type {Float32Array} */(input.data);
+  const inputDims = input.dims;
+
+  if (dim === null) {
+      // None to reduce over all dimensions.
+      const sum = inputData.reduce((a: number, b: number) => a + b, 0);
+      const mean = sum / inputData.length;
+      const std = Math.sqrt(inputData.reduce((a: number, b: number) => a + (b - mean) ** 2, 0) / (inputData.length - correction));
+
+      const meanTensor = new Tensor(input.type, [mean], [/* scalar */]);
+      const stdTensor = new Tensor(input.type, [std], [/* scalar */]);
+
+      return [stdTensor, meanTensor];
+  }
+  dim = safeIndex(dim, inputDims.length);
+  const meanTensor = mean(input, dim, keepdim);
+  const meanTensorData = meanTensor.data;
+
+  // Compute squared sum
+  const [type, result, resultDims] = reduce_helper((a: number, b: number, i: any, j: any) => a + (b - meanTensorData[j]) ** 2, input, dim, keepdim);
+
+  // Square root of the squared sum
   for (let i = 0; i < result.length; ++i) {
-    result[i] = Math.sqrt(result[i] / (inputDims[dim] - correction));
+      result[i] = Math.sqrt(result[i] / (inputDims[dim] - correction));
   }
 
-  if (!keepdim) {
-    resultDims.splice(dim, 1);
-  }
-
-  const stdTensor = new Tensor(input.type as DataType, result, resultDims);
+  const stdTensor = new Tensor(type, result, resultDims);
 
   return [stdTensor, meanTensor];
 }
+
 
 /**
  * Returns the mean value of each row of the input tensor in the given dimension dim.
@@ -1343,11 +1351,12 @@ export function std_mean(input: Tensor, dim: number | null = null, correction: n
  */
 export function mean(input: Tensor, dim: number | null = null, keepdim: boolean = false) {
   const inputData = /** @type {Float32Array} */ input.data;
+  const inputDims = input.dims;
 
   if (dim === null) {
     // None to reduce over all dimensions.
     // @ts-ignore
-    const val = inputData.reduce((a, b) => a + b, 0);
+    const val = inputData.reduce((a: number, b: number) => a + b, 0);
     return new Tensor(
       input.type,
       [val / inputData.length],
@@ -1356,49 +1365,13 @@ export function mean(input: Tensor, dim: number | null = null, keepdim: boolean 
       ],
     );
   }
-  const inputDims = input.dims;
 
   // Negative indexing
   dim = safeIndex(dim, inputDims.length);
 
-  // Calculate the shape of the resulting array after summation
-  const resultDims = inputDims.slice(); // Copy the original dimensions
-  resultDims[dim] = 1; // Remove the specified axis
+  const [type, result, resultDims] = reduce_helper((a: number, b: number) => a + b, input, dim, keepdim);
 
-  // Create a new array to store the accumulated values
-  // @ts-ignore
-  const result = new inputData.constructor(inputData.length / inputDims[dim]);
-
-  // Iterate over the data array
-  for (let i = 0; i < inputData.length; ++i) {
-    // Calculate the index in the resulting array
-    let resultIndex = 0;
-
-    for (let j = inputDims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
-      const size = inputDims[j];
-      if (j !== dim) {
-        const index = num % size;
-        resultIndex += index * resultMultiplier;
-        resultMultiplier *= resultDims[j];
-      }
-      num = Math.floor(num / size);
-    }
-
-    // Accumulate the value at the current index
-    result[resultIndex] += inputData[i];
-  }
-
-  if (inputDims[dim] !== 1) {
-    for (let i = 0; i < result.length; ++i) {
-      result[i] = result[i] / inputDims[dim];
-    }
-  }
-
-  if (!keepdim) {
-    resultDims.splice(dim, 1);
-  }
-
-  return new Tensor(input.type, result, resultDims);
+  return new Tensor(type, result, resultDims);
 }
 
 function dimsToStride(dims: number[]) {
