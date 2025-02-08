@@ -1,6 +1,6 @@
 import { Callable } from './utils/generic';
 
-import { reverseDictionary, escapeRegExp, isIntegralNumber, mergeArrays, len } from './utils/core';
+import { reverseDictionary, escapeRegExp, isIntegralNumber, mergeArrays, len, ProgressCallback } from './utils/core';
 
 import { getModelJSON } from './utils/hub';
 
@@ -12,6 +12,7 @@ import { PriorityQueue, TokenLattice, CharTrie } from './utils/data-structures';
 import { Template } from '@huggingface/jinja';
 import { PretrainedOptions } from './utils/hub';
 import { WHISPER_LANGUAGE_MAPPING } from './models/whisper/common_whisper';
+import { PretrainedConfig } from './configs';
 
 type TokenizerProperties = {
     legacy?: boolean;
@@ -4456,6 +4457,13 @@ export class AutoTokenizer {
             local_files_only = false,
             revision = 'main',
             legacy = undefined,
+        }: {
+            progress_callback?: null | ProgressCallback;
+            config?: null | PretrainedConfig;
+            cache_dir?: null | string;
+            local_files_only?: boolean;
+            revision?: string;
+            legacy?: boolean;
         } = {},
     ) {
         const [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {

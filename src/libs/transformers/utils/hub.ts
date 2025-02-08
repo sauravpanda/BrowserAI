@@ -9,7 +9,7 @@ import path from 'path';
 
 import { env } from '../env.js';
 import { dispatchCallback, ProgressCallback } from './core';
-import { PretrainedConfig } from '../configs.js';
+import { PretrainedConfig } from '../configs';
 export interface PretrainedOptions {
   progress_callback?: null | ProgressCallback;
   config?: null | PretrainedConfig;

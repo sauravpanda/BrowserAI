@@ -18,12 +18,16 @@ const wrap = async (
   names: string | string[],
 ) => {
   const session = await createInferenceSession(new Uint8Array(session_bytes), session_options, {});
+
+  let chain = Promise.resolve();
+
   return /** @type {any} */ async (/** @type {Record<string, Tensor>} */ inputs: Record<string, Tensor>) => {
     const proxied = isONNXProxy();
     const ortFeed = Object.fromEntries(
       Object.entries(inputs).map(([k, v]) => [k, (proxied ? v.clone() : v).ort_tensor]),
     );
-    const outputs = await session.run(ortFeed as any);
+    // When running in-browser via WASM, we need to chain calls to session.run to avoid "Error: Session already started"
+    const outputs = await (chain.then(() => session.run(ortFeed as any)));
 
     if (Array.isArray(names)) {
       return names.map((n) => new Tensor(outputs[n]));

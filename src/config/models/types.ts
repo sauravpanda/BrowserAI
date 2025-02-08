@@ -18,6 +18,7 @@ export type ModelType =
   | 'sentiment-analysis'
   | 'feature-extraction'
   | 'automatic-speech-recognition'
+  | 'multimodal'
   | 'text-to-speech';
 
 export interface MLCConfig extends BaseModelConfig {

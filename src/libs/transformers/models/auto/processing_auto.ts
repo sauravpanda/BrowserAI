@@ -36,9 +36,9 @@ import * as AllFeatureExtractors from '../feature_extractors.js';
  * // }
  * ```
  */
-export class AutoProcessor {
+export class AutoProcessor extends Processor {
   /** @type {typeof Processor.from_pretrained} */
-  static async from_pretrained(pretrained_model_name_or_path: string, options = {}) {
+  static async from_pretrained(pretrained_model_name_or_path: string, options = {}): Promise<Processor> {
     // TODO: first check for processor.json
     const preprocessorConfig = await getModelJSON(pretrained_model_name_or_path, IMAGE_PROCESSOR_NAME, true, options);
 

@@ -51,17 +51,23 @@ const supportedDevices: string[] = [];
 
 /** @type {ONNXExecutionProviders[]} */
 let defaultDevices: string[] = [];
-// Simplified initialization - removed ORT_SYMBOL check since we're only using web runtime
+
+
+// Then add WebNN support
 if (apis.IS_WEBNN_AVAILABLE) {
-  supportedDevices.push('webnn-npu', 'webnn-gpu', 'webnn-cpu', 'webnn');
+  supportedDevices.push('webnn-gpu', 'webnn-cpu');
 }
 
+// Add WebGPU as an option if available
 if (apis.IS_WEBGPU_AVAILABLE) {
-  supportedDevices.push('webgpu');
+  // Add WASM as fallback when WebGPU fails
+  supportedDevices.push('wasm', 'webgpu');
 }
 
-supportedDevices.push('wasm');
-defaultDevices = ['wasm'];
+// Remove the previous "Always keep WASM as fallback" section since we've integrated it above
+if (defaultDevices.length === 0) {
+  defaultDevices = ['wasm'];
+}
 
 const InferenceSession = ONNX.InferenceSession;
 

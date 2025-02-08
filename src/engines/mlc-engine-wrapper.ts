@@ -47,10 +47,14 @@ export class MLCEngineWrapper {
       throw new Error('MLC Engine not initialized.');
     }
 
-    let messages = Array.isArray(input) ? input : [];
+    // Initialize messages array regardless of input type
+    let messages: Record<string, any>[] = [];
 
-    // If input is a string, construct messages array
-    if (typeof input === 'string') {
+    // If input is an array, use it directly
+    if (Array.isArray(input)) {
+      messages = input;
+    } else if (typeof input === 'string') {
+      // If input is a string, construct messages array
       if (options.system_prompt) {
         messages.push({ role: 'system', content: options.system_prompt });
       }
@@ -65,9 +69,10 @@ export class MLCEngineWrapper {
     options.presence_penalty = options.presence_penalty || 0.5;
     if (options.stream) {
       options.stream_options = { include_usage: true };
-      return this.mlcEngine.chat.completions.create({ messages, ...options });
+      return this.mlcEngine.chat.completions.create({ messages: messages as any, ...options });
     }
-    const result = await this.mlcEngine.chat.completions.create({ messages, ...options });
+    console.log(messages);
+    const result = await this.mlcEngine.chat.completions.create({ messages: messages as any, ...options });
     return result.choices[0].message.content;
   }
 

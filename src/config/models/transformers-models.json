@@ -24,12 +24,23 @@
     "engine": "transformers",
     "modelName": "kokoro-tts",
     "modelType": "text-to-speech",
-    "repo": "onnx-community/Kokoro-82M-ONNX",
+    "repo": "onnx-community/Kokoro-82M-v1.0-ONNX",
     "pipeline": "text-to-speech",
-    "defaultQuantization": "q4",
+    "defaultQuantization": "fp32",
     "quantizations": ["q4", "q8", "fp32", "fp16", "q4f16"],
     "defaultParams": {
       "language": "en"
+    }
+  },
+  "janus-1.3b": {
+    "engine": "transformers",
+    "modelName": "Janus-1.3B-ONNX",
+    "modelType": "multimodal",
+    "repo": "onnx-community/Janus-1.3B-ONNX",
+    "pipeline": "multimodal",
+    "defaultQuantization": "q4f16",
+    "quantizations": ["q4", "q8", "fp32", "fp16", "q4f16"],
+    "defaultParams": {
     }
   }
 } 

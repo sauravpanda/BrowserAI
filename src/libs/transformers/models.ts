@@ -220,7 +220,7 @@ async function getSession(pretrained_model_name_or_path: string, fileName: strin
   } else if (selectedDevice.startsWith('webnn') && !session_options.freeDimensionOverrides) {
     console.warn(
       'WebNN does not currently support dynamic shapes and requires `free_dimension_overrides` to be set in config.json as a field within "transformers.js_config". ' +
-        'When `free_dimension_overrides` is not set, you may experience significant performance degradation.',
+      'When `free_dimension_overrides` is not set, you may experience significant performance degradation.',
     );
   }
 
@@ -387,6 +387,12 @@ function validateInputs(session: any, inputs: any) {
  * @private
  */
 async function sessionRun(session: any, inputs: any) {
+  console.log(`Running session ${session.path || 'unknown'}:`, {
+    inputNames: session.inputNames,
+    inputShapes: Object.fromEntries(
+      Object.entries(inputs).map(([k, v]) => [k, (v as any).dims])
+    )
+  });
   const checkedInputs = validateInputs(session, inputs);
   try {
     // pass the original ort tensor
@@ -394,6 +400,9 @@ async function sessionRun(session: any, inputs: any) {
       Object.entries(checkedInputs).map(([k, v]) => [k, (v as Tensor).ort_tensor]),
     );
     let output = await session.run(ortFeed);
+    console.log('Session run successful:', {
+      outputNames: Object.keys(output)
+    });
     output = replaceTensors(output);
     return output;
   } catch (e) {
@@ -410,6 +419,15 @@ async function sessionRun(session: any, inputs: any) {
         },
       ]),
     );
+
+    console.error('Session run failed:', {
+      e,
+      session: session.path,
+      inputNames: session.inputNames,
+      inputShapes: Object.fromEntries(
+        Object.entries(inputs).map(([k, v]) => [k, (v as any).dims])
+      )
+    });
 
     // This usually occurs when the inputs are of the wrong type.
     console.error(`An error occurred during model execution: "${e}".`);
@@ -527,11 +545,28 @@ async function encoderForward(self: any, model_inputs: any) {
   if (session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
     // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
     // but they weren't created by the tokenizer.
-    encoderFeeds.token_type_ids = new Tensor(
-      'int64',
-      new BigInt64Array(encoderFeeds.input_ids.data.length),
-      encoderFeeds.input_ids.dims,
-    );
+    // encoderFeeds.token_type_ids = new Tensor(
+    //   'int64',
+    //   new BigInt64Array(encoderFeeds.input_ids.data.length),
+    //   encoderFeeds.input_ids.dims,
+    // );
+
+    if (!encoderFeeds.input_ids) {
+      throw new Error('Both `input_ids` and `token_type_ids` are missing in the model inputs.');
+    }
+    // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
+    // but they weren't created by the tokenizer.
+    encoderFeeds.token_type_ids = zeros_like(encoderFeeds.input_ids);
+  }
+
+  if (session.inputNames.includes('pixel_mask') && !encoderFeeds.pixel_mask) {
+    if (!encoderFeeds.pixel_values) {
+      throw new Error('Both `pixel_values` and `pixel_mask` are missing in the model inputs.');
+    }
+    // Assign default `pixel_mask` (all ones) to the `encoderFeeds` if the model expects it,
+    // but they weren't created by the processor.
+    const dims = encoderFeeds.pixel_values.dims;
+    encoderFeeds.pixel_mask = ones([dims[0], dims[2], dims[3]]);
   }
   // console.log("encoder forward running here: ", session, encoderFeeds)
   return await sessionRun(session, encoderFeeds);
@@ -546,6 +581,10 @@ async function encoderForward(self: any, model_inputs: any) {
  */
 async function decoderForward(self: any, model_inputs: any, is_encoder_decoder = false) {
   const session = self.sessions[is_encoder_decoder ? 'decoder_model_merged' : 'model'];
+
+  // Add debugging
+  console.log('Decoder inputs:', model_inputs);
+  console.log('Session config:', session.config);
 
   const { past_key_values, ...new_model_inputs } = model_inputs;
 
@@ -1561,7 +1600,7 @@ export class PreTrainedModel extends Callable {
       if (inputs) {
         throw new Error(
           '`inputs`: {inputs}` were passed alongside {input_name} which is not allowed. ' +
-            'Make sure to either pass {inputs} or {input_name}=...',
+          'Make sure to either pass {inputs} or {input_name}=...',
         );
       }
     } else {
@@ -1760,7 +1799,7 @@ export class PreTrainedModel extends Callable {
     let input_ids_length = input_ids.dims.at(-1);
 
     if (generation_config && (generation_config as any).max_new_tokens !== null) {
-        (generation_config as any).max_length = input_ids_length + (generation_config as any).max_new_tokens;
+      (generation_config as any).max_length = input_ids_length + (generation_config as any).max_new_tokens;
     }
 
     // input_ids_length = model_inputs[model_input_name].dims.at(1);
@@ -2006,7 +2045,7 @@ export class PreTrainedModel extends Callable {
     if (!this.config.num_image_tokens) {
       console.warn(
         'The number of image tokens was not set in the model configuration. ' +
-          `Setting it to the number of features detected by the vision encoder (${features.dims[1]}).`,
+        `Setting it to the number of features detected by the vision encoder (${features.dims[1]}).`,
       );
       // @ts-expect-error TS2339
       this.config.num_image_tokens = features.dims[1];
@@ -2022,7 +2061,7 @@ export class PreTrainedModel extends Callable {
 
 //////////////////////////////////////////////////
 // Base model output class
-export class ModelOutput {}
+export class ModelOutput { }
 
 /**
  * Base class for model's outputs, with potential hidden states and attentions.
@@ -2056,12 +2095,12 @@ export class BaseModelOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 // Audio Spectrogram Transformer (AST) models
-export class ASTPreTrainedModel extends PreTrainedModel {}
+export class ASTPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare AST Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class ASTModel extends ASTPreTrainedModel {}
+export class ASTModel extends ASTPreTrainedModel { }
 
 //////////////////////////////////////////////////
 
@@ -2082,7 +2121,7 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
 /**
  * WhisperModel class for training Whisper models without a language model head.
  */
-export class WhisperModel extends WhisperPreTrainedModel {}
+export class WhisperModel extends WhisperPreTrainedModel { }
 
 /**
  * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
@@ -2160,7 +2199,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
    */
   async generate({
     inputs = null,
-    generation_config= null,
+    generation_config = null,
     logits_processor = null,
     stopping_criteria = null,
 
@@ -2191,7 +2230,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
       if (!generation_config.alignment_heads) {
         throw new Error(
           'Model generation config has no `alignment_heads`, token-level timestamps not available. ' +
-            'See https://gist.github.com/hollance/42e32852f24243b748ae6bc1f985b13a on how to add this property to the generation config.',
+          'See https://gist.github.com/hollance/42e32852f24243b748ae6bc1f985b13a on how to add this property to the generation config.',
         );
       }
 
@@ -2243,13 +2282,13 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     if (!generate_outputs.cross_attentions) {
       throw new Error(
         'Model outputs must contain cross attentions to extract timestamps. ' +
-          'This is most likely because the model was not exported with `output_attentions=True`.',
+        'This is most likely because the model was not exported with `output_attentions=True`.',
       );
     }
     if (num_frames == null) {
       console.warn(
         '`num_frames` has not been set, meaning the entire audio will be analyzed. ' +
-          'This may lead to inaccurate token-level timestamps for short audios (< 30 seconds).',
+        'This may lead to inaccurate token-level timestamps for short audios (< 30 seconds).',
       );
     }
 
@@ -2360,9 +2399,9 @@ export class MoonshinePreTrainedModel extends PreTrainedModel {
 /**
  * MoonshineModel class for training Moonshine models without a language model head.
  */
-export class MoonshineModel extends MoonshinePreTrainedModel {}
+export class MoonshineModel extends MoonshinePreTrainedModel { }
 
-export class MoonshineForConditionalGeneration extends MoonshinePreTrainedModel {}
+export class MoonshineForConditionalGeneration extends MoonshinePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -2421,8 +2460,8 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
-export class LlavaOnevisionForConditionalGeneration extends LlavaForConditionalGeneration {} // NOTE: extends LlavaForConditionalGeneration
-export class Moondream1ForConditionalGeneration extends LlavaForConditionalGeneration {} // NOTE: extends LlavaForConditionalGeneration
+export class LlavaOnevisionForConditionalGeneration extends LlavaForConditionalGeneration { } // NOTE: extends LlavaForConditionalGeneration
+export class Moondream1ForConditionalGeneration extends LlavaForConditionalGeneration { } // NOTE: extends LlavaForConditionalGeneration
 
 export class Florence2PreTrainedModel extends PreTrainedModel {
   forward_params = [
@@ -2688,7 +2727,7 @@ export class Phi3VForCausalLM extends Phi3VPreTrainedModel {
 }
 
 //////////////////////////////////////////////////
-export class CLIPPreTrainedModel extends PreTrainedModel {}
+export class CLIPPreTrainedModel extends PreTrainedModel { }
 
 /**
  * CLIP Text and Vision Model with a projection layers on top
@@ -2733,7 +2772,7 @@ export class CLIPPreTrainedModel extends PreTrainedModel {}
  * // }
  * ```
  */
-export class CLIPModel extends CLIPPreTrainedModel {}
+export class CLIPModel extends CLIPPreTrainedModel { }
 
 /**
  * The text model from CLIP without any head or projection on top.
@@ -2840,7 +2879,7 @@ export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
 
 //////////////////////////////////////////////////
 // SigLIP models
-export class SiglipPreTrainedModel extends PreTrainedModel {}
+export class SiglipPreTrainedModel extends PreTrainedModel { }
 
 /**
  * SigLIP Text and Vision Model with a projection layers on top
@@ -2885,7 +2924,7 @@ export class SiglipPreTrainedModel extends PreTrainedModel {}
  * // }
  * ```
  */
-export class SiglipModel extends SiglipPreTrainedModel {}
+export class SiglipModel extends SiglipPreTrainedModel { }
 
 /**
  * The text model from SigLIP without any head or projection on top.
@@ -2962,14 +3001,14 @@ export class SiglipVisionModel extends CLIPPreTrainedModel {
 }
 //////////////////////////////////////////////////
 // ChineseCLIP models
-export class ChineseCLIPPreTrainedModel extends PreTrainedModel {}
+export class ChineseCLIPPreTrainedModel extends PreTrainedModel { }
 
-export class ChineseCLIPModel extends ChineseCLIPPreTrainedModel {}
+export class ChineseCLIPModel extends ChineseCLIPPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // JinaCLIP models
-export class JinaCLIPPreTrainedModel extends PreTrainedModel {}
+export class JinaCLIPPreTrainedModel extends PreTrainedModel { }
 
 export class JinaCLIPModel extends JinaCLIPPreTrainedModel {
   async forward(model_inputs: any) {
@@ -3036,14 +3075,14 @@ export class JinaCLIPVisionModel extends JinaCLIPPreTrainedModel {
 
 //////////////////////////////////////////////////
 // GPT2 models
-export class GPT2PreTrainedModel extends PreTrainedModel {}
+export class GPT2PreTrainedModel extends PreTrainedModel { }
 
-export class GPT2Model extends GPT2PreTrainedModel {}
+export class GPT2Model extends GPT2PreTrainedModel { }
 
 /**
  * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
  */
-export class GPT2LMHeadModel extends GPT2PreTrainedModel {}
+export class GPT2LMHeadModel extends GPT2PreTrainedModel { }
 // export class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
 // TODO
 // }
@@ -3051,65 +3090,65 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {}
 
 //////////////////////////////////////////////////
 // JAIS models
-export class JAISPreTrainedModel extends PreTrainedModel {}
+export class JAISPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare JAIS Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class JAISModel extends JAISPreTrainedModel {}
+export class JAISModel extends JAISPreTrainedModel { }
 
 /**
  * The JAIS Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class JAISLMHeadModel extends JAISPreTrainedModel {}
+export class JAISLMHeadModel extends JAISPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // GPTNeo models
-export class GPTNeoPreTrainedModel extends PreTrainedModel {}
-export class GPTNeoModel extends GPTNeoPreTrainedModel {}
+export class GPTNeoPreTrainedModel extends PreTrainedModel { }
+export class GPTNeoModel extends GPTNeoPreTrainedModel { }
 
-export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {}
+export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // GPTNeoX models
-export class GPTNeoXPreTrainedModel extends PreTrainedModel {}
-export class GPTNeoXModel extends GPTNeoXPreTrainedModel {}
+export class GPTNeoXPreTrainedModel extends PreTrainedModel { }
+export class GPTNeoXModel extends GPTNeoXPreTrainedModel { }
 
-export class GPTNeoXForCausalLM extends GPTNeoXPreTrainedModel {}
+export class GPTNeoXForCausalLM extends GPTNeoXPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // GPT-J models
-export class GPTJPreTrainedModel extends PreTrainedModel {}
+export class GPTJPreTrainedModel extends PreTrainedModel { }
 
-export class GPTJModel extends GPTJPreTrainedModel {}
+export class GPTJModel extends GPTJPreTrainedModel { }
 
-export class GPTJForCausalLM extends GPTJPreTrainedModel {}
+export class GPTJForCausalLM extends GPTJPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // GPTBigCode models
-export class GPTBigCodePreTrainedModel extends PreTrainedModel {}
+export class GPTBigCodePreTrainedModel extends PreTrainedModel { }
 
-export class GPTBigCodeModel extends GPTBigCodePreTrainedModel {}
+export class GPTBigCodeModel extends GPTBigCodePreTrainedModel { }
 
-export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel {}
+export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // CodeGen models
-export class CodeGenPreTrainedModel extends PreTrainedModel {}
+export class CodeGenPreTrainedModel extends PreTrainedModel { }
 /**
  * CodeGenModel is a class representing a code generation model without a language model head.
  */
-export class CodeGenModel extends CodeGenPreTrainedModel {}
+export class CodeGenModel extends CodeGenPreTrainedModel { }
 
 /**
  * CodeGenForCausalLM is a class that represents a code generation model based on the GPT-2 architecture. It extends the `CodeGenPreTrainedModel` class.
  */
-export class CodeGenForCausalLM extends CodeGenPreTrainedModel {}
+export class CodeGenForCausalLM extends CodeGenPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3118,48 +3157,48 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {}
 /**
  * The bare LLama Model outputting raw hidden-states without any specific head on top.
  */
-export class LlamaPreTrainedModel extends PreTrainedModel {}
+export class LlamaPreTrainedModel extends PreTrainedModel { }
 /**
  * The bare LLaMA Model outputting raw hidden-states without any specific head on top.
  */
-export class LlamaModel extends LlamaPreTrainedModel {}
+export class LlamaModel extends LlamaPreTrainedModel { }
 
-export class LlamaForCausalLM extends LlamaPreTrainedModel {}
+export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // EXAONE models
-export class ExaonePreTrainedModel extends PreTrainedModel {}
-export class ExaoneModel extends ExaonePreTrainedModel {}
-export class ExaoneForCausalLM extends ExaonePreTrainedModel {}
+export class ExaonePreTrainedModel extends PreTrainedModel { }
+export class ExaoneModel extends ExaonePreTrainedModel { }
+export class ExaoneForCausalLM extends ExaonePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // MobileLLM models
-export class MobileLLMPreTrainedModel extends PreTrainedModel {}
-export class MobileLLMModel extends MobileLLMPreTrainedModel {}
-export class MobileLLMForCausalLM extends MobileLLMPreTrainedModel {}
+export class MobileLLMPreTrainedModel extends PreTrainedModel { }
+export class MobileLLMModel extends MobileLLMPreTrainedModel { }
+export class MobileLLMForCausalLM extends MobileLLMPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // OLMo models
-export class OlmoPreTrainedModel extends PreTrainedModel {}
-export class OlmoModel extends OlmoPreTrainedModel {}
-export class OlmoForCausalLM extends OlmoPreTrainedModel {}
+export class OlmoPreTrainedModel extends PreTrainedModel { }
+export class OlmoModel extends OlmoPreTrainedModel { }
+export class OlmoForCausalLM extends OlmoPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // OLMo2 models
-export class Olmo2PreTrainedModel extends PreTrainedModel {}
-export class Olmo2Model extends Olmo2PreTrainedModel {}
-export class Olmo2ForCausalLM extends Olmo2PreTrainedModel {}
+export class Olmo2PreTrainedModel extends PreTrainedModel { }
+export class Olmo2Model extends Olmo2PreTrainedModel { }
+export class Olmo2ForCausalLM extends Olmo2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // Granite models
-export class GranitePreTrainedModel extends PreTrainedModel {}
-export class GraniteModel extends GranitePreTrainedModel {}
-export class GraniteForCausalLM extends GranitePreTrainedModel {}
+export class GranitePreTrainedModel extends PreTrainedModel { }
+export class GraniteModel extends GranitePreTrainedModel { }
+export class GraniteForCausalLM extends GranitePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3168,10 +3207,10 @@ export class GraniteForCausalLM extends GranitePreTrainedModel {}
 /**
  * The bare Cohere Model outputting raw hidden-states without any specific head on top.
  */
-export class CoherePreTrainedModel extends PreTrainedModel {}
-export class CohereModel extends CoherePreTrainedModel {}
+export class CoherePreTrainedModel extends PreTrainedModel { }
+export class CohereModel extends CoherePreTrainedModel { }
 
-export class CohereForCausalLM extends CoherePreTrainedModel {}
+export class CohereForCausalLM extends CoherePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3180,13 +3219,13 @@ export class CohereForCausalLM extends CoherePreTrainedModel {}
 /**
  * The bare Gemma Model outputting raw hidden-states without any specific head on top.
  */
-export class GemmaPreTrainedModel extends PreTrainedModel {}
+export class GemmaPreTrainedModel extends PreTrainedModel { }
 /**
  * The bare Gemma Model outputting raw hidden-states without any specific head on top.
  */
-export class GemmaModel extends GemmaPreTrainedModel {}
+export class GemmaModel extends GemmaPreTrainedModel { }
 
-export class GemmaForCausalLM extends GemmaPreTrainedModel {}
+export class GemmaForCausalLM extends GemmaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3195,20 +3234,20 @@ export class GemmaForCausalLM extends GemmaPreTrainedModel {}
 /**
  * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
  */
-export class Gemma2PreTrainedModel extends PreTrainedModel {}
+export class Gemma2PreTrainedModel extends PreTrainedModel { }
 /**
  * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
  */
-export class Gemma2Model extends Gemma2PreTrainedModel {}
+export class Gemma2Model extends Gemma2PreTrainedModel { }
 
-export class Gemma2ForCausalLM extends Gemma2PreTrainedModel {}
+export class Gemma2ForCausalLM extends Gemma2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class OpenELMPreTrainedModel extends PreTrainedModel {}
-export class OpenELMModel extends OpenELMPreTrainedModel {}
+export class OpenELMPreTrainedModel extends PreTrainedModel { }
+export class OpenELMModel extends OpenELMPreTrainedModel { }
 
-export class OpenELMForCausalLM extends OpenELMPreTrainedModel {}
+export class OpenELMForCausalLM extends OpenELMPreTrainedModel { }
 
 //////////////////////////////////////////////////
 // Qwen2 models
@@ -3216,36 +3255,36 @@ export class OpenELMForCausalLM extends OpenELMPreTrainedModel {}
 /**
  * The bare Qwen2 Model outputting raw hidden-states without any specific head on top.
  */
-export class Qwen2PreTrainedModel extends PreTrainedModel {}
+export class Qwen2PreTrainedModel extends PreTrainedModel { }
 /**
  * The bare Qwen2 Model outputting raw hidden-states without any specific head on top.
  */
-export class Qwen2Model extends Qwen2PreTrainedModel {}
+export class Qwen2Model extends Qwen2PreTrainedModel { }
 
-export class Qwen2ForCausalLM extends Qwen2PreTrainedModel {}
+export class Qwen2ForCausalLM extends Qwen2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // Phi models
-export class PhiPreTrainedModel extends PreTrainedModel {}
+export class PhiPreTrainedModel extends PreTrainedModel { }
 /**
  * The bare Phi Model outputting raw hidden-states without any specific head on top.
  */
-export class PhiModel extends PhiPreTrainedModel {}
+export class PhiModel extends PhiPreTrainedModel { }
 
-export class PhiForCausalLM extends PhiPreTrainedModel {}
+export class PhiForCausalLM extends PhiPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // Phi3 models
-export class Phi3PreTrainedModel extends PreTrainedModel {}
+export class Phi3PreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Phi3 Model outputting raw hidden-states without any specific head on top.
  */
-export class Phi3Model extends Phi3PreTrainedModel {}
+export class Phi3Model extends Phi3PreTrainedModel { }
 
-export class Phi3ForCausalLM extends Phi3PreTrainedModel {}
+export class Phi3ForCausalLM extends Phi3PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3253,70 +3292,70 @@ export class Phi3ForCausalLM extends Phi3PreTrainedModel {}
 /**
  * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class BloomPreTrainedModel extends PreTrainedModel {}
+export class BloomPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Bloom Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class BloomModel extends BloomPreTrainedModel {}
+export class BloomModel extends BloomPreTrainedModel { }
 
 /**
  * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class BloomForCausalLM extends BloomPreTrainedModel {}
+export class BloomForCausalLM extends BloomPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // MPT models
-export class MptPreTrainedModel extends PreTrainedModel {}
+export class MptPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Mpt Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class MptModel extends MptPreTrainedModel {}
+export class MptModel extends MptPreTrainedModel { }
 
 /**
  * The MPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class MptForCausalLM extends MptPreTrainedModel {}
+export class MptForCausalLM extends MptPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // OPT models
-export class OPTPreTrainedModel extends PreTrainedModel {}
+export class OPTPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare OPT Model outputting raw hidden-states without any specific head on top.
  */
-export class OPTModel extends OPTPreTrainedModel {}
+export class OPTModel extends OPTPreTrainedModel { }
 
 /**
  * The OPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class OPTForCausalLM extends OPTPreTrainedModel {}
+export class OPTForCausalLM extends OPTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class VitPosePreTrainedModel extends PreTrainedModel {}
+export class VitPosePreTrainedModel extends PreTrainedModel { }
 
 /**
  * The VitPose model with a pose estimation head on top.
  */
-export class VitPoseForPoseEstimation extends VitPosePreTrainedModel {}
+export class VitPoseForPoseEstimation extends VitPosePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class ViTMAEPreTrainedModel extends PreTrainedModel {}
-export class ViTMAEModel extends ViTMAEPreTrainedModel {}
+export class ViTMAEPreTrainedModel extends PreTrainedModel { }
+export class ViTMAEModel extends ViTMAEPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class GroupViTPreTrainedModel extends PreTrainedModel {}
-export class GroupViTModel extends GroupViTPreTrainedModel {}
+export class GroupViTPreTrainedModel extends PreTrainedModel { }
+export class GroupViTModel extends GroupViTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class VitMattePreTrainedModel extends PreTrainedModel {}
+export class VitMattePreTrainedModel extends PreTrainedModel { }
 
 /**
  * ViTMatte framework leveraging any vision backbone e.g. for ADE20k, CityScapes.
@@ -3380,12 +3419,12 @@ export class VitMatteForImageMatting extends VitMattePreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-export class Swin2SRPreTrainedModel extends PreTrainedModel {}
+export class Swin2SRPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Swin2SR Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class Swin2SRModel extends Swin2SRPreTrainedModel {}
+export class Swin2SRModel extends Swin2SRPreTrainedModel { }
 
 /**
  * Swin2SR Model transformer with an upsampler head on top for image super resolution and restoration.
@@ -3419,12 +3458,12 @@ export class Swin2SRModel extends Swin2SRPreTrainedModel {}
  * // }
  * ```
  */
-export class Swin2SRForImageSuperResolution extends Swin2SRPreTrainedModel {}
+export class Swin2SRForImageSuperResolution extends Swin2SRPreTrainedModel { }
 //////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////
-export class SamPreTrainedModel extends PreTrainedModel {}
+export class SamPreTrainedModel extends PreTrainedModel { }
 
 /**
  * Segment Anything Model (SAM) for generating segmentation masks, given an input image
@@ -3574,7 +3613,7 @@ export class SamImageSegmentationOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 // Wav2Vec2 models
-export class Wav2Vec2PreTrainedModel extends PreTrainedModel {}
+export class Wav2Vec2PreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Wav2Vec2 Model transformer outputting raw hidden-states without any specific head on top.
@@ -3602,7 +3641,7 @@ export class Wav2Vec2PreTrainedModel extends PreTrainedModel {}
  * // }
  * ```
  */
-export class Wav2Vec2Model extends Wav2Vec2PreTrainedModel {}
+export class Wav2Vec2Model extends Wav2Vec2PreTrainedModel { }
 
 export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
   /**
@@ -3619,12 +3658,12 @@ export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
 
 //////////////////////////////////////////////////
 // PyAnnote models
-export class PyAnnotePreTrainedModel extends PreTrainedModel {}
+export class PyAnnotePreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare PyAnnote Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class PyAnnoteModel extends PyAnnotePreTrainedModel {}
+export class PyAnnoteModel extends PyAnnotePreTrainedModel { }
 
 /**
  * PyAnnote Model with a frame classification head on top for tasks like Speaker Diarization.
@@ -3697,18 +3736,18 @@ export class PyAnnoteForAudioFrameClassification extends PyAnnotePreTrainedModel
 
 //////////////////////////////////////////////////
 // WeSpeakerResNet models
-export class WeSpeakerResNetPreTrainedModel extends PreTrainedModel {}
-export class WeSpeakerResNetModel extends WeSpeakerResNetPreTrainedModel {}
+export class WeSpeakerResNetPreTrainedModel extends PreTrainedModel { }
+export class WeSpeakerResNetModel extends WeSpeakerResNetPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // UniSpeech models
-export class UniSpeechPreTrainedModel extends PreTrainedModel {}
+export class UniSpeechPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare UniSpeech Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class UniSpeechModel extends UniSpeechPreTrainedModel {}
+export class UniSpeechModel extends UniSpeechPreTrainedModel { }
 
 /**
  * UniSpeech Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
@@ -3728,12 +3767,12 @@ export class UniSpeechForCTC extends UniSpeechPreTrainedModel {
 
 //////////////////////////////////////////////////
 // UniSpeechSat models
-export class UniSpeechSatPreTrainedModel extends PreTrainedModel {}
+export class UniSpeechSatPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare UniSpeechSat Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class UniSpeechSatModel extends UniSpeechSatPreTrainedModel {}
+export class UniSpeechSatModel extends UniSpeechSatPreTrainedModel { }
 
 /**
  * UniSpeechSat Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
@@ -3766,12 +3805,12 @@ export class UniSpeechSatForAudioFrameClassification extends UniSpeechSatPreTrai
 
 //////////////////////////////////////////////////
 // Wav2Vec2Bert models
-export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel {}
+export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Wav2Vec2Bert Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class Wav2Vec2BertModel extends Wav2Vec2BertPreTrainedModel {}
+export class Wav2Vec2BertModel extends Wav2Vec2BertPreTrainedModel { }
 
 /**
  * Wav2Vec2Bert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
@@ -3791,7 +3830,7 @@ export class Wav2Vec2BertForCTC extends Wav2Vec2BertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // Hubert models
-export class HubertPreTrainedModel extends PreTrainedModel {}
+export class HubertPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Hubert Model transformer outputting raw hidden-states without any specific head on top.
@@ -3819,7 +3858,7 @@ export class HubertPreTrainedModel extends PreTrainedModel {}
  * // }
  * ```
  */
-export class HubertModel extends Wav2Vec2PreTrainedModel {}
+export class HubertModel extends Wav2Vec2PreTrainedModel { }
 
 /**
  * Hubert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
@@ -3842,7 +3881,7 @@ export class HubertForCTC extends Wav2Vec2PreTrainedModel {
 /**
  * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
  */
-export class WavLMPreTrainedModel extends PreTrainedModel {}
+export class WavLMPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare WavLM Model transformer outputting raw hidden-states without any specific head on top.
@@ -3870,7 +3909,7 @@ export class WavLMPreTrainedModel extends PreTrainedModel {}
  * // }
  * ```
  */
-export class WavLMModel extends WavLMPreTrainedModel {}
+export class WavLMModel extends WavLMPreTrainedModel { }
 
 /**
  * WavLM Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
@@ -3982,12 +4021,12 @@ export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
 /**
  * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
  */
-export class SpeechT5PreTrainedModel extends PreTrainedModel {}
+export class SpeechT5PreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare SpeechT5 Encoder-Decoder Model outputting raw hidden-states without any specific pre- or post-nets.
  */
-export class SpeechT5Model extends SpeechT5PreTrainedModel {}
+export class SpeechT5Model extends SpeechT5PreTrainedModel { }
 
 /**
  * SpeechT5 Model with a speech encoder and a text decoder.
@@ -4029,7 +4068,7 @@ export class SpeechT5Model extends SpeechT5PreTrainedModel {}
  * // }
  * ```
  */
-export class SpeechT5ForSpeechToText extends SpeechT5PreTrainedModel {}
+export class SpeechT5ForSpeechToText extends SpeechT5PreTrainedModel { }
 
 /**
  * SpeechT5 Model with a text encoder and a speech decoder.
@@ -4143,12 +4182,12 @@ export class SpeechT5HifiGan extends PreTrainedModel {
 
 //////////////////////////////////////////////////
 // TrOCR models
-export class TrOCRPreTrainedModel extends PreTrainedModel {}
+export class TrOCRPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The TrOCR Decoder with a language modeling head.
  */
-export class TrOCRForCausalLM extends TrOCRPreTrainedModel {}
+export class TrOCRForCausalLM extends TrOCRPreTrainedModel { }
 
 //////////////////////////////////////////////////
 
@@ -4157,11 +4196,11 @@ export class TrOCRForCausalLM extends TrOCRPreTrainedModel {}
 /**
  * The bare Mistral Model outputting raw hidden-states without any specific head on top.
  */
-export class MistralPreTrainedModel extends PreTrainedModel {}
+export class MistralPreTrainedModel extends PreTrainedModel { }
 
-export class MistralModel extends MistralPreTrainedModel {}
+export class MistralModel extends MistralPreTrainedModel { }
 
-export class MistralForCausalLM extends MistralPreTrainedModel {}
+export class MistralForCausalLM extends MistralPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4169,11 +4208,11 @@ export class MistralForCausalLM extends MistralPreTrainedModel {}
 /**
  * The bare Starcoder2 Model outputting raw hidden-states without any specific head on top.
  */
-export class Starcoder2PreTrainedModel extends PreTrainedModel {}
+export class Starcoder2PreTrainedModel extends PreTrainedModel { }
 
-export class Starcoder2Model extends Starcoder2PreTrainedModel {}
+export class Starcoder2Model extends Starcoder2PreTrainedModel { }
 
-export class Starcoder2ForCausalLM extends Starcoder2PreTrainedModel {}
+export class Starcoder2ForCausalLM extends Starcoder2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4181,18 +4220,18 @@ export class Starcoder2ForCausalLM extends Starcoder2PreTrainedModel {}
 /**
  * The bare Falcon Model outputting raw hidden-states without any specific head on top.
  */
-export class FalconPreTrainedModel extends PreTrainedModel {}
+export class FalconPreTrainedModel extends PreTrainedModel { }
 
-export class FalconModel extends FalconPreTrainedModel {}
+export class FalconModel extends FalconPreTrainedModel { }
 
-export class FalconForCausalLM extends FalconPreTrainedModel {}
+export class FalconForCausalLM extends FalconPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // CLAP models
-export class ClapPreTrainedModel extends PreTrainedModel {}
+export class ClapPreTrainedModel extends PreTrainedModel { }
 
-export class ClapModel extends ClapPreTrainedModel {}
+export class ClapModel extends ClapPreTrainedModel { }
 
 /**
  * CLAP Text Model with a projection layer on top (a linear layer on top of the pooled output).
@@ -4271,7 +4310,7 @@ export class ClapAudioModelWithProjection extends ClapPreTrainedModel {
 
 //////////////////////////////////////////////////
 // VITS models
-export class VitsPreTrainedModel extends PreTrainedModel {}
+export class VitsPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The complete VITS model, for text-to-speech synthesis.
@@ -4311,32 +4350,32 @@ export class VitsModel extends VitsPreTrainedModel {
 
 //////////////////////////////////////////////////
 // StableLm models
-export class StableLmPreTrainedModel extends PreTrainedModel {}
+export class StableLmPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare StableLm Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class StableLmModel extends StableLmPreTrainedModel {}
+export class StableLmModel extends StableLmPreTrainedModel { }
 
 /**
  * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
  */
-export class StableLmForCausalLM extends StableLmPreTrainedModel {}
+export class StableLmForCausalLM extends StableLmPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // Musicgen models
-export class MusicgenPreTrainedModel extends PreTrainedModel {}
+export class MusicgenPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare Musicgen decoder model outputting raw hidden-states without any specific head on top.
  */
-export class MusicgenModel extends MusicgenPreTrainedModel {}
+export class MusicgenModel extends MusicgenPreTrainedModel { }
 
 /**
  * The MusicGen decoder model with a language modelling head on top.
  */
-export class MusicgenForCausalLM extends MusicgenPreTrainedModel {}
+export class MusicgenForCausalLM extends MusicgenPreTrainedModel { }
 
 /**
  * The composite MusicGen model with a text encoder, audio encoder and Musicgen decoder,
@@ -4462,17 +4501,17 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel {
 
 //////////////////////////////////////////////////
 // Decision Transformer models
-export class DecisionTransformerPreTrainedModel extends PreTrainedModel {}
+export class DecisionTransformerPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The model builds upon the GPT2 architecture to perform autoregressive prediction of actions in an offline RL setting.
  * Refer to the paper for more details: https://arxiv.org/abs/2106.01345
  */
-export class DecisionTransformerModel extends DecisionTransformerPreTrainedModel {}
+export class DecisionTransformerModel extends DecisionTransformerPreTrainedModel { }
 
 //////////////////////////////////////////////////
 
-export class MultiModalityPreTrainedModel extends PreTrainedModel {}
+export class MultiModalityPreTrainedModel extends PreTrainedModel { }
 export class MultiModalityCausalLM extends MultiModalityPreTrainedModel {
   forward_params = [
     // prepare_inputs_embeds
@@ -4598,7 +4637,7 @@ export class MgpstrModelOutput extends ModelOutput {
   }
 }
 
-export class MgpstrPreTrainedModel extends PreTrainedModel {}
+export class MgpstrPreTrainedModel extends PreTrainedModel { }
 
 /**
  * MGP-STR Model transformer with three classification heads on top
@@ -4615,17 +4654,17 @@ export class MgpstrForSceneTextRecognition extends MgpstrPreTrainedModel {
 
 //////////////////////////////////////////////////
 // PatchTST Transformer models
-export class PatchTSTPreTrainedModel extends PreTrainedModel {}
+export class PatchTSTPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare PatchTST Model outputting raw hidden-states without any specific head.
  */
-export class PatchTSTModel extends PatchTSTPreTrainedModel {}
+export class PatchTSTModel extends PatchTSTPreTrainedModel { }
 
 /**
  * The PatchTST for prediction model.
  */
-export class PatchTSTForPrediction extends PatchTSTPreTrainedModel {}
+export class PatchTSTForPrediction extends PatchTSTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4636,17 +4675,17 @@ export class StyleTextToSpeech2Model extends StyleTextToSpeech2PreTrainedModel {
 
 //////////////////////////////////////////////////
 // PatchTSMixer Transformer models
-export class PatchTSMixerPreTrainedModel extends PreTrainedModel {}
+export class PatchTSMixerPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare PatchTSMixer Model outputting raw hidden-states without any specific head.
  */
-export class PatchTSMixerModel extends PatchTSMixerPreTrainedModel {}
+export class PatchTSMixerModel extends PatchTSMixerPreTrainedModel { }
 
 /**
  * The PatchTSMixer for prediction model.
  */
-export class PatchTSMixerForPrediction extends PatchTSMixerPreTrainedModel {}
+export class PatchTSMixerForPrediction extends PatchTSMixerPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4658,18 +4697,18 @@ export class PatchTSMixerForPrediction extends PatchTSMixerPreTrainedModel {}
  * which is used to instantiate pretrained models.
  */
 interface ModelOptions {
-    config?: PretrainedConfig | null;
-    cache_dir?: string | null;
-    local_files_only?: boolean;
-    revision?: string;
-    model_file_name?: string | null;
-    subfolder?: string;
-    device?: string | null;
-    dtype?: string | null;
-    use_external_data_format?: boolean | null;
-    session_options?: any;
-    progress_callback?: ProgressCallback | null;
-  }
+  config?: PretrainedConfig | null;
+  cache_dir?: string | null;
+  local_files_only?: boolean;
+  revision?: string;
+  model_file_name?: string | null;
+  subfolder?: string;
+  device?: string | null;
+  dtype?: string | null;
+  use_external_data_format?: boolean | null;
+  session_options?: any;
+  progress_callback?: ProgressCallback | null;
+}
 export class PretrainedMixin {
   /**
    * Mapping from model type to model class.
@@ -4859,7 +4898,7 @@ const MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES = new Map([
   ['llava_onevision', ['LlavaOnevisionForConditionalGeneration', LlavaOnevisionForConditionalGeneration]],
   ['moondream1', ['Moondream1ForConditionalGeneration', Moondream1ForConditionalGeneration]],
   ['florence2', ['Florence2ForConditionalGeneration', Florence2ForConditionalGeneration]],
-//   ['qwen2-vl', ['Qwen2VLForConditionalGeneration', Qwen2VLForConditionalGeneration]],
+  //   ['qwen2-vl', ['Qwen2VLForConditionalGeneration', Qwen2VLForConditionalGeneration]],
   ['idefics3', ['Idefics3ForConditionalGeneration', Idefics3ForConditionalGeneration]],
   ['paligemma', ['PaliGemmaForConditionalGeneration', PaliGemmaForConditionalGeneration]],
 ]);
@@ -5104,7 +5143,7 @@ export class SequenceClassifierOutput extends ModelOutput {
    */
   logits: Tensor;
   attentions: Record<string, Tensor>;
-  constructor({ logits, ...attentions }: { logits: Tensor; [key: string]: Tensor }) {
+  constructor({ logits, ...attentions }: { logits: Tensor;[key: string]: Tensor }) {
     super();
     this.logits = logits;
     this.attentions = attentions;

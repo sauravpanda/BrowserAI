@@ -42,7 +42,7 @@ export class TextStreamer extends BaseStreamer {
   tokenizer: PreTrainedTokenizer;
   skip_prompt: boolean;
   callback_function: (x: string) => void;
-  token_callback_function: (x: bigint[]) => void;
+  token_callback_function: any;
   decode_kwargs: any;
   print_len: number;
   next_tokens_are_prompt: boolean;
@@ -54,6 +54,7 @@ export class TextStreamer extends BaseStreamer {
       skip_prompt = false,
       callback_function = null,
       token_callback_function = null,
+      skip_special_tokens = true,
       decode_kwargs = {},
       ...kwargs
     } = {},
@@ -63,7 +64,8 @@ export class TextStreamer extends BaseStreamer {
     this.skip_prompt = skip_prompt;
     this.callback_function = callback_function ?? stdout_write;
     this.token_callback_function = token_callback_function;
-    this.decode_kwargs = { ...decode_kwargs, ...kwargs };
+    this.decode_kwargs = { skip_special_tokens, ...decode_kwargs, ...kwargs };
+
 
     // variables used in the streaming process
     this.token_cache = [];
@@ -186,9 +188,10 @@ export class WhisperTextStreamer extends TextStreamer {
   ) {
     super(tokenizer, {
       skip_prompt,
+      skip_special_tokens,
       callback_function,
       token_callback_function,
-      decode_kwargs: { skip_special_tokens, ...decode_kwargs },
+      decode_kwargs,
     });
     this.timestamp_begin = tokenizer.timestamp_begin;
 

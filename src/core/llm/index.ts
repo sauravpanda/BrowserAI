@@ -179,4 +179,23 @@ export class BrowserAI {
       throw error;
     }
   }
+
+  async generateImage(text: string, options: Record<string, unknown> = {}): Promise<string> {
+    if (!this.modelIdentifier) {
+      throw new Error('No model loaded. Please call loadModel first.');
+    }
+
+    if (this.currentModel?.modelType !== 'multimodal') {
+      throw new Error('Current model does not support multimodal inputs.');
+    }
+
+    if (this.engine instanceof TransformersEngineWrapper) {
+      const response = await this.engine.generateImage({
+        text: text as string,
+      }, options);
+      return response;
+    }
+
+    throw new Error('Current engine does not support multimodal generation');
+  }
 }
