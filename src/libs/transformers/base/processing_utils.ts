@@ -100,6 +100,17 @@ export class Processor extends Callable {
   }
 
   /**
+   * @param {Parameters<PreTrainedTokenizer['decode']>} args
+   * @returns {ReturnType<PreTrainedTokenizer['decode']>}
+   */
+  decode(...args: any[]) {
+    if (!this.tokenizer) {
+      throw new Error('Unable to decode without a tokenizer.');
+    }
+    return this.tokenizer.decode(...args);
+  }
+
+  /**
    * Calls the feature_extractor function with the given input.
    * @param {any} input The input to extract features from.
    * @param {...any} args Additional arguments.

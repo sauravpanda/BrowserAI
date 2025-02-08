@@ -1,4 +1,4 @@
-import { StyleTextToSpeech2Model, AutoTokenizer, RawAudio, Tensor } from "../libs/transformers/transformers";
+import { StyleTextToSpeech2Model, AutoTokenizer, Tensor } from "../libs/transformers/transformers";
 import { ModelConfig } from '../config/models/types';
 import { phonemize } from "../libs/transformers/utils/phonemize";
 import { getVoiceData, VOICES } from "../libs/transformers/utils/voices";
@@ -17,10 +17,11 @@ export class TTSEngine {
   }
 
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
+    // console.log('Loading TTS model... ', modelConfig.repo, options);
     try {
       this.model = await StyleTextToSpeech2Model.from_pretrained(modelConfig.repo, {
         progress_callback: options.onProgress,
-        dtype: options.dtype || "q4",
+        dtype: options.dtype || "fp32",
         device:  "webgpu",
       });
       
@@ -47,7 +48,7 @@ export class TTSEngine {
     }
 
     try {
-      const language = voice.at(0); // "a" or "b"
+      const language = (voice.at(0)); // "a" or "b"
       const phonemes = await phonemize(text, language);
       // console.log('Phonemes:', phonemes); // Debug log
 
@@ -56,10 +57,10 @@ export class TTSEngine {
       });
 
       // Select voice style based on number of input tokens
-      const num_tokens = Math.max(
+      const num_tokens = Math.min(Math.max(
         input_ids.dims.at(-1) - 2, // Without padding
         0,
-      );
+      ), 509);
 
       // Load voice style
       const data = await getVoiceData(voice);
@@ -69,7 +70,7 @@ export class TTSEngine {
 
       // Prepare model inputs
       const inputs = {
-        input_ids,
+        input_ids: input_ids,
         style: new Tensor("float32", voiceData, [1, STYLE_DIM]),
         speed: new Tensor("float32", [speed], [1]),
       };

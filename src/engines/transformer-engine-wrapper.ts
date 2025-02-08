@@ -11,6 +11,7 @@ import {
 } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
 import { TTSEngine } from './tts-engine';
+import { AutoProcessor, MultiModalityCausalLM } from '../libs/transformers/transformers';
 
 export class TransformersEngineWrapper {
   private transformersPipeline:
@@ -24,6 +25,8 @@ export class TransformersEngineWrapper {
     | null = null;
   private modelType: string | null = null;
   private ttsEngine: TTSEngine | null = null;
+  private imageProcessor: any | null = null;
+  private multimodalModel: any | null = null;
 
   constructor() {
     this.transformersPipeline = null;
@@ -46,7 +49,7 @@ export class TransformersEngineWrapper {
 
       // Configure pipeline options with proper worker settings
       const pipelineOptions = {
-        progress_callback: options.onProgress,
+        progress_callback: options.onProgress || (() => {}),
         ...options
       };
 
@@ -57,6 +60,17 @@ export class TransformersEngineWrapper {
         await this.ttsEngine.loadModel(modelConfig, options);
         console.log('TTS model loaded');
         return; // Exit early for TTS models
+      }
+
+      // Initialize image processor for multimodal models
+      if (modelConfig.modelType === 'multimodal') {
+        options.device = "webgpu";
+        // console.log('Loading multimodal model...');
+        this.imageProcessor = await AutoProcessor.from_pretrained(modelConfig.repo, pipelineOptions);
+        // console.log('Image processor loaded');
+        this.multimodalModel = await MultiModalityCausalLM.from_pretrained(modelConfig.repo, pipelineOptions);
+        // console.log('Multimodal model loaded');
+        return;
       }
 
       // For non-TTS models, create the appropriate pipeline
@@ -166,6 +180,41 @@ export class TransformersEngineWrapper {
     if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
       console.debug(`Feature extraction pipeline not initialized. ${input}, ${options}`);
       throw new Error('Feature extraction pipeline not initialized.');
+    }
+  }
+
+  async generateImage(input: { text: string }, options: any = {}) {
+    if (this.modelType !== 'multimodal') {
+      throw new Error('Multimodal model not initialized.');
+    }
+
+    if (!this.imageProcessor || !this.multimodalModel) {
+      throw new Error('Image processor or multimodal model not initialized.');
+    }
+
+    try {
+      const conversation = [{ 'role': 'user', 'content': input.text }];
+      
+      // Process the input text with the image processor
+      const inputs = await this.imageProcessor(conversation, {
+        chat_template: "text_to_image",
+        ...options
+      });
+
+      // Generate the image
+      const num_image_tokens = this.imageProcessor.num_image_tokens;
+
+      const outputs = await this.multimodalModel.generate({
+        ...inputs,
+        min_new_tokens: num_image_tokens,
+        max_new_tokens: num_image_tokens,
+        do_sample: true,
+      });
+
+      return outputs;
+    } catch (error) {
+      console.error('Error generating image:', error);
+      throw error;
     }
   }
 }

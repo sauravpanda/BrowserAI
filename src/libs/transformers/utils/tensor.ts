@@ -97,12 +97,28 @@ export class Tensor {
     if (isONNXTensor(args[0])) {
       this.ort_tensor = /** @type {ONNXTensor} */ args[0];
     } else {
-      // Create new tensor
-      this.ort_tensor = new ONNXTensor(
-        args[0] as keyof typeof DataTypeMap,
-        args[1] as Exclude<TypedArray, Uint8ClampedArray>,
-        args[2],
-      );
+      // Add debugging
+      // console.log('Creating new tensor:', {
+      //   type: args[0],
+      //   dataLength: (args[1] as DataArray).length,
+      //   dims: args[2]
+      // });
+      
+      try {
+        this.ort_tensor = new ONNXTensor(
+          args[0] as keyof typeof DataTypeMap,
+          args[1] as Exclude<TypedArray, Uint8ClampedArray>,
+          args[2],
+        );
+      } catch (error) {
+        console.error('Failed to create ONNXTensor:', {
+          error,
+          type: args[0],
+          dataLength: (args[1] as DataArray).length,
+          dims: args[2]
+        });
+        throw error;
+      }
     }
 
     return new Proxy(this, {
@@ -571,10 +587,10 @@ export class Tensor {
    * NOTE: The returned tensor shares the storage with the input tensor, so changing the contents of one will change the contents of the other.
    * If you would like a copy, use `tensor.clone()` before squeezing.
    *
-   * @param {number} [dim=null] If given, the input will be squeezed only in the specified dimensions.
+   * @param {number|number[]} [dim=null] If given, the input will be squeezed only in the specified dimensions.
    * @returns {Tensor} The squeezed tensor
    */
-  squeeze(dim = null) {
+  squeeze(dim: number | number[] | null = null) {
     return new Tensor(this.type, this.data, calc_squeeze_dims(this.dims, dim));
   }
 
@@ -750,7 +766,7 @@ export class Tensor {
       const val = min(this.data as any)[0];
       return new Tensor(this.type, [val], [/* scalar */]);
     }
-    const [type, result, resultDims] = reduce_helper((a, b) => Math.min(a, b), this, dim, keepdim, Infinity);
+    const [type, result, resultDims] = reduce_helper((a: any, b: any) => Math.min(a, b), this, dim, keepdim, Infinity);
     return new Tensor(type, result, resultDims);
   }
   max(dim = null, keepdim = false) {
@@ -759,7 +775,7 @@ export class Tensor {
       const val = max(this.data as any)[0];
       return new Tensor(this.type, [val], [/* scalar */]);
     }
-    const [type, result, resultDims] = reduce_helper((a, b) => Math.max(a, b), this, dim, keepdim, -Infinity);
+    const [type, result, resultDims] = reduce_helper((a: any, b: any) => Math.max(a, b), this, dim, keepdim, -Infinity);
     return new Tensor(type, result, resultDims);
   }
 
@@ -1258,7 +1274,7 @@ export function stack(tensors: Tensor[], dim: number = 0) {
  * @param {boolean} keepdim whether the output tensor has dim retained or not.
  * @returns {[DataType, any, number[]]} The reduced tensor data.
  */
-function reduce_helper(callbackfn: (previousValue: number, currentValue: number, currentIndex?: number| null, resultIndex?: number| null) => number, input: Tensor, dim: number | null = null, keepdim = false, initialValue: number | null = null) {
+function reduce_helper(callbackfn: any, input: Tensor, dim: number | number[] | null = null, keepdim = false, initialValue: number | null = null) {
   const inputData = input.data;
   const inputDims = input.dims;
 
@@ -1329,7 +1345,7 @@ export function std_mean(input: Tensor, dim: number | null = null, correction = 
   const meanTensorData = meanTensor.data;
 
   // Compute squared sum
-  const [type, result, resultDims] = reduce_helper((a: number, b: number, i: any, j: any) => a + (b - meanTensorData[j]) ** 2, input, dim, keepdim);
+  const [type, result, resultDims] = reduce_helper((a: any, b: any, i: any, j: any) => a + (b - meanTensorData[j]) ** 2, input, dim, keepdim);
 
   // Square root of the squared sum
   for (let i = 0; i < result.length; ++i) {
@@ -1369,7 +1385,7 @@ export function mean(input: Tensor, dim: number | null = null, keepdim: boolean 
   // Negative indexing
   dim = safeIndex(dim, inputDims.length);
 
-  const [type, result, resultDims] = reduce_helper((a: number, b: number) => a + b, input, dim, keepdim);
+  const [type, result, resultDims] = reduce_helper((a: any, b: any) => a + b, input, dim, keepdim);
 
   return new Tensor(type, result, resultDims);
 }
