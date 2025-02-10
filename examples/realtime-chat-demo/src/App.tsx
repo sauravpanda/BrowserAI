@@ -20,21 +20,19 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [language, setLanguage] = useState('en');
 
-  const handleStartChat = async () => {
+  const loadModels = async () => {
     setIsLoading(true);
     try {
       const loadStart = performance.now();
-      
+
       await Promise.all([
-        // Speech recognition model - now with language
         audioAI.loadModel('whisper-small-all', {
           device: 'webgpu',
-          language: language // Pass selected language
+          language: language
         }),
         chatAI.loadModel('llama-3.2-1b-instruct'),
-        // TTS model - now with language
         ttsAI.loadModel('kokoro-tts', {
-          language: language // Pass selected language
+          language: language
         })
       ]);
 
@@ -42,28 +40,31 @@ function App() {
       console.log(`Models loaded in ${((loadEnd - loadStart) / 1000).toFixed(2)}s`);
 
       setIsLoading(false);
-      setIsListening(true);
       setMessages([
-        { 
-          isAi: true, 
-          text: language === 'es' 
-            ? "¡Hola! Soy tu asistente AI. Te estoy escuchando ahora..." 
+        {
+          isAi: true,
+          text: language === 'es'
+            ? "Modelos cargados. Mantén presionada la barra espaciadora para hablar..."
             : language === 'hi'
-            ? "नमस्ते! मैं आपका AI सहायक हूं। मैं अब आपकी सुन रहा हूं..."
-            : "Hello! I'm your AI assistant. I'm listening to you now..." 
+              ? "मॉडल लोड हो गए हैं। बोलने के लिए स्पेसबार दबाए रखें..."
+              : "Models loaded. Press and hold spacebar to speak..."
         }
       ]);
-
-      await audioAI.startRecording();
     } catch (error) {
       console.error('Error loading models:', error);
       setIsLoading(false);
     }
   };
 
+  const startListening = async () => {
+    setIsListening(true);
+    await audioAI.startRecording();
+  };
+
   const handleStopListening = async () => {
     try {
-      // Stop recording and get transcription using audioAI
+      setIsListening(false);
+      
       const audioBlob = await audioAI.stopRecording();
       const transcription = await audioAI.transcribeAudio(audioBlob, {
         language: language
@@ -72,35 +73,30 @@ function App() {
 
       // Add user message
       setMessages(prev => [...prev, { isAi: false, text: transcribedText as string }]);
-      
-      // Add AI message with thinking status immediately
+
+      // Add AI message with thinking status
       setMessages(prev => [...prev, { isAi: true, text: "", status: 'thinking' }]);
 
-      // Generate AI response using chatAI
-      const response = await chatAI.generateText("Answer should be in following language: " + language + ". Reply to this message: \n" + transcribedText, {
+      // Generate AI response
+      const response = await chatAI.generateText("You are an helpful AI friend which lives inside browser and is always happy to help.Answer should be in following language: " + language + ". Reply to this message: \n" + transcribedText, {
         temperature: 0.7,
         maxTokens: 100,
       });
 
-      // Update AI message with response and generating status
-      setMessages(prev => prev.map((msg, idx) => 
-        idx === prev.length - 1 ? { ...msg, text: response as string, status: 'generating' } : msg
-      ));
-
       const voices = {
-        en: 'af',
-        es: 'em_alex',
-        hi: 'hf_alpha'
+        'en': 'af',
+        'es': 'em_alex',
+        'hi': 'hf_alpha'
       }
 
-      // Generate and play speech
+      // Generate speech before showing the response
       const audioBuffer = await ttsAI.textToSpeech(response as string, {
         voice: voices[language as keyof typeof voices]
       });
-      
-      // Update status to speaking before playing
-      setMessages(prev => prev.map((msg, idx) => 
-        idx === prev.length - 1 ? { ...msg, status: 'speaking' } : msg
+
+      // Update message with response but keep it hidden until speaking starts
+      setMessages(prev => prev.map((msg, idx) =>
+        idx === prev.length - 1 ? { ...msg, text: response as string, status: 'speaking' } : msg
       ));
 
       // Play the audio
@@ -110,19 +106,20 @@ function App() {
         source.buffer = buffer;
         source.connect(audioContext.destination);
         source.start(0);
-        
+
         // Reset status when audio ends
         source.onended = () => {
-          setMessages(prev => prev.map((msg, idx) => 
+          setMessages(prev => prev.map((msg, idx) =>
             idx === prev.length - 1 ? { ...msg, status: null } : msg
           ));
         };
       });
 
-      // Continue listening
-      await audioAI.startRecording();
+      // Don't start recording again automatically
+      // await audioAI.startRecording();
     } catch (error) {
       console.error('Error processing speech:', error);
+      setIsListening(false);
     }
   };
 
@@ -148,24 +145,48 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !isListening && !isLoading && messages.length > 0) {
+        e.preventDefault();
+        await startListening();
+      }
+    };
+
+    const handleKeyUp = async (e: KeyboardEvent) => {
+      if (e.code === 'Space' && isListening) {
+        e.preventDefault();
+        await handleStopListening();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isListening, isLoading, messages.length]);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Add the InfoBanner component */}
       <InfoBanner />
-      
+
       {/* Existing chat UI */}
       <div className="max-w-4xl mx-auto p-4">
         {/* Header */}
         <header className="fixed top-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-b border-white/10 z-50">
           <div className="container mx-auto px-4 py-4">
-          <a 
-            href="https://github.com/Cloud-Code-AI/browserai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white hover:text-gray-200 flex items-center justify-center gap-2"
-          >
-            ⭐ Star BrowserAI on GitHub and help us improve it!
-          </a>
+            <a
+              href="https://github.com/Cloud-Code-AI/browserai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-gray-200 flex items-center justify-center gap-2"
+            >
+              ⭐ Star BrowserAI on GitHub and help us improve it!
+            </a>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <motion.div
@@ -190,14 +211,14 @@ function App() {
                   >
                     <option value="en">English</option>
                     <option value="es">Español (Spanish)</option>
-                    <option value="hi">हिंदी (Hindi)</option>
+                    <option value="hi" disabled>हिंदी (Hindi)</option>
                   </select>
                 </div>
 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={isListening ? handleStopListening : handleStartChat}
+                  onClick={loadModels}
                   disabled={isLoading}
                   className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
                 >
@@ -206,15 +227,15 @@ function App() {
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Loading Models...
                     </>
-                  ) : isListening ? (
+                  ) : messages.length === 0 ? (
                     <>
-                      <Mic className="h-5 w-5 animate-pulse text-red-400" />
-                      Stop Listening
+                      <Brain className="h-5 w-5" />
+                      Load Models
                     </>
                   ) : (
                     <>
                       <Mic className="h-5 w-5" />
-                      Chat with Friend
+                      Models Ready
                     </>
                   )}
                 </motion.button>
@@ -233,7 +254,7 @@ function App() {
                 <h2 className="text-2xl font-bold mb-2">Welcome to BrowserAI Demo</h2>
                 <p className="text-gray-400">
                   Experience real-time AI conversation directly in your browser.
-                  Click "Chat with Friend" to begin.
+                  Press and hold the spacebar to speak, or click "Chat with Friend" to begin.
                 </p>
               </div>
             )}
@@ -263,7 +284,7 @@ function App() {
           </div>
         </main>
 
-        {/* Transcription Indicator */}
+        {/* Transcription Indicator - Only shows when space is held down (isListening is true) */}
         {isListening && (
           <motion.div
             initial={{ y: 100 }}
