@@ -20,6 +20,24 @@
     "defaultQuantization": "q4",
     "quantizations": ["q4", "fp16", "int4"]
   },
+  "whisper-base-all": {
+    "engine": "transformers",
+    "modelName": "whisper-base-all",
+    "modelType": "automatic-speech-recognition",
+    "repo": "onnx-community/whisper-base_timestamped",
+    "pipeline": "automatic-speech-recognition",
+    "defaultQuantization": "q4",
+    "quantizations": ["q4", "fp16", "int4"]
+  },
+  "whisper-small-all": {
+    "engine": "transformers",
+    "modelName": "whisper-small-all",
+    "modelType": "automatic-speech-recognition",
+    "repo": "onnx-community/whisper-small_timestamped",
+    "pipeline": "automatic-speech-recognition",
+    "defaultQuantization": "q4",
+    "quantizations": ["q4", "fp16", "int4"]
+  },
   "kokoro-tts": {
     "engine": "transformers",
     "modelName": "kokoro-tts",
