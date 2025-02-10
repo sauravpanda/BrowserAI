@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Mic, Loader2 } from 'lucide-react';
+import { Brain, Mic, Loader2, Globe } from 'lucide-react';
 import { BrowserAI } from '@browserai/browserai';
 import { ChatMessage } from './components/chat-message';
 import { motion } from 'framer-motion';
@@ -18,22 +18,24 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [language, setLanguage] = useState('en');
 
   const handleStartChat = async () => {
     setIsLoading(true);
     try {
-      // Load all models in parallel with separate instances
       const loadStart = performance.now();
       
       await Promise.all([
-        // Speech recognition model
+        // Speech recognition model - now with language
         audioAI.loadModel('whisper-small-all', {
-          device: 'webgpu'
+          device: 'webgpu',
+          language: language // Pass selected language
         }),
-        // Chat model
         chatAI.loadModel('llama-3.2-1b-instruct'),
-        // Text-to-speech model
-        ttsAI.loadModel('kokoro-tts')
+        // TTS model - now with language
+        ttsAI.loadModel('kokoro-tts', {
+          language: language // Pass selected language
+        })
       ]);
 
       const loadEnd = performance.now();
@@ -42,10 +44,16 @@ function App() {
       setIsLoading(false);
       setIsListening(true);
       setMessages([
-        { isAi: true, text: "Hello! I'm your AI assistant. I'm listening to you now..." }
+        { 
+          isAi: true, 
+          text: language === 'es' 
+            ? "¡Hola! Soy tu asistente AI. Te estoy escuchando ahora..." 
+            : language === 'hi'
+            ? "नमस्ते! मैं आपका AI सहायक हूं। मैं अब आपकी सुन रहा हूं..."
+            : "Hello! I'm your AI assistant. I'm listening to you now..." 
+        }
       ]);
 
-      // Start recording with audioAI instance
       await audioAI.startRecording();
     } catch (error) {
       console.error('Error loading models:', error);
@@ -57,7 +65,9 @@ function App() {
     try {
       // Stop recording and get transcription using audioAI
       const audioBlob = await audioAI.stopRecording();
-      const transcription = await audioAI.transcribeAudio(audioBlob);
+      const transcription = await audioAI.transcribeAudio(audioBlob, {
+        language: language
+      });
       const transcribedText = (transcription as { text: string })?.text;
 
       // Add user message
@@ -67,10 +77,9 @@ function App() {
       setMessages(prev => [...prev, { isAi: true, text: "", status: 'thinking' }]);
 
       // Generate AI response using chatAI
-      const response = await chatAI.generateText(transcribedText, {
+      const response = await chatAI.generateText("Answer should be in following language: " + language + ". Reply to this message: \n" + transcribedText, {
         temperature: 0.7,
         maxTokens: 100,
-        system_prompt: 'You are a helpful and friendly AI assistant who answers questions in short and concise manner.'
       });
 
       // Update AI message with response and generating status
@@ -78,8 +87,16 @@ function App() {
         idx === prev.length - 1 ? { ...msg, text: response as string, status: 'generating' } : msg
       ));
 
+      const voices = {
+        en: 'af',
+        es: 'em_alex',
+        hi: 'hf_alpha'
+      }
+
       // Generate and play speech
-      const audioBuffer = await ttsAI.textToSpeech(response as string);
+      const audioBuffer = await ttsAI.textToSpeech(response as string, {
+        voice: voices[language as keyof typeof voices]
+      });
       
       // Update status to speaking before playing
       setMessages(prev => prev.map((msg, idx) => 
@@ -161,30 +178,47 @@ function App() {
                   BrowserAI Demo
                 </h1>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={isListening ? handleStopListening : handleStartChat}
-                disabled={isLoading}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Loading Models...
-                  </>
-                ) : isListening ? (
-                  <>
-                    <Mic className="h-5 w-5 animate-pulse text-red-400" />
-                    Stop Listening
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-5 w-5" />
-                    Chat with Friend
-                  </>
-                )}
-              </motion.button>
+
+              {/* Language Selector */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 bg-white/10 rounded-md px-3 py-1.5">
+                  <Globe className="w-4 h-4 text-blue-400" />
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="bg-transparent text-white text-sm focus:outline-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Español (Spanish)</option>
+                    <option value="hi">हिंदी (Hindi)</option>
+                  </select>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={isListening ? handleStopListening : handleStartChat}
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Loading Models...
+                    </>
+                  ) : isListening ? (
+                    <>
+                      <Mic className="h-5 w-5 animate-pulse text-red-400" />
+                      Stop Listening
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-5 w-5" />
+                      Chat with Friend
+                    </>
+                  )}
+                </motion.button>
+              </div>
             </div>
           </div>
         </header>
