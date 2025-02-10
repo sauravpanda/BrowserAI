@@ -166,95 +166,80 @@ function escapeRegExp(string: string) {
 const PUNCTUATION = ';:,.!?¡¿—…"«»“”(){}[]';
 const PUNCTUATION_PATTERN = new RegExp(`(\\s*[${escapeRegExp(PUNCTUATION)}]+\\s*)+`, "g");
 
-// Add Hindi phoneme mappings
 const HINDI_PHONEME_MAP: { [key: string]: string } = {
-  // Vowels - corrections to better match standard IPA
-  'अ': 'ə',      
-  'आ': 'aː',     
-  'इ': 'ɪ',      
-  'ई': 'iː',     
-  'उ': 'ʊ',     
-  'ऊ': 'uː',     
-  'ऋ': 'r̩',     
-  'ए': 'eː',     
-  'ऐ': 'ɛː',     // updated: previously was 'æː'
-  'ओ': 'oː',     
-  'औ': 'ɔː',     
+  // Vowels - Updated to be more accurate and broadly understood
+  'अ': 'a',      // a
+  'आ': 'aː',     // Long 'a'
+  'इ': 'e',      // Lax 'i'
+  'ई': 'eː',     // Long 'i'
+  'उ': 'ʊ',      // Lax 'u'
+  'ऊ': 'uː',     // Long 'u'
+  'ऋ': 'ri',    // 'ri' sound (often pronounced like this) -  Could also be ɾɪ
+  'ए': 'eː',     // Long 'e'
+  'ऐ': 'ɛ',      // Diphthong/Monophthong 'ai' - More accurately [ɛ] or [æ] in many dialects
+  'ओ': 'oː',     // Long 'o'
+  'औ': 'ɔ',      // Diphthong/Monophthong 'au' - More accurately [ɔ] or [ɒ] in many dialects
+  'ऍ': 'æ',      // Open 'e' sound (like in 'cat') - Borrowed sound
+  'ऑ': 'ɒ',      // Open 'o' sound (like in 'caught') - Borrowed sound
 
-  // Consonants – corrections for more accurate IPA
-  'क': 'k',      
-  'ख': 'kʰ',     
-  'ग': 'g',      
-  'घ': 'gʰ',     
-  'ङ': 'ŋ',      
-  'च': 'tʃ',     
-  'छ': 'tʃʰ',    
-  'ज': 'dʒ',     
-  'झ': 'dʒʰ',    
-  'ञ': 'ɲ',      
-  'ट': 'ʈ',      
-  'ठ': 'ʈʰ',     
-  'ड': 'ɖ',      
-  'ढ': 'ɖʰ',     
-  'ण': 'ɳ',      
-  'त': 't̪',     
-  'थ': 't̪ʰ',    
-  'द': 'd̪',     
-  'ध': 'd̪ʰ',    
-  'न': 'n̪',     
-  'प': 'p',      
-  'फ': 'pʰ',     
-  'ब': 'b',      
-  'भ': 'bʰ',     
-  'म': 'm',      
-  'य': 'j',      
-  'र': 'r',      
-  'ल': 'l',      
-  'व': 'ʋ',      
-  'श': 'ʃ',      
-  'ष': 'ʂ',      
-  'स': 's̪',     
-  'ह': 'ɦ',      
+  // Consonants - Updated for broader IPA understanding (using alveolar series where applicable)
+  'क': 'k',      // Voiceless velar stop
+  'ख': 'kʰ',     // Aspirated voiceless velar stop
+  'ग': 'g',      // Voiced velar stop
+  'घ': 'gʰ',     // Aspirated voiced velar stop
+  'ङ': 'ŋ',      // Velar nasal
+  'च': 'tʃ',     // Voiceless postalveolar affricate
+  'छ': 'tʃʰ',    // Aspirated voiceless postalveolar affricate
+  'ज': 'dʒ',     // Voiced postalveolar affricate
+  'झ': 'dʒʰ',    // Aspirated voiced postalveolar affricate
+  'ञ': 'ɲ',      // Palatal nasal
+  'ट': 'ʈ',      // Voiceless retroflex stop
+  'ठ': 'ʈʰ',     // Aspirated voiceless retroflex stop
+  'ड': 'ɖ',      // Voiced retroflex stop
+  'ढ': 'ɖʰ',     // Aspirated voiced retroflex stop
+  'ण': 'ɳ',      // Retroflex nasal
+  'त': 't',      // Voiceless alveolar stop (Technically dental [t̪])
+  'थ': 'tʰ',     // Aspirated voiceless alveolar stop (Technically dental [t̪ʰ])
+  'द': 'd',      // Voiced alveolar stop (Technically dental [d̪])
+  'ध': 'dʰ',     // Aspirated voiced alveolar stop (Technically dental [d̪ʰ])
+  'न': 'n',      // Alveolar nasal (Technically dental [n̪])
+  'प': 'p',      // Voiceless bilabial stop
+  'फ': 'pʰ',     // Aspirated voiceless bilabial stop
+  'ब': 'b',      // Voiced bilabial stop
+  'भ': 'bʰ',     // Aspirated voiced bilabial stop
+  'म': 'm',      // Bilabial nasal
+  'य': 'j',      // Palatal approximant
+  'र': 'r',      // Alveolar trill or flap
+  'ल': 'l',      // Alveolar lateral approximant
+  'व': 'w',      // Bilabial approximant (More common pronunciation, technically could be labiodental [ʋ])
+  'श': 'ʃ',      // Postalveolar voiceless fricative (Often used, but 'ष' is retroflex [ʂ])
+  'ष': 'ʂ',      // Retroflex voiceless fricative (More accurate for 'ष')
+  'स': 's',      // Alveolar voiceless fricative (Technically dental [s̪])
+  'ह': 'h',      // Voiceless glottal fricative (Simpler and common, could be breathy voiced [ɦ])
 
-  // Matras (Vowel Signs)
-  'ा': 'aː',     
-  'ि': 'ɪ',     
-  'ी': 'iː',     
-  'ु': 'ʊ',     
-  'ू': 'uː',     
-  'ृ': 'r̩',     
-  'े': 'eː',     
-  'ै': 'ɛː',     // updated here as well for vowel sign
-  'ो': 'oː',     
-  'ौ': 'ɔː',     
-  'ं': 'ŋ',      // this is context dependent and further handled below
-  'ः': 'h',      
-  '्': '',       
+  // Matras (Vowel Marks) - Updated to match vowel changes
+  'ा': 'aː',     // aa matra
+  'ि': 'ɪ',      // i matra
+  'ी': 'iː',     // ee matra
+  'ु': 'ʊ',      // u matra
+  'ू': 'uː',     // oo matra
+  'ृ': 'ri',    // ri matra - Could also be ɾɪ
+  'े': 'eː',     // e matra
+  'ै': 'ɛ',      // ai matra
+  'ो': 'oː',     // o matra
+  'ौ': 'ɔ',      // au matra
+  'ं': 'n',      // Anusvara - Simplified to 'n' for general nasal consonant (See notes below)
+  'ः': 'h',      // Visarga
+  '्': '',       // Halant/Virama - Removes inherent vowel
 
-  // Nukta variations
-  'क़': 'q',      
-  'ख़': 'x',      
-  'ग़': 'ɣ',      
-  'ज़': 'z',      
-  'ड़': 'ɽ',      
-  'ढ़': 'ɽʰ',     
-  'फ़': 'f',
-
-  // Additional common conjuncts (if needed)
-  'न्न': 'nn',
-  'म्म': 'mm',
-  'च्च': 'ttʃ',
-  'ज्ज': 'ddʒ',
-  'प्प': 'pp',
-  'व्व': 'ʋʋ',
-  'स्स': 'ss',
-  'क्त': 'kt',
-  'प्त': 'pt',
-  'न्त': 'nt',
-  'स्त': 'st',
-
-  // Chandrabindu (nasalization marker)
-  'ँ': '̃',
+  // Nukta variations - Generally correct
+  'क़': 'q',      // Uvular stop
+  'ख़': 'x',      // Voiceless velar fricative
+  'ग़': 'ɣ',      // Voiced velar fricative
+  'ज़': 'z',      // Voiced alveolar fricative
+  'ड़': 'ɽ',      // Retroflex flap
+  'ढ़': 'ɽʰ',     // Aspirated retroflex flap
+  'फ़': 'f',      // Labiodental fricative
 };
 
 // Add function to detect script
@@ -295,7 +280,7 @@ const SPANISH_PHONEME_MAP: { [key: string]: string } = {
   'j': 'x',
   'k': 'k',
   'l': 'l',
-  'll': 'ʎ',
+  'll': 'j',
   'm': 'm',
   'n': 'n',
   'ñ': 'ɲ',
@@ -320,48 +305,16 @@ function processHindiSyllable(text: string): string {
       const p2 = HINDI_PHONEME_MAP[c2] || c2;
       return p1 + p2;
     })
-    // Handle inherent 'a' sound after consonants
-    .replace(/([क-ह])(?![ािीुूृेैोौ्ंँः])/g, (_, c) => {
+    // Handle inherent 'a' sound after consonants, but not at word end
+    .replace(/([क-ह])(?![ािीुूृेैोौ्ंँः]|$)/g, (_, c) => {
       const phoneme = HINDI_PHONEME_MAP[c] || c;
       return phoneme + 'ə';
     })
+    // Handle word-final consonants without schwa
+    .replace(/([क-ह])$/g, (_, c) => HINDI_PHONEME_MAP[c] || c)
     // Handle nasalization
     .replace(/([aeiouəɛɔ])ं/g, '$1̃')
     .replace(/([aeiouəɛɔ])ँ/g, '$1̃');
-}
-
-// Add helper function to detect script type for a token
-function getTokenType(token: string): 'devanagari' | 'latin' | 'number' | 'other' {
-  if (/[\u0900-\u097F]/.test(token)) return 'devanagari';
-  if (/[a-zA-Z]/.test(token)) return 'latin';
-  if (/\d+/.test(token)) return 'number';
-  return 'other';
-}
-
-// Update phonemizeHindiWord to handle mixed text
-async function phonemizeMixedText(text: string): Promise<string> {
-  // Split on word boundaries while preserving spaces
-  const tokens = text.split(/(\s+)/);
-  
-  const phonemizedTokens = await Promise.all(tokens.map(async (token) => {
-    if (!token.trim()) return token; // preserve whitespace
-    
-    const tokenType = getTokenType(token);
-    switch (tokenType) {
-      case 'devanagari':
-        return processHindiSyllable(token);
-      case 'latin':
-        // Use English phonemizer for Latin text
-        return (await espeakng(token, 'en-us')).join(" ");
-      case 'number':
-        // Handle numbers - can use existing split_num function
-        return split_num(token);
-      default:
-        return token;
-    }
-  }));
-
-  return phonemizedTokens.join('');
 }
 
 export async function phonemize(text: string, language = "a", norm = true) {
@@ -383,15 +336,26 @@ export async function phonemize(text: string, language = "a", norm = true) {
       if (match) return text;
       
       if (hasDevanagari) {
-        // Use the new mixed text phonemizer
-        return await phonemizeMixedText(text);
+        // Process text in chunks to maintain syllable structure
+        return text.split(/(?=[क-ह])/)
+          .map(chunk => processHindiSyllable(
+            Array.from(chunk)
+              .map(char => HINDI_PHONEME_MAP[char] || char)
+              .join('')
+          ))
+          .join('');
       } else if (hasSpanish) {
         // Handle Spanish text
         let result = text.toLowerCase();
-        // Replace digraphs first
-        result = result.replace(/ch/g, 'tʃ')
-                      .replace(/ll/g, 'ʎ')
-                      .replace(/rr/g, 'r');
+        
+        // Handle special cases first
+        result = result
+          .replace(/ch/g, 'tʃ')
+          .replace(/ll/g, 'j')
+          .replace(/rr/g, 'r')
+          // Add rule for 'c' before 'i' and 'e'
+          .replace(/c([ie])/g, 's$1');  // Use 's' for Latin American Spanish
+        
         // Then handle individual characters
         return Array.from(result)
           .map(char => SPANISH_PHONEME_MAP[char] || char)

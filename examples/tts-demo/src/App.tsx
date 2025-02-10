@@ -137,7 +137,10 @@ function App() {
     try {
       setIsLoading(true);
       setStatus('Generating speech...');
-      const audioData = await ttsAI.textToSpeech(text);
+      const audioData = await ttsAI.textToSpeech(text, {
+        voice: 'hf_alpha',
+        speed: 1
+      });
       
       if (audioData) {
         // Create a blob with WAV MIME type
