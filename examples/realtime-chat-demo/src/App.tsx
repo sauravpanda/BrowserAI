@@ -27,11 +27,11 @@ function App() {
       
       await Promise.all([
         // Speech recognition model
-        audioAI.loadModel('whisper-tiny-en', {
+        audioAI.loadModel('whisper-small-all', {
           device: 'webgpu'
         }),
         // Chat model
-        chatAI.loadModel('smollm2-135m-instruct'),
+        chatAI.loadModel('llama-3.2-1b-instruct'),
         // Text-to-speech model
         ttsAI.loadModel('kokoro-tts')
       ]);
