@@ -10,7 +10,7 @@
             "q0f32",
             "q0f16"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "defaultParams": {
             "temperature": 0.7,
             "maxTokens": 2048
@@ -26,7 +26,7 @@
             "q0f32",
             "q0f16"
         ],
-        "defaultQuantization": "q0f16",
+        "defaultQuantization": "q0f32",
         "defaultParams": {
             "temperature": 0.7,
             "maxTokens": 2048
@@ -50,7 +50,7 @@
             "q0f32",
             "q0f16"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "required_features": [
             "shader-f16"
         ],
@@ -69,7 +69,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation",
         "defaultParams": {
             "temperature": 0.1,
@@ -87,7 +87,7 @@
             "q0f32",
             "q0f16"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "gemma-2b-it": {
@@ -99,7 +99,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation",
         "required_features": [
             "shader-f16"
@@ -114,7 +114,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "phi-3.5-mini-instruct": {
@@ -126,7 +126,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "qwen2.5-1.5b-instruct": {
@@ -138,7 +138,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "deepseek-r1-distill-qwen-1.5b": {
@@ -162,7 +162,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "deepseek-r1-distill-llama-8b": {
@@ -174,7 +174,7 @@
             "q4f16_1",
             "q4f32_1"
         ],
-        "defaultQuantization": "q4f16_1",
+        "defaultQuantization": "q4f32_1",
         "pipeline": "text-generation"
     },
     "snowflake-arctic-embed-m-b4": {
