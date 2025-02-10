@@ -58,9 +58,114 @@ export const VOICES = Object.freeze({
     language: "en-gb",
     gender: "Male",
   },
+  hf_alpha: {
+    name: "alpha",
+    language: "hi",
+    gender: "Female",
+  },
+  hf_beta: {
+    name: "beta",
+    language: "hi",
+    gender: "Female",
+  },
+  hm_omega: {
+    name: "omega",
+    language: "hi",
+    gender: "Male",
+  },
+  hm_psi: {
+    name: "psi",
+    language: "hi",
+    gender: "Male",
+  },
+  ef_dora: {
+    name: "dora",
+    language: "es",
+    gender: "Female",
+  },
+  em_alex: {
+    name: "alex",
+    language: "es",
+    gender: "Male",
+  },
+  em_santa: {
+    name: "santa",
+    language: "es",
+    gender: "Male",
+  },
+  ff_siwis: {
+    name: "siwis",
+    language: "es",
+    gender: "Female",
+  },
+  jf_alpha: {
+    name: "alpha",
+    language: "ja",
+    gender: "Female",
+  },
+  jf_gongitsune: {
+    name: "gongitsune",
+    language: "ja",
+    gender: "Female",
+  },
+  jf_nezumi: {
+    name: "nezumi",
+    language: "ja",
+    gender: "Female",
+  },
+  jf_tebukuro: {
+    name: "tebukuro",
+    language: "ja",
+    gender: "Female",
+  },
+  jm_kumo: {
+    name: "kumo",
+    language: "ja",
+    gender: "Male",
+  },
+  zf_xiaobei: {
+    name: "xiaobei",
+    language: "zh",
+    gender: "Female",
+  },
+  zf_xiaoni: {
+    name: "xiaoni",
+    language: "zh",
+    gender: "Female",
+  },
+  zf_xiaoxiao: {
+    name: "xiaoxiao",
+    language: "zh",
+    gender: "Female",
+  },
+  zf_xiaoyi: {
+    name: "xiaoyi",
+    language: "zh",
+    gender: "Female",
+  },
+  zm_yunjian: {
+    name: "yunjian",
+    language: "zh",
+    gender: "Male",
+  },
+  zm_yunxi: {
+    name: "yunxi",
+    language: "zh",
+    gender: "Male",
+  },
+  zm_yunxia: {
+    name: "yunxia",
+    language: "zh",
+    gender: "Male",
+  },
+  zm_yunyang: {
+    name: "yunyang",
+    language: "zh",
+    gender: "Male",
+  },
 });
 
-const VOICE_DATA_URL = "https://huggingface.co/onnx-community/Kokoro-82M-ONNX/resolve/main/voices";
+const VOICE_DATA_URL = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices";
 
 /**
  *

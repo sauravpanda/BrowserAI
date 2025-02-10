@@ -166,20 +166,245 @@ function escapeRegExp(string: string) {
 const PUNCTUATION = ';:,.!?¡¿—…"«»“”(){}[]';
 const PUNCTUATION_PATTERN = new RegExp(`(\\s*[${escapeRegExp(PUNCTUATION)}]+\\s*)+`, "g");
 
+// Add Hindi phoneme mappings
+const HINDI_PHONEME_MAP: { [key: string]: string } = {
+  // Vowels - corrections to better match standard IPA
+  'अ': 'ə',      
+  'आ': 'aː',     
+  'इ': 'ɪ',      
+  'ई': 'iː',     
+  'उ': 'ʊ',     
+  'ऊ': 'uː',     
+  'ऋ': 'r̩',     
+  'ए': 'eː',     
+  'ऐ': 'ɛː',     // updated: previously was 'æː'
+  'ओ': 'oː',     
+  'औ': 'ɔː',     
+
+  // Consonants – corrections for more accurate IPA
+  'क': 'k',      
+  'ख': 'kʰ',     
+  'ग': 'g',      
+  'घ': 'gʰ',     
+  'ङ': 'ŋ',      
+  'च': 'tʃ',     
+  'छ': 'tʃʰ',    
+  'ज': 'dʒ',     
+  'झ': 'dʒʰ',    
+  'ञ': 'ɲ',      
+  'ट': 'ʈ',      
+  'ठ': 'ʈʰ',     
+  'ड': 'ɖ',      
+  'ढ': 'ɖʰ',     
+  'ण': 'ɳ',      
+  'त': 't̪',     
+  'थ': 't̪ʰ',    
+  'द': 'd̪',     
+  'ध': 'd̪ʰ',    
+  'न': 'n̪',     
+  'प': 'p',      
+  'फ': 'pʰ',     
+  'ब': 'b',      
+  'भ': 'bʰ',     
+  'म': 'm',      
+  'य': 'j',      
+  'र': 'r',      
+  'ल': 'l',      
+  'व': 'ʋ',      
+  'श': 'ʃ',      
+  'ष': 'ʂ',      
+  'स': 's̪',     
+  'ह': 'ɦ',      
+
+  // Matras (Vowel Signs)
+  'ा': 'aː',     
+  'ि': 'ɪ',     
+  'ी': 'iː',     
+  'ु': 'ʊ',     
+  'ू': 'uː',     
+  'ृ': 'r̩',     
+  'े': 'eː',     
+  'ै': 'ɛː',     // updated here as well for vowel sign
+  'ो': 'oː',     
+  'ौ': 'ɔː',     
+  'ं': 'ŋ',      // this is context dependent and further handled below
+  'ः': 'h',      
+  '्': '',       
+
+  // Nukta variations
+  'क़': 'q',      
+  'ख़': 'x',      
+  'ग़': 'ɣ',      
+  'ज़': 'z',      
+  'ड़': 'ɽ',      
+  'ढ़': 'ɽʰ',     
+  'फ़': 'f',
+
+  // Additional common conjuncts (if needed)
+  'न्न': 'nn',
+  'म्म': 'mm',
+  'च्च': 'ttʃ',
+  'ज्ज': 'ddʒ',
+  'प्प': 'pp',
+  'व्व': 'ʋʋ',
+  'स्स': 'ss',
+  'क्त': 'kt',
+  'प्त': 'pt',
+  'न्त': 'nt',
+  'स्त': 'st',
+
+  // Chandrabindu (nasalization marker)
+  'ँ': '̃',
+};
+
+// Add function to detect script
+function isDevanagari(text: string): boolean {
+  return /[\u0900-\u097F]/.test(text);
+}
+
+// Add Spanish phoneme detection
+function isSpanish(text: string): boolean {
+  // Check for Spanish-specific characters and common patterns
+  return /[áéíóúñ¿¡]|ll|ñ/i.test(text);
+}
+
+// Add Spanish phoneme mappings
+const SPANISH_PHONEME_MAP: { [key: string]: string } = {
+  // Vowels
+  'a': 'a',
+  'á': 'ˈa',
+  'e': 'e',
+  'é': 'ˈe',
+  'i': 'i',
+  'í': 'ˈi',
+  'o': 'o',
+  'ó': 'ˈo',
+  'u': 'u',
+  'ú': 'ˈu',
+  'ü': 'u',
+
+  // Consonants
+  'b': 'b',
+  'v': 'β',
+  'c': 'k',
+  'ch': 'tʃ',
+  'd': 'ð',
+  'f': 'f',
+  'g': 'ɡ',
+  'h': '',  // silent in Spanish
+  'j': 'x',
+  'k': 'k',
+  'l': 'l',
+  'll': 'ʎ',
+  'm': 'm',
+  'n': 'n',
+  'ñ': 'ɲ',
+  'p': 'p',
+  'q': 'k',
+  'r': 'ɾ',
+  'rr': 'r',
+  's': 's',
+  't': 't',
+  'w': 'w',
+  'x': 'ks',
+  'y': 'ʝ',
+  'z': 'θ'  // for European Spanish
+};
+
+// Add function to handle Hindi syllable structure
+function processHindiSyllable(text: string): string {
+  return text
+    // Handle consonant clusters with virama
+    .replace(/([क-ह])्([क-ह])/g, (_, c1, c2) => {
+      const p1 = HINDI_PHONEME_MAP[c1] || c1;
+      const p2 = HINDI_PHONEME_MAP[c2] || c2;
+      return p1 + p2;
+    })
+    // Handle inherent 'a' sound after consonants
+    .replace(/([क-ह])(?![ािीुूृेैोौ्ंँः])/g, (_, c) => {
+      const phoneme = HINDI_PHONEME_MAP[c] || c;
+      return phoneme + 'ə';
+    })
+    // Handle nasalization
+    .replace(/([aeiouəɛɔ])ं/g, '$1̃')
+    .replace(/([aeiouəɛɔ])ँ/g, '$1̃');
+}
+
+// Add helper function to detect script type for a token
+function getTokenType(token: string): 'devanagari' | 'latin' | 'number' | 'other' {
+  if (/[\u0900-\u097F]/.test(token)) return 'devanagari';
+  if (/[a-zA-Z]/.test(token)) return 'latin';
+  if (/\d+/.test(token)) return 'number';
+  return 'other';
+}
+
+// Update phonemizeHindiWord to handle mixed text
+async function phonemizeMixedText(text: string): Promise<string> {
+  // Split on word boundaries while preserving spaces
+  const tokens = text.split(/(\s+)/);
+  
+  const phonemizedTokens = await Promise.all(tokens.map(async (token) => {
+    if (!token.trim()) return token; // preserve whitespace
+    
+    const tokenType = getTokenType(token);
+    switch (tokenType) {
+      case 'devanagari':
+        return processHindiSyllable(token);
+      case 'latin':
+        // Use English phonemizer for Latin text
+        return (await espeakng(token, 'en-us')).join(" ");
+      case 'number':
+        // Handle numbers - can use existing split_num function
+        return split_num(token);
+      default:
+        return token;
+    }
+  }));
+
+  return phonemizedTokens.join('');
+}
+
 export async function phonemize(text: string, language = "a", norm = true) {
   // 1. Normalize text
   if (norm) {
     text = normalize_text(text);
   }
 
-  // 2. Split into chunks, to ensure we preserve punctuation
+  // 2. Check script type
+  const hasDevanagari = isDevanagari(text);
+  const hasSpanish = isSpanish(text);
+
+  // 3. Split into chunks, to ensure we preserve punctuation
   const sections = split(text, PUNCTUATION_PATTERN);
 
-  // 3. Convert each section to phonemes
-  const lang = language === "a" ? "en-us" : "en";
-  const ps = (await Promise.all(sections.map(async ({ match, text }) => (match ? text : (await espeakng(text, lang)).join(" "))))).join("");
+  // 4. Convert each section to phonemes
+  const ps = (await Promise.all(
+    sections.map(async ({ match, text }) => {
+      if (match) return text;
+      
+      if (hasDevanagari) {
+        // Use the new mixed text phonemizer
+        return await phonemizeMixedText(text);
+      } else if (hasSpanish) {
+        // Handle Spanish text
+        let result = text.toLowerCase();
+        // Replace digraphs first
+        result = result.replace(/ch/g, 'tʃ')
+                      .replace(/ll/g, 'ʎ')
+                      .replace(/rr/g, 'r');
+        // Then handle individual characters
+        return Array.from(result)
+          .map(char => SPANISH_PHONEME_MAP[char] || char)
+          .join('');
+      } else {
+        // Use existing English phonemization
+        const lang = language === "a" ? "en-us" : "en";
+        return (await espeakng(text, lang)).join(" ");
+      }
+    })
+  )).join("");
 
-  // 4. Post-process phonemes
+  // 5. Post-process phonemes
   let processed = ps
     // https://en.wiktionary.org/wiki/kokoro#English
     .replace(/kəkˈoːɹoʊ/g, "kˈoʊkəɹoʊ")
@@ -189,9 +414,12 @@ export async function phonemize(text: string, language = "a", norm = true) {
     .replace(/x/g, "k")
     .replace(/ɬ/g, "l")
     .replace(/(?<=[a-zɹː])(?=hˈʌndɹɪd)/g, " ")
-    .replace(/ z(?=[;:,.!?¡¿—…"«»“” ]|$)/g, "z");
+    .replace(/ z(?=[;:,.!?¡¿—…"«»""(){}[] ]|$)/g, "z")
+    // Add Hindi-specific post-processing if needed
+    .replace(/(?<=[aeiou])h/g, 'ɦ') // Handle aspirated sounds
+    .replace(/(?<=\w)ː/g, 'ː '); // Add space after long vowels
 
-  // 5. Additional post-processing for American English
+  // 6. Additional post-processing for American English
   if (language === "a") {
     processed = processed.replace(/(?<=nˈaɪn)ti(?!ː)/g, "di");
   }
