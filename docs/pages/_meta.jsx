@@ -1,4 +1,4 @@
-{
+export default {
     "index": "Welcome to BrowserAI",
     "getting_started": "Getting Started",
     "supported_models": "Supported Models",

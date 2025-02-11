@@ -1,4 +1,4 @@
-{
+export default {
     "browserai_class": "BrowserAI Class",
     "generate_text": "Generate Text",
     "start_recording": "Start Recording",
