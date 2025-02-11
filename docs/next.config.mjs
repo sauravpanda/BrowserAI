@@ -1,10 +1,11 @@
 import nextra from 'nextra'
- 
+
 const withNextra = nextra({
-  theme: 'nextra-theme-docs',
-  themeConfig: './theme.config.jsx'
+  defaultShowCopyCode: true,
+  staticImage: true,
+  theme: 'nextra-theme-docs'
 })
- 
+
 // Add Cloudflare Pages specific configuration
 export default withNextra({
   output: 'export',
