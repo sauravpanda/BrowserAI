@@ -191,7 +191,52 @@ const nodeExecutors = {
       output: input,
       log: 'Output processed successfully'
     };
-  }
+  },
+
+  'audioInput': async (node: WorkflowStep, input: any) => {
+    console.debug("audio-input", node, input);
+    // The audio data is already in base64 format in node.data.value
+    return {
+      success: true,
+      output: {
+        audioData: node.data?.value,
+        filename: node.data?.filename,
+        mimeType: node.data?.mimeType
+      },
+      log: 'Audio input processed successfully'
+    };
+  },
+
+  'transcriptionAgent': async (node: WorkflowStep, input: any) => {
+    try {
+      console.debug("transcription-agent", node, input);
+      const browserAI = new BrowserAI();
+
+      // Load the specified Whisper model or default to tiny
+      const modelName = node.nodeData?.model || 'whisper-tiny-en';
+      await browserAI.loadModel(modelName);
+
+      // Extract audio data from input
+      if (!input?.audioData) {
+        throw new Error('No audio data provided to transcription agent');
+      }
+
+      // Transcribe the audio
+      const transcription = await browserAI.transcribeAudio(input.audioData, {
+        model: modelName,
+        // Add any additional options here
+      });
+
+      return {
+        success: true,
+        output: transcription,
+        log: `Audio transcribed successfully using ${modelName}`
+      };
+    } catch (error) {
+      console.error('TranscriptionAgent error:', error);
+      throw error;
+    }
+  },
 };
 
 export const executeWorkflow = async ({
