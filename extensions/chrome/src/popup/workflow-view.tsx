@@ -3,9 +3,21 @@ import { Play, CheckCircle2, Circle, XCircle, ChevronLeft, Check, ChevronDown, C
 import { Button } from "../components/ui/button"
 // import { ScrollArea } from "../components/ui/scroll-area"
 import { Card, CardContent } from "../components/ui/card"
-import { executeWorkflow, WorkflowStep, StepStatus } from "../helpers/executors"
+import { executeWorkflow, WorkflowStep, StepStatus, WorkflowResult } from "../helpers/executors"
 import { toast } from "../components/ui/use-toast"
 import { cn } from "../lib/utils"
+
+interface AudioInputFile {
+  type: 'file';
+  file: File;
+}
+
+interface AudioInputText {
+  type: 'text';
+  value: string;
+}
+
+type AudioInput = AudioInputFile | AudioInputText;
 
 interface WorkflowViewProps {
   workflow: {
@@ -15,11 +27,33 @@ interface WorkflowViewProps {
   onBack: () => void;
 }
 
+// Helper function to get input value
+const getInputValue = (input: AudioInput | string | undefined): string => {
+  if (!input) return '';
+  if (typeof input === 'string') return input;
+  if (input.type === 'text') return input.value;
+  return input.file.name; // Return filename for file inputs
+};
+
+// Add helper function to convert File to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:audio/wav;base64,")
+      resolve(base64String.split(',')[1]);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   const [isExecuting, setIsExecuting] = useState(false)
   const [executionProgress, setExecutionProgress] = useState('')
   const [nodes, setNodes] = useState(workflow.steps)
-  const [inputs, setInputs] = useState<Record<string, string>>({})
+  const [inputs, setInputs] = useState<Record<string, AudioInput | string>>({})
   const [finalOutput, setFinalOutput] = useState<string | null>(null)
   const [expandedInputs, setExpandedInputs] = useState<Record<string, boolean>>({})
 
@@ -37,76 +71,86 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
     });
   }, []);
 
-  // Check if all required inputs have values
+  // Update areAllInputsFilled function
   const areAllInputsFilled = () => {
     return nodes
       .filter(node => node.nodeType?.toLowerCase().includes('input'))
       .every(node => {
-        // Check both persisted input and new input
-        const hasPersistedValue = node.nodeData?.value && node.nodeData.value.trim().length > 0;
-        const hasNewValue = inputs[node.id]?.trim().length > 0;
-        return hasPersistedValue || hasNewValue;
+        const input = inputs[node.id];
+        if (!input) return false;
+        if (typeof input === 'string') return input.trim().length > 0;
+        if (input.type === 'file') return true; // File input is always considered filled
+        return input.value.trim().length > 0;
       });
   };
 
-  const handleExecuteWorkflow = async () => {
-    if (!areAllInputsFilled()) {
-      toast({
-        variant: "destructive",
-        title: "Input required",
-        description: "Please provide all required inputs before running the workflow"
-      })
-      return
-    }
+  // Update handleExecute function
+  const handleExecute = async () => {
+    setIsExecuting(true);
+    setExecutionProgress('');
 
-    setIsExecuting(true)
-    setFinalOutput(null)
-    
     try {
-      // Update nodes with their respective inputs
-      const updatedNodes = nodes.map(node => {
-        if (node.nodeType?.toLowerCase().includes('input')) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              value: inputs[node.id]
-            }
+      // Process nodes and convert audio files to base64
+      const updatedNodes = await Promise.all(nodes.map(async node => {
+        const input = inputs[node.id];
+        
+        if (input && typeof input !== 'string' && input.type === 'file') {
+          try {
+            const base64Data = await fileToBase64(input.file);
+            return {
+              ...node,
+              status: 'pending' as StepStatus,
+              logs: [],
+              data: {
+                value: base64Data,
+                filename: input.file.name,
+                mimeType: input.file.type
+              }
+            };
+          } catch (error) {
+            throw new Error(`Failed to process audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
-        return node
-      })
 
-      setNodes(updatedNodes)
-      await new Promise(resolve => setTimeout(resolve, 0))
+        return {
+          ...node,
+          status: 'pending' as StepStatus,
+          logs: [],
+          data: {
+            value: getInputValue(input)
+          }
+        };
+      }));
 
-      const result = await executeWorkflow({
-        nodes: updatedNodes,
-        setNodes,
-        onProgress: (message) => {
-          setExecutionProgress(message)
+      const result: WorkflowResult = await executeWorkflow({
+        nodes: updatedNodes as WorkflowStep[],
+        onProgress: (progress: string) => {
+          setExecutionProgress(progress);
+        },
+        setNodes: (updatedNodes: WorkflowStep[]) => {
+          setNodes(updatedNodes);
         }
-      })
+      });
 
       if (result.success && result.finalOutput) {
-        setFinalOutput(result.finalOutput)
+        setFinalOutput(result.finalOutput);
       } else {
         toast({
           variant: "destructive",
           title: "Workflow execution failed"
-        })
+        });
       }
-    } catch (error) {
-      console.error('Error executing workflow:', error)
+    } catch (error: unknown) {
+      console.error('Workflow execution failed:', error);
       toast({
+        title: "Error executing workflow",
+        description: error instanceof Error ? error.message : 'An unknown error occurred',
         variant: "destructive",
-        title: "Error executing workflow"
-      })
+      });
     } finally {
-      setIsExecuting(false)
-      setExecutionProgress('')
+      setIsExecuting(false);
     }
-  }
+  };
 
   const getStepIcon = (status: StepStatus) => {
     switch (status) {
@@ -180,6 +224,13 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
     return node.nodeType?.toLowerCase().includes('output');
   };
 
+  // Add helper functions to identify node types
+  const isAudioInputNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase().includes('audioinput');
+
+  const isAudioOutputNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase().includes('audiooutput');
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -213,7 +264,7 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
         </div>
         <div className="flex items-center gap-8">
           <Button 
-            onClick={handleExecuteWorkflow}
+            onClick={handleExecute}
             disabled={isExecuting || !areAllInputsFilled()}
             className="flex items-center gap-2"
           >
@@ -254,91 +305,186 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
                     </div>
 
                     {shouldShowContentSection(node) && (
-                      <div className="bg-white dark:bg-gray-950 p-3">
-                        {hasPersistedInput(node) && (
+                      <div className="bg-white dark:bg-gray-900 p-3">
+                        {/* Audio Input Node */}
+                        {isAudioInputNode(node) && (
                           <div className="w-full">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className={cn(
-                                "text-base text-foreground overflow-hidden text-left",
-                                !expandedInputs[node.id] && "line-clamp-1"
-                              )}>
-                                {node.nodeData?.value}
-                              </div>
-                              <div 
-                                onClick={() => toggleInputExpansion(node.id)}
-                                className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                {expandedInputs[node.id] ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {!hasPersistedInput(node) && node.nodeType?.toLowerCase().includes('input') && (
-                          <div className="w-full">
-                            <textarea
-                              value={inputs[node.id] || ''}
-                              onChange={(e) => setInputs(prev => ({
-                                ...prev,
-                                [node.id]: e.target.value
-                              }))}
-                              placeholder={`Enter ${node.nodeType === 'linkedinInput' ? 'LinkedIn profile HTML' : 'input'} here...`}
-                              className="w-full h-32 p-3 rounded-md text-base
-                                bg-white dark:bg-[hsl(240,10%,4%)]
-                                border-2 border-gray-300 dark:border-slate-700
-                                text-foreground 
-                                focus:outline-none focus:border-gray-400 dark:focus:border-slate-500
-                                focus:ring-2 focus:ring-gray-200 dark:focus:ring-slate-800
-                                resize-none
-                                transition-colors"
-                              disabled={isExecuting}
-                            />
-                          </div>
-                        )}
-
-                        {isOutputNode(node) && (
-                          <div className="w-full">
-                            {!node.logs.length ? (
-                              <div className="text-sm text-muted-foreground text-left italic">
-                                Output will be rendered here
+                            {!hasPersistedInput(node) ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setInputs(prev => ({
+                                        ...prev,
+                                        [node.id]: {
+                                          type: 'file',
+                                          file: file
+                                        }
+                                      }));
+                                    }
+                                  }}
+                                  className="hidden"
+                                  id={`file-input-${node.id}`}
+                                />
+                                <label
+                                  htmlFor={`file-input-${node.id}`}
+                                  className="inline-flex items-center justify-center gap-2 text-sm text-primary hover:text-primary/90 cursor-pointer transition-colors py-2 px-4 rounded-md border border-primary hover:bg-primary/10 active:bg-primary/20 w-fit"
+                                >
+                                  Upload File
+                                </label>
+                                <div className="text-sm text-muted-foreground">
+                                  {inputs[node.id] ? 
+                                    `Selected file: ${(inputs[node.id] as AudioInputFile).file.name}` : 
+                                    'No file uploaded'
+                                  }
+                                </div>
                               </div>
                             ) : (
-                              <div className="space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="text-base text-foreground text-left whitespace-pre-wrap flex-1">
-                                    {node.nodeData?.value || finalOutput}
-                                  </div>
-                                  <div 
-                                    onClick={() => {
-                                      copyToClipboard(node.nodeData?.value || finalOutput || '');
-                                      toast({
-                                        title: "Copied to clipboard",
-                                        duration: 1500,
-                                        className: "text-xs" // Make toast message small and subtle
-                                      });
-                                    }}
-                                    className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm text-foreground">
+                                  Audio file: {node.nodeData?.filename || "Uploaded audio"}
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    setInputs(prev => {
+                                      const newInputs = { ...prev };
+                                      delete newInputs[node.id];
+                                      return newInputs;
+                                    });
+                                  }}
+                                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  Change
+                                </button>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {node.logs.length > 0 && !isOutputNode(node) && (
-                          <div className="mt-2 space-y-1">
-                            {node.logs.map((log, idx) => (
-                              <div key={idx} className="text-xs text-muted-foreground/50 flex items-start">
-                                <Check className="w-2.5 h-2.5 mt-0.5 mr-1" />
-                                <span className="flex-1 text-left">{log}</span>
+                        {/* Audio Output Node */}
+                        {isAudioOutputNode(node) && (
+                          <div className="w-full">
+                            {!node.nodeData?.value ? (
+                              <div className="text-sm text-muted-foreground italic">
+                                Audio output will be rendered here
                               </div>
-                            ))}
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <audio
+                                  controls
+                                  src={node.nodeData.value}
+                                  className="w-full"
+                                />
+                                <button
+                                  onClick={() => {
+                                    // Download audio file
+                                    const link = document.createElement('a');
+                                    link.href = node.nodeData?.value;
+                                    link.download = node.nodeData?.filename || 'audio-output.mp3';
+                                    link.click();
+                                  }}
+                                  className="text-sm text-primary hover:text-primary/90"
+                                >
+                                  Download
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Existing input/output handling */}
+                        {!isAudioInputNode(node) && !isAudioOutputNode(node) && (
+                          <div className="w-full">
+                            {hasPersistedInput(node) && (
+                              <div className="flex items-start justify-between gap-2">
+                                <div className={cn(
+                                  "text-base text-foreground overflow-hidden text-left",
+                                  !expandedInputs[node.id] && "line-clamp-1"
+                                )}>
+                                  {node.nodeData?.value}
+                                </div>
+                                <div 
+                                  onClick={() => toggleInputExpansion(node.id)}
+                                  className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {expandedInputs[node.id] ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {!hasPersistedInput(node) && node.nodeType?.toLowerCase().includes('input') && (
+                              <div className="w-full">
+                                <textarea
+                                  value={getInputValue(inputs[node.id])}
+                                  onChange={(e) => setInputs(prev => ({
+                                    ...prev,
+                                    [node.id]: {
+                                      type: 'text',
+                                      value: e.target.value
+                                    }
+                                  }))}
+                                  placeholder={`Enter ${node.nodeType === 'linkedinInput' ? 'LinkedIn profile HTML' : 'input'} here...`}
+                                  className="w-full h-32 p-3 rounded-md text-base
+                                    bg-white dark:bg-[hsl(240,10%,4%)]
+                                    border-2 border-gray-300 dark:border-slate-700
+                                    text-foreground 
+                                    focus:outline-none focus:border-gray-400 dark:focus:border-slate-500
+                                    focus:ring-2 focus:ring-gray-200 dark:focus:ring-slate-800
+                                    resize-none
+                                    transition-colors"
+                                  disabled={isExecuting}
+                                />
+                              </div>
+                            )}
+
+                            {isOutputNode(node) && (
+                              <div className="w-full">
+                                {!node.logs.length ? (
+                                  <div className="text-sm text-muted-foreground text-left italic">
+                                    Output will be rendered here
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="text-base text-foreground text-left whitespace-pre-wrap flex-1">
+                                        {node.nodeData?.value || finalOutput}
+                                      </div>
+                                      <div 
+                                        onClick={() => {
+                                          copyToClipboard(node.nodeData?.value || finalOutput || '');
+                                          toast({
+                                            title: "Copied to clipboard",
+                                            duration: 1500,
+                                            className: "text-xs" // Make toast message small and subtle
+                                          });
+                                        }}
+                                        className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {node.logs.length > 0 && !isOutputNode(node) && (
+                              <div className="mt-2 space-y-1">
+                                {node.logs.map((log, idx) => (
+                                  <div key={idx} className="text-xs text-muted-foreground/50 flex items-start">
+                                    <Check className="w-2.5 h-2.5 mt-0.5 mr-1" />
+                                    <span className="flex-1 text-left">{log}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

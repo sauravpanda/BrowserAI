@@ -19,7 +19,7 @@ export function Navigation() {
         onClick={() => window.location.hash = '#workflow-view'}
       >
         <Workflow className="h-5 w-5 mb-1" />
-        <span>Workflow</span>
+        <span>Workflows</span>
       </button>
       <button 
         className={`nav-button flex flex-col items-center w-24 ${currentView === 'chat-view' ? 'active' : ''}`}
