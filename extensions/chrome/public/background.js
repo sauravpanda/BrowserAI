@@ -27,7 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.sidePanel.open({ windowId: sender.tab.windowId });
   }
   if (message.action === 'refreshWorkflows') {
-    chrome.tabs.create({ url: "https://app.browseragent.dev/dashboard/chr ome-extension" });
+    chrome.tabs.create({ url: "https://app.browseragent.dev/dashboard/chrome-extension" });
     sendResponse({ status: "opening sync tab" });
     return true;
   }
