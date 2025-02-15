@@ -10,7 +10,7 @@
 
 [Live Demo](https://chat.browserai.dev) •
 [Documentation](https://docs.browserai.dev) •
-[Discord Community](https://discord.gg/p5bBtAUa)
+[Discord Community](https://discord.gg/6qfmtSUMdb)
 
 <img src="https://img.youtube.com/vi/BoxYT6SU7PQ/0.jpg" alt="BrowserAI Demo" width="600"/>
 
