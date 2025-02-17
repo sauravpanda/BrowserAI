@@ -50,7 +50,7 @@ const nodeExecutors = {
       // Request permission for the current tab's origin
       const url = new URL(tab.url);
       const origin = `${url.protocol}//${url.hostname}/*`;
-      
+
       const granted = await new Promise((resolve) => {
         chrome.permissions.request({
           origins: [origin]
@@ -64,7 +64,7 @@ const nodeExecutors = {
       // Clean and check URL pattern
       const cleanUrl = tab.url.replace(/^https?:\/\//, '');
       const filterPath = node.nodeData?.filter_path || '*';
-      
+
       // If filter_path is not empty or '*', check if URL matches the pattern
       if (filterPath !== '' && filterPath !== '*') {
         const pattern = filterPath.replace(/\*/g, '.*');
@@ -89,7 +89,7 @@ const nodeExecutors = {
 
       // Use filter path to determine cleaning method
       if (pageContent) {
-          cleanedContent = cleaner.cleanSemantic(pageContent);
+        cleanedContent = cleaner.cleanSemantic(pageContent);
       }
       else {
         throw new Error("No page content found")
@@ -119,11 +119,11 @@ const nodeExecutors = {
   'chatAgent': async (node: WorkflowStep, input: any) => {
     try {
       const browserAI = new BrowserAI();
-      
+
       // Use the systemPrompt from nodeData or from previous system-prompt node
-    //   const systemPrompt = node.nodeData?.systemPrompt || input?.systemPrompt || '';
+      //   const systemPrompt = node.nodeData?.systemPrompt || input?.systemPrompt || '';
       await browserAI.loadModel(node.nodeData?.model || 'llama-3.2-1b-instruct');
-      
+
       // Safely prepare the input
       let promptInput = '';
       if (typeof input === 'string') {
@@ -138,19 +138,19 @@ const nodeExecutors = {
 
       // Use node's prompt if available, otherwise use the processed input
       const finalPrompt = node.nodeData?.prompt || promptInput;
-      
+
       // Ensure the prompt is not too large (add a reasonable limit)
       const maxPromptLength = (node.nodeData?.maxTokens || 2048) * 3.6; // Adjust this value based on your model's requirements
       const truncatedPrompt = finalPrompt.slice(0, maxPromptLength);
-      
-    //   console.debug("Final prompt length:", truncatedPrompt.length);
-    //   console.debug("First 100 chars of prompt:", truncatedPrompt.slice(0, 100));
+
+      //   console.debug("Final prompt length:", truncatedPrompt.length);
+      //   console.debug("First 100 chars of prompt:", truncatedPrompt.slice(0, 100));
       console.debug("Main Prompt", truncatedPrompt)
       const result = await browserAI.generateText(
         truncatedPrompt,
         {
           temperature: node.nodeData?.temperature || 0.7,
-          max_new_tokens: node.nodeData?.maxTokens || 2048
+          max_tokens: node.nodeData?.maxTokens || 2048
         }
       );
 
@@ -266,17 +266,17 @@ export const executeWorkflow = async ({
     if (firstNode?.nodeType?.toLowerCase().includes('input')) {
       const inputValue = firstNode.data?.value;
       console.debug('First Node Input Value:', inputValue);
-      
+
       // Store with a default key if no identifier/outputType
       workflowData['input'] = inputValue;
-      
+
       if (firstNode.nodeData?.identifier) {
         workflowData[firstNode.nodeData.identifier] = inputValue;
       }
       if (firstNode.nodeData?.outputType) {
         workflowData[firstNode.nodeData.outputType] = inputValue;
       }
-      
+
       console.debug('Initial workflowData:', workflowData);
     }
 
@@ -284,18 +284,18 @@ export const executeWorkflow = async ({
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
       console.debug(`\n--- Executing node: ${node.name} ---`);
-    //   console.debug("Node parameters:", node.nodeData);
-    //   console.debug("Current workflowData:", workflowData);
+      //   console.debug("Node parameters:", node.nodeData);
+      //   console.debug("Current workflowData:", workflowData);
 
       // Update current node to running
       setNodes((prev: WorkflowStep[]) =>
         prev.map(n =>
           n.id === node.id
             ? {
-                ...n,
-                status: 'running',
-                logs: [...n.logs, `Starting ${n.name}...`]
-              }
+              ...n,
+              status: 'running',
+              logs: [...n.logs, `Starting ${n.name}...`]
+            }
             : n
         )
       );
@@ -336,7 +336,7 @@ export const executeWorkflow = async ({
           if (node.nodeData?.outputType) {
             workflowData[node.nodeData.outputType] = result.output;
           }
-          
+
           console.debug("Updated workflowData:", workflowData);
         }
 
@@ -345,17 +345,17 @@ export const executeWorkflow = async ({
           prev.map(n =>
             n.id === node.id
               ? {
-                  ...n,
-                  status: 'completed',
-                  logs: [...n.logs, result.log],
-                  style: {
-                    background: 'var(--background)',
-                    color: 'var(--foreground)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)',
-                    padding: '1rem'
-                  }
+                ...n,
+                status: 'completed',
+                logs: [...n.logs, result.log],
+                style: {
+                  background: 'var(--background)',
+                  color: 'var(--foreground)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  padding: '1rem'
                 }
+              }
               : n
           )
         );
@@ -365,17 +365,17 @@ export const executeWorkflow = async ({
           prev.map(n =>
             n.id === node.id
               ? {
-                  ...n,
-                  status: 'error',
-                  logs: [...n.logs, `Error: ${error}`],
-                  style: {
-                    background: 'var(--destructive)',
-                    color: 'var(--destructive-foreground)',
-                    border: '1px solid var(--destructive)',
-                    borderRadius: 'var(--radius)',
-                    padding: '1rem'
-                  }
+                ...n,
+                status: 'error',
+                logs: [...n.logs, `Error: ${error}`],
+                style: {
+                  background: 'var(--destructive)',
+                  color: 'var(--destructive-foreground)',
+                  border: '1px solid var(--destructive)',
+                  borderRadius: 'var(--radius)',
+                  padding: '1rem'
                 }
+              }
               : n
           )
         );
@@ -386,10 +386,10 @@ export const executeWorkflow = async ({
     // Get the final output from the last node
     const finalOutput = lastOutput;
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: workflowData,
-      finalOutput 
+      finalOutput
     };
   } catch (error) {
     console.error('Workflow execution failed:', error);
