@@ -47,32 +47,52 @@ export class MLCEngineWrapper {
       throw new Error('MLC Engine not initialized.');
     }
 
-    // Initialize messages array regardless of input type
-    let messages: Record<string, any>[] = [];
-
-    // If input is an array, use it directly
-    if (Array.isArray(input)) {
-      messages = input;
-    } else if (typeof input === 'string') {
-      // If input is a string, construct messages array
-      if (options.system_prompt) {
-        messages.push({ role: 'system', content: options.system_prompt });
-      }
-      messages.push({ role: 'user', content: input });
-    }
+    let messages: Record<string, any>[] = Array.isArray(input) 
+      ? input 
+      : [
+          ...(options.system_prompt ? [{ role: 'system', content: options.system_prompt }] : []),
+          { role: 'user', content: input }
+        ];
 
     // Set default options
-    options.max_tokens = options.max_tokens || 300;
-    options.temperature = options.temperature || 0.6;
-    options.top_p = options.top_p || 0.95;
-    options.frequency_penalty = options.frequency_penalty || 0.5;
-    options.presence_penalty = options.presence_penalty || 0.5;
-    if (options.stream) {
-      options.stream_options = { include_usage: true };
-      return this.mlcEngine.chat.completions.create({ messages: messages as any, ...options });
+    const defaultOptions = {
+      max_tokens: 300,
+      temperature: 0.6,
+      top_p: 0.95,
+      frequency_penalty: 0.5,
+      presence_penalty: 0.5
+    };
+
+    // Handle JSON schema
+    if (options.json_schema) {
+      messages.unshift({
+        role: 'system',
+        content: 'You must respond with valid JSON that matches the provided schema. Do not include any explanations or additional text.'
+      });
+
+      // Ensure the schema is properly stringified
+      const schema = typeof options.json_schema === 'string' 
+        ? options.json_schema 
+        : JSON.stringify(options.json_schema);
+
+      options.response_format = {
+        type: "json_object",
+        schema:schema
+      };
     }
-    console.log(messages);
-    const result = await this.mlcEngine.chat.completions.create({ messages: messages as any, ...options });
+
+    const finalOptions = {
+      ...defaultOptions,
+      ...options,
+      messages
+    };
+
+    if (options.stream) {
+      finalOptions.stream_options = { include_usage: true };
+      return this.mlcEngine.chat.completions.create(finalOptions);
+    }
+
+    const result = await this.mlcEngine.chat.completions.create(finalOptions);
     return result.choices[0].message.content;
   }
 
