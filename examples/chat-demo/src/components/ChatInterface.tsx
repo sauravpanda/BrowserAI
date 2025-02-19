@@ -129,6 +129,11 @@ const Button = styled.button`
   }
 `;
 
+const TestWorkerButton = styled(Button)`
+  font-size: 12px;
+  padding: 4px 8px;
+`;
+
 const Spinner = styled.div`
   width: 40px;
   height: 40px;
@@ -339,6 +344,28 @@ const ThinkingDropdown = styled.div<{ isOpen: boolean }>`
   }
 `;
 
+const WorkerStatus = styled.div<{ active: boolean }>`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: ${props => props.active ? '#1a392c' : '#2d2d2d'};
+  color: ${props => props.active ? '#4ade80' : '#a0a0a0'};
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  
+  &::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: ${props => props.active ? '#4ade80' : '#a0a0a0'};
+  }
+`;
+
 interface ChatInterfaceProps {
   children?: (props: {
     stats: {
@@ -378,8 +405,9 @@ interface LoadingStats {
 }
 
 export default function ChatInterface({ children }: ChatInterfaceProps) {
-  const [browserAI] = useState(new BrowserAI());
+  const [browserAI] = useState(() => new BrowserAI());
   const [selectedModel, setSelectedModel] = useState('smollm2-135m-instruct');
+  const [useWebWorker, setUseWebWorker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
   const [input, setInput] = useState('');
@@ -423,7 +451,11 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
 
 
   const loadModel = async () => {
-    console.log(`[BrowserAI] Starting to load model: ${selectedModel}`);
+    console.log(`[BrowserAI] Starting to load model with worker: ${useWebWorker}`);
+    
+    // Add performance markers
+    performance.mark('modelLoadStart');
+    
     setLoading(true);
     setLoadError(null);
     const startTime = performance.now();
@@ -437,8 +469,9 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
 
     try {
       await browserAI.loadModel(selectedModel, {
+        useWorker: useWebWorker,
         onProgress: (progress: any) => {
-          console.log(`[BrowserAI] Loading progress:`, progress);
+          console.log(`[${useWebWorker ? 'Worker' : 'Main'}] Progress:`, progress);
           const currentTime = performance.now();
           const elapsedTime = (currentTime - startTime) / 1000; // in seconds
           const progressPercent = progress.progress;
@@ -483,7 +516,7 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       });
       
       const loadTime = performance.now() - startTime;
-      console.log(`[BrowserAI] Model loaded successfully in ${loadTime.toFixed(0)}ms`);
+      console.log(`[BrowserAI] Model loaded successfully in ${loadTime.toFixed(0)}ms using ${useWebWorker ? 'Web Worker' : 'Main Thread'}`);
       const memoryAfter = (performance as any).memory?.usedJSHeapSize;
       const memoryIncrease = memoryAfter - memoryBefore;
 
@@ -509,6 +542,9 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       progress: 0,
       estimatedTimeRemaining: null
     });
+    
+    performance.mark('modelLoadEnd');
+    performance.measure('Model Load Time', 'modelLoadStart', 'modelLoadEnd');
   };
 
   const handleModelChange = (newModel: string) => {
@@ -519,6 +555,12 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
   const handleSend = async () => {
     if (!input.trim() || !modelLoaded) return;
 
+    console.log(`[BrowserAI] Starting generation using ${
+      useWebWorker ? 'Web Worker' : 'Main Thread'
+    }`);
+    
+    performance.mark('generationStart');
+    
     console.log(`[BrowserAI] Starting text generation with input length: ${input.length}`);
     const userMessage = { text: input, isUser: true };
     setMessages(prev => [...prev, userMessage]);
@@ -574,6 +616,13 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
           peakMemoryUsage: Math.max(prev.peakMemoryUsage, prev.memoryUsage)
         };
       });
+
+      performance.mark('generationEnd');
+      performance.measure('Generation Time', 'generationStart', 'generationEnd');
+      
+      console.log(`[BrowserAI] Generation completed in ${
+        performance.getEntriesByName('Generation Time')[0].duration.toFixed(0)
+      }ms using ${useWebWorker ? 'Web Worker' : 'Main Thread'}`);
 
     } catch (err) {
       const error = err as Error;
@@ -690,6 +739,55 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
             <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
             <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
           </ModelSelect>
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <input
+              type="checkbox"
+              id="worker-toggle"
+              checked={useWebWorker}
+              onChange={e => setUseWebWorker(e.target.checked)}
+              disabled={loading || modelLoaded}
+            />
+            <label 
+              htmlFor="worker-toggle" 
+              style={{ color: '#a0a0a0', fontSize: '14px' }}
+            >
+              Use Web Worker
+            </label>
+          </div>
+
+          <TestWorkerButton
+            onClick={async () => {
+              if (!modelLoaded) return;
+              
+              // Start a UI-blocking operation
+              const startTime = performance.now();
+              
+              // Generate text while also updating UI
+              let dots = '';
+              const updateInterval = setInterval(() => {
+                dots = dots.length >= 3 ? '' : dots + '.';
+                setInput(`Testing worker${dots}`);
+              }, 100);
+              
+              try {
+                await browserAI.generateText('Generate a long story about a cat.');
+                clearInterval(updateInterval);
+                setInput(`Test completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+              } catch (err) {
+                clearInterval(updateInterval);
+                setInput('Test failed');
+              }
+            }}
+            disabled={!modelLoaded}
+          >
+            Test Worker
+          </TestWorkerButton>
+
           <Button 
             onClick={loadModel}
             disabled={loading || modelLoaded}
@@ -880,8 +978,19 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
             </div>
           </StatItem>
 
+          <StatItem>
+            <h3>Processing Mode</h3>
+            <div style={{ color: '#fff', fontSize: '14px' }}>
+              {useWebWorker ? 'Web Worker (Background Thread)' : 'Main Thread'}
+            </div>
+          </StatItem>
+
         </Sidebar>
       </MainContent>
+
+      <WorkerStatus active={useWebWorker && modelLoaded}>
+        {useWebWorker ? 'Web Worker Active' : 'Main Thread'}
+      </WorkerStatus>
     </Layout>
   );
 }
