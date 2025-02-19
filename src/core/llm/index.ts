@@ -198,4 +198,12 @@ export class BrowserAI {
 
     throw new Error('Current engine does not support multimodal generation');
   }
+
+  dispose() {
+    if (this.engine instanceof MLCEngineWrapper) {
+      this.engine.dispose();
+    }
+    this.engine = null;
+    this.currentModel = null;
+  }
 }
