@@ -243,15 +243,14 @@ const HINDI_PHONEME_MAP: { [key: string]: string } = {
 };
 
 // Add function to detect script
-function isDevanagari(text: string): boolean {
-  return /[\u0900-\u097F]/.test(text);
-}
+// function isDevanagari(text: string): boolean {
+//   return /[\u0900-\u097F]/.test(text);
+// }
 
 // Add Spanish phoneme detection
-function isSpanish(text: string): boolean {
-  // Check for Spanish-specific characters and common patterns
-  return /[áéíóúñ¿¡]|ll|ñ/i.test(text);
-}
+// function isSpanish(text: string): boolean {
+//   return /[áéíóúñ¿¡]|ll|ñ/i.test(text);
+// }
 
 // Add Spanish phoneme mappings
 const SPANISH_PHONEME_MAP: { [key: string]: string } = {
@@ -323,9 +322,17 @@ export async function phonemize(text: string, language = "a", norm = true) {
     text = normalize_text(text);
   }
 
-  // 2. Check script type
-  const hasDevanagari = isDevanagari(text);
-  const hasSpanish = isSpanish(text);
+  // 2. Map language codes to processing types
+  const languageMap: { [key: string]: string } = {
+    'a': 'en-us',  // American English
+    'b': 'en',     // British English
+    'h': 'hindi',  // Hindi
+    'e': 'spanish', // Spanish
+    'f': 'french', // French 
+    'z': 'chinese' // Chinese
+  };
+
+  const targetLanguage = languageMap[language] || 'en-us';
 
   // 3. Split into chunks, to ensure we preserve punctuation
   const sections = split(text, PUNCTUATION_PATTERN);
@@ -335,35 +342,33 @@ export async function phonemize(text: string, language = "a", norm = true) {
     sections.map(async ({ match, text }) => {
       if (match) return text;
       
-      if (hasDevanagari) {
-        // Process text in chunks to maintain syllable structure
-        return text.split(/(?=[क-ह])/)
-          .map(chunk => processHindiSyllable(
-            Array.from(chunk)
-              .map(char => HINDI_PHONEME_MAP[char] || char)
-              .join('')
-          ))
-          .join('');
-      } else if (hasSpanish) {
-        // Handle Spanish text
-        let result = text.toLowerCase();
+      switch (targetLanguage) {
+        case 'hindi':
+          // console.log('Hindi phonemization');
+          return text.split(/(?=[क-ह])/)
+            .map(chunk => processHindiSyllable(
+              Array.from(chunk)
+                .map(char => HINDI_PHONEME_MAP[char] || char)
+                .join('')
+            ))
+            .join('');
         
-        // Handle special cases first
-        result = result
-          .replace(/ch/g, 'tʃ')
-          .replace(/ll/g, 'j')
-          .replace(/rr/g, 'r')
-          // Add rule for 'c' before 'i' and 'e'
-          .replace(/c([ie])/g, 's$1');  // Use 's' for Latin American Spanish
+        case 'spanish':
+          // console.log('Spanish phonemization');
+          let result = text.toLowerCase();
+          result = result
+            .replace(/ch/g, 'tʃ')
+            .replace(/ll/g, 'j')
+            .replace(/rr/g, 'r')
+            .replace(/c([ie])/g, 's$1');
+          
+          return Array.from(result)
+            .map(char => SPANISH_PHONEME_MAP[char] || char)
+            .join('');
         
-        // Then handle individual characters
-        return Array.from(result)
-          .map(char => SPANISH_PHONEME_MAP[char] || char)
-          .join('');
-      } else {
-        // Use existing English phonemization
-        const lang = language === "a" ? "en-us" : "en";
-        return (await espeakng(text, lang)).join(" ");
+        default: // en-us or en
+          // console.log('Default phonemization');
+          return (await espeakng(text, targetLanguage)).join(" ");
       }
     })
   )).join("");
