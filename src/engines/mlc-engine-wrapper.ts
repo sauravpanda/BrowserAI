@@ -10,6 +10,80 @@ import {
 } from '@mlc-ai/web-llm';
 import { ModelConfig } from '../config/models/types';
 
+// Add this worker code as a string at the top of the file
+const workerCode = `
+  // Ensure we're in a worker context
+  if (typeof self === 'undefined') {
+    throw new Error('This script must be run in a Web Worker');
+  }
+
+  console.log('[Worker] Starting initialization...');
+
+  // Wrap the entire worker code in a try-catch
+  try {
+    // Wait for the main thread to send us the module URL
+    self.onmessage = async (msg) => {
+      if (msg.data.type === 'init') {
+        console.log('[Worker] Received init message');
+        const moduleURL = msg.data.moduleURL;
+        
+        try {
+          const module = await import(moduleURL);
+          console.log('[Worker] Module loaded successfully');
+          const handler = new module.WebWorkerMLCEngineHandler();
+          
+          // Replace onmessage handler with the actual handler
+          self.onmessage = (msg) => {
+            console.log('[Worker] Received message:', msg.data);
+            try {
+              handler.onmessage(msg);
+            } catch (error) {
+              console.error('[Worker] Handler error:', error);
+              self.postMessage({
+                type: 'error',
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+          };
+          
+          self.postMessage({ type: 'ready' });
+          console.log('[Worker] Handler initialized successfully');
+        } catch (error) {
+          console.error('[Worker] Failed to load module:', error);
+          self.postMessage({
+            type: 'error',
+            error: 'Failed to initialize worker: ' + (error instanceof Error ? error.message : String(error))
+          });
+        }
+      }
+    };
+  } catch (error) {
+    console.error('[Worker] Initialization error:', error);
+    self.postMessage({
+      type: 'error',
+      error: 'Worker initialization failed: ' + (error instanceof Error ? error.message : String(error))
+    });
+  }
+
+  self.onerror = (error) => {
+    console.error('[Worker] Global error:', error);
+    self.postMessage({
+      type: 'error',
+      error: error instanceof ErrorEvent ? error.message : 'Unknown worker error'
+    });
+  };
+
+  self.onmessageerror = (error) => {
+    console.error('[Worker] Message error:', error);
+    self.postMessage({
+      type: 'error',
+      error: 'Message error: ' + (error instanceof Error ? error.message : String(error))
+    });
+  };
+
+  console.log('[Worker] Basic initialization complete');
+`;
+
 interface MLCLoadModelOptions {
   useWorker?: boolean;
   onProgress?: (progress: any) => void;
@@ -28,22 +102,24 @@ export class MLCEngineWrapper {
 
   async loadModel(modelConfig: ModelConfig, options: MLCLoadModelOptions = {}) {
     try {
-      // Clean up any existing worker
       if (this.worker) {
         this.worker.terminate();
         this.worker = null;
       }
 
-      // Create new worker if requested
       if (options.useWorker) {
-        console.log('[MLCEngine] Creating new worker');
+        // console.log('[MLCEngine] Creating new worker');
         
-        this.worker = new Worker(
-          new URL('../workers/mlc.worker.ts', import.meta.url),
-          { type: 'module' }
-        );
+        const blob = new Blob([workerCode], { type: 'text/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
         
-        // Add error handling for worker
+        this.worker = new Worker(workerUrl, { 
+          type: 'module',
+          name: 'mlc-worker' 
+        });
+        
+        URL.revokeObjectURL(workerUrl);
+
         this.worker.onerror = (error) => {
           console.error('[MLCEngine] Worker error:', error);
           throw new Error(`Worker error: ${error.message}`);
@@ -53,15 +129,37 @@ export class MLCEngineWrapper {
           console.error('[MLCEngine] Worker message error:', error);
         };
 
-        // Listen for messages from worker
-        this.worker.onmessage = (msg) => {
-          console.log('[MLCEngine] Received worker message:', msg.data);
-          if (msg.data.type === 'error') {
-            throw new Error(`Worker error: ${msg.data.error}`);
-          }
-        };
+        // Wait for worker to be ready
+        await new Promise<void>((resolve, reject) => {
+          if (!this.worker) return reject(new Error('Worker not initialized'));
 
-        console.log('[MLCEngine] Worker created successfully');
+          const timeout = setTimeout(() => {
+            reject(new Error('Worker initialization timeout'));
+          }, 10000);
+
+          this.worker.onmessage = (msg) => {
+            // console.log('[MLCEngine] Received worker message:', msg.data);
+            if (msg.data.type === 'ready') {
+              clearTimeout(timeout);
+              resolve();
+            } else if (msg.data.type === 'error') {
+              clearTimeout(timeout);
+              reject(new Error(msg.data.error));
+            }
+          };
+
+          // Get the URL of the local module
+          const moduleURL = new URL('@mlc-ai/web-llm', import.meta.url).href;
+          // console.log('[MLCEngine] Using local module URL:', moduleURL);
+
+          // Send init message with local module URL
+          this.worker.postMessage({
+            type: 'init',
+            moduleURL
+          });
+        });
+
+        // console.log('[MLCEngine] Worker initialized successfully');
       }
 
       const quantization = options.quantization || modelConfig.defaultQuantization;
@@ -87,20 +185,20 @@ export class MLCEngineWrapper {
       }
 
       if (this.worker) {
-        console.log('[MLCEngine] Creating web worker engine');
+        // console.log('[MLCEngine] Creating web worker engine');
         this.mlcEngine = await CreateWebWorkerMLCEngine(
           this.worker,
           modelIdentifier,
           {
             initProgressCallback: (progress: any) => {
-              console.log('[MLCEngine] Loading progress:', progress);
+              // console.log('[MLCEngine] Loading progress:', progress);
               options.onProgress?.(progress);
             },
             appConfig: this.appConfig,
             ...options,
           }
         );
-        console.log('[MLCEngine] Web worker engine created successfully');
+        // console.log('[MLCEngine] Web worker engine created successfully');
       } else {
         this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
           initProgressCallback: options.onProgress,
@@ -111,11 +209,11 @@ export class MLCEngineWrapper {
     } catch (error) {
       // Clean up worker if initialization failed
       if (this.worker) {
-        console.error('[MLCEngine] Error with worker, cleaning up');
+        // console.error('[MLCEngine] Error with worker, cleaning up');
         this.worker.terminate();
         this.worker = null;
       }
-      console.error('[MLCEngine] Error loading model:', error);
+      // console.error('[MLCEngine] Error loading model:', error);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to load MLC model "${modelConfig}": ${message}`);
     }
