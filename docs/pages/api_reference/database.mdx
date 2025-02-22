@@ -75,7 +75,7 @@ const doc = await db.get('doc1');
 | id | string | Yes | Document ID |
 
 #### Returns
-`Promise<Document | null>`
+`Promise<DatabaseDocument | null>`
 
 ### update()
 
@@ -92,7 +92,7 @@ await db.update({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| document | Partial<Document> | Yes | Updated document fields |
+| document | DatabaseDocument | Yes | Updated document fields |
 
 ### delete()
 
@@ -195,4 +195,4 @@ interface SearchOptions {
 export const metadata = {
   title: 'Database API',
   description: 'API reference for database operations in BrowserAI'
-} 
+}
