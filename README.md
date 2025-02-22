@@ -47,9 +47,14 @@
 - 🔄 Seamless switching between MLC and Transformers engines
 - 📦 Pre-configured popular models ready to use
 - 🛠️ Easy-to-use API for text generation and more
+- 🔧 Web Worker support for non-blocking UI performance
+- 📊 Structured output generation with JSON schemas
+- 🎙️ Speech recognition and text-to-speech capabilities
+- 💾 Built-in database support for storing conversations and embeddings
 
 
 ## 🚀 Quick Start
+
 ```bash
 npm install @browserai/browserai
 ```
@@ -66,8 +71,13 @@ import { BrowserAI } from '@browserai/browserai';
 
 const browserAI = new BrowserAI();
 
-browserAI.loadModel('llama-3.2-1b-instruct');
+// Load model with progress tracking
+await browserAI.loadModel('llama-3.2-1b-instruct', {
+  quantization: 'q4f16_1',
+  onProgress: (progress) => console.log('Loading:', progress.progress + '%')
+});
 
+// Generate text
 const response = await browserAI.generateText('Hello, how are you?');
 console.log(response);
 ```
@@ -75,16 +85,12 @@ console.log(response);
 
 ## 📚 Examples
 
-### Text Generation with Custom Parameters
+### Text Generation with Options
 ```javascript
-const ai = new BrowserAI();
-await ai.loadModel('llama-3.2-1b-instruct', {
-  quantization: 'q4f16_1' // Optimize for size/speed
-});
-
-const response = await ai.generateText('Write a short poem about coding', {
+const response = await browserAI.generateText('Write a short poem about coding', {
   temperature: 0.8,
-  maxTokens: 100
+  max_tokens: 100,
+  system_prompt: "You are a creative poet specialized in technology themes."
 });
 ```
 
@@ -99,23 +105,51 @@ const response = await ai.generateText([
 ]);
 ```
 
+### Chat with System Prompt
+
+```javascript
+const response = await browserAI.generateText('List 3 colors', {
+  json_schema: {
+    type: "object",
+    properties: {
+      colors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            hex: { type: "string" }
+          }
+        }
+      }
+    }
+  },
+  response_format: { type: "json_object" }
+});
+```
+
 ### Speech Recognition
 ```javascript
-const ai = new BrowserAI();
-await ai.loadModel('whisper-tiny-en');
+const browserAI = new BrowserAI();
+await browserAI.loadModel('whisper-tiny-en');
 
 // Using the built-in recorder
-await ai.startRecording();
-const audioBlob = await ai.stopRecording();
-const transcription = await ai.transcribeAudio(audioBlob);
+await browserAI.startRecording();
+const audioBlob = await browserAI.stopRecording();
+const transcription = await browserAI.transcribeAudio(audioBlob, {
+  return_timestamps: true,
+  language: 'en'
+});
 ```
 
 ### Text-to-Speech
 ```javascript
 const ai = new BrowserAI();
 await ai.loadModel('kokoro-tts');
-const audioBuffer = await ai.textToSpeech('Hello, how are you today?');
-// Play the audio using Web Audio API
+const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?', {
+  voice: 'af_bella',
+  speed: 1.0
+});// Play the audio using Web Audio API
 const audioContext = new AudioContext();
 const source = audioContext.createBufferSource();
 audioContext.decodeAudioData(audioBuffer, (buffer) => {
@@ -149,6 +183,8 @@ More models will be added soon. Request a model by creating an issue.
 ### Transformers Models
 - Llama-3.2-1b-Instruct
 - Whisper-tiny-en (Speech Recognition)
+- Whisper-base-all (Speech Recognition)
+- Whisper-small-all (Speech Recognition)
 - Kokoro-TTS (Text-to-Speech)
 
 ## 🗺️ Enhanced Roadmap
