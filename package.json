@@ -27,14 +27,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sauravpanda/BrowserAI.git"
+    "url": "git+https://github.com/Cloud-Code-AI/BrowserAI.git"
   },
   "author": "Saurav Panda",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sauravpanda/BrowserAI/issues"
+    "url": "https://github.com/Cloud-Code-AI/BrowserAI/issues"
   },
-  "homepage": "https://github.com/sauravpanda/BrowserAI#readme",
+  "homepage": "https://github.com/Cloud-Code-AI/BrowserAI#readme",
   "dependencies": {
     "@huggingface/jinja": "^0.3.3",
     "@mlc-ai/web-llm": "^0.2.78",
