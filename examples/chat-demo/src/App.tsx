@@ -1,13 +1,8 @@
 import ChatInterface from './components/ChatInterface'
-import EnhancedChatInterface from './components/EnhancedChatInterface'
-import React, { StrictMode } from 'react'
+import React from 'react'
 
 function App() {
-  return (
-    <ChatInterface>
-      {(props) => <EnhancedChatInterface {...props} />}
-    </ChatInterface>
-  );
+  return <ChatInterface />;
 }
 
 export default App;

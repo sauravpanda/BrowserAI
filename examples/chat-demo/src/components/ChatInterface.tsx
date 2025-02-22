@@ -4,6 +4,7 @@ import { BrowserAI } from '@browserai/browserai';
 import posthog from 'posthog-js';
 import { MessageContent } from './MessageContent';
 import React from 'react';
+import { BarChart2, Send, AlertCircle, X } from 'lucide-react';
 
 //added my manmohan
 
@@ -404,6 +405,28 @@ interface LoadingStats {
   estimatedTimeRemaining: number | null;
 }
 
+const isSafari = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  return userAgent.includes('safari') && !userAgent.includes('chrome');
+};
+
+const CustomAlert = ({ onClose, children }: { onClose: () => void; children: React.ReactNode }) => (
+  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+    <div className="flex justify-between items-center">
+      <div className="flex items-center gap-2">
+        <AlertCircle className="w-5 h-5 text-blue-400" />
+        <div className="text-gray-300">{children}</div>
+      </div>
+      <button 
+        onClick={onClose}
+        className="text-gray-400 hover:text-gray-200"
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  </div>
+);
+
 export default function ChatInterface({ children }: ChatInterfaceProps) {
   const [browserAI] = useState(() => new BrowserAI());
   const [selectedModel, setSelectedModel] = useState('smollm2-135m-instruct');
@@ -680,317 +703,371 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     }
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Scroll on new messages or content updates
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]); // Scroll when messages array changes
-
-  return children ? children({
-    stats,
-    messages,
-    input,
-    modelLoaded,
-    selectedModel,
-    loading,
-    loadingProgress,
-    loadingStats: {
-      progress: loadingProgress,
-      estimatedTimeRemaining: loadingStats.estimatedTimeRemaining
-    },
-    showPrivacyBanner,
-    onSend: handleSend,
-    onInputChange: (value) => setInput(value),
-    onModelChange: handleModelChange,
-    onLoadModel: loadModel
-  }) : (
-    <Layout>
-      <Header>
-        <h1>BrowserAI Chat Demo</h1>
-        <Description>
-          A simple chat interface built using{' '}
-          <a href="https://github.com/sauravpanda/browserai" target="_blank" rel="noopener noreferrer">
-            BrowserAI
+  return (
+    <div className="min-h-screen bg-black text-white">
+      {/* GitHub Banner */}
+      <div className="bg-gray-800 py-4 px-4 text-center">
+        <p className="text-white flex items-center justify-center gap-2">
+          <a 
+            href="https://github.com/sauravpanda/browserai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white hover:text-gray-400 font-bold"
+          >
+            ⭐ Give us a star on GitHub
           </a>
-          {' '}- Run AI models directly in your browser!
-        </Description>
-        <div style={{ 
-          display: 'flex', 
-          gap: '16px', 
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          justifyContent: 'center' 
-        }}>
-          <ModelSelect 
-            value={selectedModel} 
-            onChange={e => handleModelChange(e.target.value)}
-            disabled={loading}
-          >
-            <option value="smollm2-135m-instruct">SmolLM2 135Mdd Instruct (360MB)</option>
-            <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
-            <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1,75GB)</option>
-            <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
-            <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
-            <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
-            <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
-            <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
-            <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
-          </ModelSelect>
-          
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <input
-              type="checkbox"
-              id="worker-toggle"
-              checked={useWebWorker}
-              onChange={e => setUseWebWorker(e.target.checked)}
-              disabled={loading || modelLoaded}
-            />
-            <label 
-              htmlFor="worker-toggle" 
-              style={{ color: '#a0a0a0', fontSize: '14px' }}
-            >
-              Use Web Worker
-            </label>
-          </div>
+          and help us improve BrowserAI
+        </p>
+      </div>
 
-          <TestWorkerButton
-            onClick={async () => {
-              if (!modelLoaded) return;
-              
-              // Start a UI-blocking operation
-              const startTime = performance.now();
-              
-              // Generate text while also updating UI
-              let dots = '';
-              const updateInterval = setInterval(() => {
-                dots = dots.length >= 3 ? '' : dots + '.';
-                setInput(`Testing worker${dots}`);
-              }, 100);
-              
-              try {
-                await browserAI.generateText('Generate a long story about a cat.');
-                clearInterval(updateInterval);
-                setInput(`Test completed in ${(performance.now() - startTime).toFixed(0)}ms`);
-              } catch (err) {
-                clearInterval(updateInterval);
-                setInput('Test failed');
-              }
-            }}
-            disabled={!modelLoaded}
-          >
-            Test Worker
-          </TestWorkerButton>
-
-          <Button 
-            onClick={loadModel}
-            disabled={loading || modelLoaded}
-          >
-            {loading ? 'Loading...' : modelLoaded ? 'Model Loaded' : 'Load Model'}
-          </Button>
-          <StatusIndicator isLoaded={modelLoaded}>
-            {modelLoaded ? 'Model Ready' : 'Model Not Loaded'}
-          </StatusIndicator>
-        </div>
-      </Header>
-
-      {loadError && (
-        <ErrorMessage>
-          Failed to load model: {loadError}
-        </ErrorMessage>
-      )}
-
-      {showPrivacyBanner && (
-        <PrivacyBanner>
-          <div className="header" onClick={() => setShowPrivacyDetails(!showPrivacyDetails)}>
-            <span style={{ color: '#a0a0a0' }}>
-              📊 We collect anonymous performance metrics
-              {!showPrivacyDetails && ' (click to learn more)'}
-            </span>
-            <span style={{ color: '#666' }}>
-              {showPrivacyDetails ? '▼' : '▶'}
-            </span>
-          </div>
-          {showPrivacyDetails && (
-            <div className="details">
-              We collect performance metrics and metadata to improve our library. 
-              We don't store any conversation data - only technical metrics like response times, 
-              memory usage, and error rates. {' '}
-              <a href="https://github.com/browser-ai/browserai" target="_blank" rel="noopener noreferrer">
-                Learn more
+      {/* Header Section */}
+      <header className="mt-2">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between items-end mb-10">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-400">
+                Built with
+              </p>
+              <a 
+                href="https://browserai.dev/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {/* <img 
+                  src={browserAILogo} 
+                  alt="BrowserAI Logo" 
+                  className="h-5 w-auto hover:opacity-80 transition-opacity"
+                /> */}
               </a>
             </div>
-          )}
-        </PrivacyBanner>
-      )}
-
-      <MainContent>
-        <ChatContainer>
-          <ModelStatus>
-            {modelLoaded ? `Current Model: ${selectedModel}` : 'No Model Loaded'}
-          </ModelStatus>
-          
-          {loading ? (
-            <LoadingIndicator>
-              <Spinner />
-              <div style={{ marginBottom: '16px' }}>Loading model...</div>
-              <ProgressBar>
-                <div 
-                  className="fill" 
-                  style={{ width: `${loadingProgress}%` }} 
-                />
-              </ProgressBar>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginTop: '8px',
-                fontSize: '14px',
-                color: '#a0a0a0'
-              }}>
-                <span>{loadingProgress.toFixed(0)}% complete</span>
-                {loadingStats.estimatedTimeRemaining !== null && (
-                  <span>
-                    {loadingStats.estimatedTimeRemaining > 60 
-                      ? `~${(loadingStats.estimatedTimeRemaining / 60).toFixed(1)} minutes remaining`
-                      : `~${Math.ceil(loadingStats.estimatedTimeRemaining)} seconds remaining`
-                    }
-                  </span>
-                )}
-              </div>
-              <div style={{ 
-                marginTop: '12px',
-                fontSize: '13px',
-                color: '#666'
-              }}>
-                {selectedModel.includes('instruct') && 
-                  "This model includes instruction tuning for better chat responses"}
-              </div>
-            </LoadingIndicator>
-          ) : (
-            <>
-              <ChatBox ref={chatBoxRef}>
-                {messages.map((message, index) => (
-                  <Message key={index} text={message.text} isUser={message.isUser} />
-                ))}
-                <div ref={messagesEndRef} />
-              </ChatBox>
-              <InputContainer>
-                <Input
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && handleSend()}
-                  placeholder={modelLoaded ? 'Type your message...' : 'Please load a model first'}
-                  disabled={!modelLoaded}
-                />
-                <Button 
-                  onClick={handleSend}
-                  disabled={!modelLoaded}
-                >
-                  Send
-                </Button>
-              </InputContainer>
-            </>
-          )}
-        </ChatContainer>
-
-        <Sidebar>
-          <h2 style={{ marginTop: '0px', marginBottom: '24px' }}>Performance Stats</h2>
-          
-          <StatItem>
-            <h3>Memory Usage</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span>
-                <span className="value">{stats.memoryUsage.toFixed(1)}</span>
-                <span className="unit">MB</span>
-              </span>
-              <span style={{ color: '#666' }}>
-                of {stats.maxMemory.toFixed(1)} MB
-              </span>
+            <div className="flex items-center gap-4">
+              {/* Social Links */}
+              <a href="https://www.producthunt.com/posts/browserai-chat?embed=true" target="_blank">
+                <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=878742&theme=dark" 
+                     alt="BrowserAI Chat" 
+                     style={{ width: '140px', height: '36px' }} />
+              </a>
+              <a 
+                href="https://github.com/Cloud-Code-AI/BrowserAI"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                </svg>
+              </a>
+              <a 
+                href="https://discord.gg/GyfX8DfG"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+                </svg>
+              </a>
             </div>
-            <ProgressBar>
-              <div 
-                className="fill" 
-                style={{ width: `${(stats.memoryUsage / stats.maxMemory * 100).toFixed(1)}%` }} 
-              />
-            </ProgressBar>
-          </StatItem>
-          
-          <StatItem>
-            <h3>Last Response Time</h3>
-            <span className="value">{stats.lastDecodingTime.toFixed(0)}</span>
-            <span className="unit">ms</span>
-          </StatItem>
-          
-          <StatItem>
-            <h3>Tokens per Second</h3>
-            <span className="value">{stats.tokensPerSecond.toFixed(1)}</span>
-            <span className="unit">tokens/s</span>
-          </StatItem>
-          
-          <StatItem>
-            <h3>Selected Model</h3>
-            <div style={{ color: '#fff', fontSize: '14px' }}>{selectedModel}</div>
-          </StatItem>
+          </div>
 
-          <StatItem>
-            <h3>Model Load Time</h3>
-            <span className="value">{(stats.modelLoadTime / 1000).toFixed(1)}</span>
-            <span className="unit">s</span>
-          </StatItem>
-          
-          <StatItem>
-            <h3>Peak Memory Usage</h3>
-            <span className="value">{stats.peakMemoryUsage.toFixed(1)}</span>
-            <span className="unit">MB</span>
-            <ProgressBar>
-              <div 
-                className="fill" 
-                style={{ width: `${Math.min(stats.peakMemoryUsage / 1000 * 100, 100)}%` }} 
-              />
-            </ProgressBar>
-          </StatItem>
+          {isSafari() && (
+            <div className="border border-gray-400 rounded-lg px-4 py-8 mb-20 w-full">
+              <p className="text-white text-left">
+                Please note: BrowserAI is currently not available for Safari
+              </p>
+            </div>
+          )}
+        </div>
+      </header>
 
-          <StatItem>
-            <h3>Response Time History</h3>
+      {/* Main Chat Area */}
+      <main className="max-w-7xl mx-auto px-4">
+          <Header>
+            <h1>BrowserAI Chat Demo</h1>
+            <Description>
+              A simple chat interface built using{' '}
+              <a href="https://github.com/sauravpanda/browserai" target="_blank" rel="noopener noreferrer">
+                BrowserAI
+              </a>
+              {' '}- Run AI models directly in your browser!
+            </Description>
             <div style={{ 
               display: 'flex', 
-              gap: '2px', 
-              height: '40px', 
-              alignItems: 'flex-end'
+              gap: '16px', 
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              justifyContent: 'center' 
             }}>
-              {stats.responseHistory.map((time, i) => (
-                <div
-                  key={i}
-                  style={{
-                    flex: 1,
-                    background: '#3b82f6',
-                    height: `${Math.min((time / 5000) * 100, 100)}%`,
-                    borderRadius: '2px',
-                  }}
+              <ModelSelect 
+                value={selectedModel} 
+                onChange={e => handleModelChange(e.target.value)}
+                disabled={loading}
+              >
+                <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (360MB)</option>
+                <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
+                <option value="deepseek-r1-distill-qwen-7b">DeepSeek R1 Distill Qwen 7B (5.1GB)</option>
+                <option value="deepseek-r1-distill-llama-8b">DeepSeek R1 Distill Llama 8B (6.1GB)</option>
+                <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1.75GB)</option>
+                <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
+                <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
+                <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
+                <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
+                <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
+                <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
+              </ModelSelect>
+              
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <input
+                  type="checkbox"
+                  id="worker-toggle"
+                  checked={useWebWorker}
+                  onChange={e => setUseWebWorker(e.target.checked)}
+                  disabled={loading || modelLoaded}
                 />
-              ))}
+                <label 
+                  htmlFor="worker-toggle" 
+                  style={{ color: '#a0a0a0', fontSize: '14px' }}
+                >
+                  Use Web Worker
+                </label>
+              </div>
+
+              <TestWorkerButton
+                onClick={async () => {
+                  if (!modelLoaded) return;
+                  
+                  // Start a UI-blocking operation
+                  const startTime = performance.now();
+                  
+                  // Generate text while also updating UI
+                  let dots = '';
+                  const updateInterval = setInterval(() => {
+                    dots = dots.length >= 3 ? '' : dots + '.';
+                    setInput(`Testing worker${dots}`);
+                  }, 100);
+                  
+                  try {
+                    await browserAI.generateText('Generate a long story about a cat.');
+                    clearInterval(updateInterval);
+                    setInput(`Test completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+                  } catch (err) {
+                    clearInterval(updateInterval);
+                    setInput('Test failed');
+                  }
+                }}
+                disabled={!modelLoaded}
+              >
+                Test Worker
+              </TestWorkerButton>
+
+              <Button 
+                onClick={loadModel}
+                disabled={loading || modelLoaded}
+              >
+                {loading ? 'Loading...' : modelLoaded ? 'Model Loaded' : 'Load Model'}
+              </Button>
+              <StatusIndicator isLoaded={modelLoaded}>
+                {modelLoaded ? 'Model Ready' : 'Model Not Loaded'}
+              </StatusIndicator>
             </div>
-          </StatItem>
+          </Header>
 
-          <StatItem>
-            <h3>Processing Mode</h3>
-            <div style={{ color: '#fff', fontSize: '14px' }}>
-              {useWebWorker ? 'Web Worker (Background Thread)' : 'Main Thread'}
-            </div>
-          </StatItem>
+          {loadError && (
+            <ErrorMessage>
+              Failed to load model: {loadError}
+            </ErrorMessage>
+          )}
 
-        </Sidebar>
-      </MainContent>
+          {/* {showPrivacyBanner && (
+            <PrivacyBanner>
+              <div className="header" onClick={() => setShowPrivacyDetails(!showPrivacyDetails)}>
+                <span style={{ color: '#a0a0a0' }}>
+                  📊 We collect anonymous performance metrics
+                  {!showPrivacyDetails && ' (click to learn more)'}
+                </span>
+                <span style={{ color: '#666' }}>
+                  {showPrivacyDetails ? '▼' : '▶'}
+                </span>
+              </div>
+              {showPrivacyDetails && (
+                <div className="details">
+                  We collect performance metrics and metadata to improve our library. 
+                  We don't store any conversation data - only technical metrics like response times, 
+                  memory usage, and error rates. {' '}
+                  <a href="https://github.com/browser-ai/browserai" target="_blank" rel="noopener noreferrer">
+                    Learn more
+                  </a>
+                </div>
+              )}
+            </PrivacyBanner>
+          )} */}
 
-      <WorkerStatus active={useWebWorker && modelLoaded}>
-        {useWebWorker ? 'Web Worker Active' : 'Main Thread'}
-      </WorkerStatus>
-    </Layout>
+          <MainContent>
+            <ChatContainer>
+              <ModelStatus>
+                {modelLoaded ? `Current Model: ${selectedModel}` : 'No Model Loaded'}
+              </ModelStatus>
+              
+              {loading ? (
+                <LoadingIndicator>
+                  <Spinner />
+                  <div style={{ marginBottom: '16px' }}>Loading model...</div>
+                  <ProgressBar>
+                    <div 
+                      className="fill" 
+                      style={{ width: `${loadingProgress}%` }} 
+                    />
+                  </ProgressBar>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    marginTop: '8px',
+                    fontSize: '14px',
+                    color: '#a0a0a0'
+                  }}>
+                    <span>{loadingProgress.toFixed(0)}% complete</span>
+                    {loadingStats.estimatedTimeRemaining !== null && (
+                      <span>
+                        {loadingStats.estimatedTimeRemaining > 60 
+                          ? `~${(loadingStats.estimatedTimeRemaining / 60).toFixed(1)} minutes remaining`
+                          : `~${Math.ceil(loadingStats.estimatedTimeRemaining)} seconds remaining`
+                        }
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ 
+                    marginTop: '12px',
+                    fontSize: '13px',
+                    color: '#666'
+                  }}>
+                    {selectedModel.includes('instruct') && 
+                      "This model includes instruction tuning for better chat responses"}
+                  </div>
+                </LoadingIndicator>
+              ) : (
+                <>
+                  <ChatBox ref={chatBoxRef}>
+                    {messages.map((message, index) => (
+                      <Message key={index} text={message.text} isUser={message.isUser} />
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </ChatBox>
+                  <InputContainer>
+                    <Input
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && handleSend()}
+                      placeholder={modelLoaded ? 'Type your message...' : 'Please load a model first'}
+                      disabled={!modelLoaded}
+                    />
+                    <Button 
+                      onClick={handleSend}
+                      disabled={!modelLoaded}
+                    >
+                      Send
+                    </Button>
+                  </InputContainer>
+                </>
+              )}
+            </ChatContainer>
+
+            <Sidebar>
+              <h2 style={{ marginTop: '0px', marginBottom: '24px' }}>Performance Stats</h2>
+              
+              <StatItem>
+                <h3>Memory Usage</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span>
+                    <span className="value">{stats.memoryUsage.toFixed(1)}</span>
+                    <span className="unit">MB</span>
+                  </span>
+                  <span style={{ color: '#666' }}>
+                    of {stats.maxMemory.toFixed(1)} MB
+                  </span>
+                </div>
+                <ProgressBar>
+                  <div 
+                    className="fill" 
+                    style={{ width: `${(stats.memoryUsage / stats.maxMemory * 100).toFixed(1)}%` }} 
+                  />
+                </ProgressBar>
+              </StatItem>
+              
+              <StatItem>
+                <h3>Last Response Time</h3>
+                <span className="value">{stats.lastDecodingTime.toFixed(0)}</span>
+                <span className="unit">ms</span>
+              </StatItem>
+              
+              <StatItem>
+                <h3>Tokens per Second</h3>
+                <span className="value">{stats.tokensPerSecond.toFixed(1)}</span>
+                <span className="unit">tokens/s</span>
+              </StatItem>
+              
+              <StatItem>
+                <h3>Selected Model</h3>
+                <div style={{ color: '#fff', fontSize: '14px' }}>{selectedModel}</div>
+              </StatItem>
+
+              <StatItem>
+                <h3>Model Load Time</h3>
+                <span className="value">{(stats.modelLoadTime / 1000).toFixed(1)}</span>
+                <span className="unit">s</span>
+              </StatItem>
+              
+              <StatItem>
+                <h3>Peak Memory Usage</h3>
+                <span className="value">{stats.peakMemoryUsage.toFixed(1)}</span>
+                <span className="unit">MB</span>
+                <ProgressBar>
+                  <div 
+                    className="fill" 
+                    style={{ width: `${Math.min(stats.peakMemoryUsage / 1000 * 100, 100)}%` }} 
+                  />
+                </ProgressBar>
+              </StatItem>
+
+              <StatItem>
+                <h3>Response Time History</h3>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '2px', 
+                  height: '40px', 
+                  alignItems: 'flex-end'
+                }}>
+                  {stats.responseHistory.map((time, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        background: '#3b82f6',
+                        height: `${Math.min((time / 5000) * 100, 100)}%`,
+                        borderRadius: '2px',
+                      }}
+                    />
+                  ))}
+                </div>
+              </StatItem>
+
+              <StatItem>
+                <h3>Processing Mode</h3>
+                <div style={{ color: '#fff', fontSize: '14px' }}>
+                  {useWebWorker ? 'Web Worker (Background Thread)' : 'Main Thread'}
+                </div>
+              </StatItem>
+
+            </Sidebar>
+          </MainContent>
+
+          <WorkerStatus active={useWebWorker && modelLoaded}>
+            {useWebWorker ? 'Web Worker Active' : 'Main Thread'}
+          </WorkerStatus>
+      </main>
+    </div>
   );
 }
