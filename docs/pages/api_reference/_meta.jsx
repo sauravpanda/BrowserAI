@@ -5,6 +5,7 @@ export default {
     "stop_recording": "Stop Recording",
     "transcribe_audio": "Transcribe Audio",
     "text_to_speech": "Text to Speech",
+    "database": "Database",
     "error_handling": "Error Handling",
     "events": "Events"
 }

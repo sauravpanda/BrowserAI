@@ -138,7 +138,7 @@ function App() {
       setIsLoading(true);
       setStatus('Generating speech...');
       const audioData = await ttsAI.textToSpeech(text, {
-        voice: 'hf_alpha',
+        voice: 'af_bella',
         speed: 1
       });
       

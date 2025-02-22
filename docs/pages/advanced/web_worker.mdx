@@ -1,0 +1,34 @@
+---
+title: 'Web Worker Support'
+description: 'Guide for using web workers with BrowserAI'
+---
+
+# Web Worker Support
+
+Run model inference in a separate thread for better performance.
+
+## Enabling Web Workers
+
+```javascript copy
+const response = await browserAI.generateText('Hello', {
+  useWorker: true
+});
+```
+
+## Benefits
+- Non-blocking UI
+- Parallel processing
+- Better resource utilization
+
+## Worker Status Monitoring
+
+```javascript copy
+browserAI.on('workerStatus', (status) => {
+  console.log('Worker status:', status);
+});
+```
+
+export const metadata = {
+  title: 'Web Worker Support',
+  description: 'Guide for using web workers with BrowserAI'
+} 

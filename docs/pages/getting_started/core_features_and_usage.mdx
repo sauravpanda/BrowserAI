@@ -18,7 +18,7 @@ const browserAI = new BrowserAI();
 
 async function generateText() {
     // Load a text generation model
-    await browserAI.loadModel('smollm2-135m-instruct');
+    await browserAI.loadModel('llama-3.2-1b-instruct');
     
     // Generate a response
     const response = await browserAI.generateText('What is machine learning?');
@@ -58,7 +58,7 @@ const browserAI = new BrowserAI();
 
 async function synthesizeSpeech() {
     // Load TTS model
-    await browserAI.loadModel('speecht5-tts');
+    await browserAI.loadModel('kokoro-tts');
     
     // Generate and play audio
     const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?');
@@ -85,7 +85,7 @@ const browserAI = new BrowserAI();
 
 async function extractFeatures() {
     // Load feature extraction model
-    await browserAI.loadModel('feature-extraction-model'); //Coming Soon
+    await browserAI.loadModel('snowflake-arctic-embed-s-b4'); //Coming Soon
     
     // Get text embeddings
     const embeddings = await browserAI.extractFeatures('Hello, world!');

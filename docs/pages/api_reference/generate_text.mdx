@@ -5,14 +5,14 @@ description: 'Documentation for text generation capabilities in BrowserAI'
 
 # Generate Text
 
-## generateText(prompt: string, options?: GenerationOptions)
+Generate text using the loaded language model.
 
 Generates text using the loaded language model.
 
 ```javascript copy
 const response = await browserAI.generateText('Write a story about space', {
   temperature: 0.7,
-  maxTokens: 100,
+  max_tokens: 100,
   system_prompt: "You are a sci-fi writer."
 });
 ```
@@ -28,12 +28,97 @@ const response = await browserAI.generateText('Write a story about space', {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| temperature | number | 0.7 | Randomness (0.0-1.0) |
-| maxTokens | number | 100 | Maximum response length |
-| topP | number | 0.9 | Nucleus sampling |
-| topK | number | 40 | Top-k sampling |
-| system_prompt | string | - | System context |
+| max_tokens | number | 300 | Maximum response length |
+| temperature | number | 0.6 | Controls randomness (0.0-1.0) |
+| top_p | number | 0.95 | Nucleus sampling threshold |
+| frequency_penalty | number | 0.5 | Penalize frequent tokens |
+| presence_penalty | number | 0.5 | Penalize tokens already present |
+| system_prompt | string | - | System context message |
 | stop_tokens | string[] | [] | Stop generation tokens |
+| useWorker | boolean | false | Run in web worker |
+| json_schema | object/string | - | JSON schema for structured output |
+| response_format | object | - | Format specification for response |
+| stream | boolean | false | Enable streaming response |
+
+### Example with Structured Output
+
+```javascript copy
+const response = await browserAI.generateText('List 3 colors', {
+  json_schema: {
+    type: "object",
+    properties: {
+      colors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            hex: { type: "string" }
+          }
+        }
+      }
+    }
+  },
+  response_format: {
+    type: "json_object"
+  }
+});
+
+// Returns:
+// {
+//   "colors": [
+//     { "name": "red", "hex": "#FF0000" },
+//     { "name": "blue", "hex": "#0000FF" },
+//     { "name": "green", "hex": "#00FF00" }
+//   ]
+// }
+```
+
+### Streaming Example
+
+```javascript copy
+const chunks = await browserAI.generateText('Write a story', {
+  max_tokens: 4096,
+  temperature: 0.6,
+  stream: true
+});
+
+let response = '';
+for await (const chunk of chunks as AsyncIterable<{
+  choices: Array<{ delta: { content?: string } }>,
+  usage: any
+}>) {
+  // Get the new content from the chunk
+  const newContent = chunk.choices[0]?.delta.content || '';
+  response += newContent;
+  
+  // Access usage statistics if needed
+  const usage = chunk.usage;
+  
+  // Update UI or process the partial response
+  console.log('Partial response:', response);
+}
+```
+
+### Stream Response Format
+
+Each chunk in the stream contains:
+
+```typescript
+interface StreamChunk {
+  choices: Array<{
+    delta: {
+      content?: string  // New content piece
+    }
+  }>,
+  usage: {
+    // Usage statistics for the generation
+    completion_tokens: number,
+    prompt_tokens: number,
+    total_tokens: number
+  }
+}
+```
 
 ### Returns
 `Promise<string>`
