@@ -1,58 +1,129 @@
 ---
-title: 'Text to Speech Options'
-description: 'Configuration options and parameters for text-to-speech with BrowserAI'
+title: 'Speech & TTS Options'
+description: 'Configuration options and parameters for speech recognition and text-to-speech with BrowserAI'
 ---
 
-# Text-to-Speech Options
+# Speech & TTS Options
 
-## Model Configuration Options
+## Speech Recognition Options
+
+### Model Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| quality | string | 'medium' | Model quality preset |
+| language | string | 'en' | Target language for recognition |
+| task | string | 'transcribe' | Task type ('transcribe' or 'translate') |
 | onProgress | function | - | Callback for loading progress updates |
 | onComplete | function | - | Callback when loading completes |
 | onError | function | - | Callback for error handling |
 
-## Speech Generation Parameters
+### Recording Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| voice | string | 'female_a' | Voice selection |
-| speed | number | 1.0 | Speech rate (0.5 - 2.0) |
-| pitch | number | 1.0 | Voice pitch adjustment |
-| language | string | 'en-US' | Language code |
-| quality | string | 'medium' | Audio quality preset |
-| format | string | 'wav' | Output format |
+| sampleRate | number | 16000 | Audio sample rate |
+| channels | number | 1 | Number of audio channels |
+
+### Transcription Parameters 
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| return_timestamps | boolean | false | Include word timestamps |
+| chunk_length_s | number | 30 | Processing chunk length in seconds |
+| stride_length_s | number | 5 | Overlap between chunks in seconds |
+| language | string | 'en' | Force specific language |
+
+## Text-to-Speech Options
+
+> **Note:** The TTS model can generate audio up to 30 seconds in length. Longer texts will be truncated.
+
+### Voice Options
+
+BrowserAI supports multiple voices across different languages:
+
+| Prefix | Language | Description |
+|--------|----------|-------------|
+| af_* | American English (Female) | Bella, Nicole, Sarah, Sky |
+| am_* | American English (Male) | Adam, Michael |
+| bf_* | British English (Female) | Emma, Isabella |
+| bm_* | British English (Male) | George, Lewis |
+| hf_* | Hindi (Female) | Alpha, Beta |
+| hm_* | Hindi (Male) | Omega, Psi |
+| ef_* | Spanish (Female) | Dora |
+| em_* | Spanish (Male) | Alex, Santa |
+| ff_* | French (Female) | Siwis |
+| jf_* | Japanese (Female) | Alpha, Gongitsune, Nezumi, Tebukuro |
+| jm_* | Japanese (Male) | Kumo |
+| zf_* | Chinese (Female) | Xiaobei, Xiaoni, Xiaoxiao, Xiaoyi |
+| zm_* | Chinese (Male) | Yunjian, Yunxi, Yunxia, Yunyang |
+
+### TTS Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| voice | string | 'af' | Voice ID to use (e.g., 'af_bella') |
+| speed | number | 1.0 | Speech rate multiplier |
+| dtype | string | 'fp32' | Model precision ('fp32' or 'fp16') |
 
 ## Example
 
 ```javascript copy
 const browserAI = new BrowserAI();
 
-// Load TTS model with options
-await browserAI.loadModel('speecht5-tts', {
+// Speech Recognition Example
+await browserAI.loadModel('whisper-tiny-en', {
+  language: 'en',
+  task: 'transcribe',
   onProgress: (progress) => {
-    console.log('Loading TTS model:', progress.progress + '%'); 
-    // "Loading TTS model: 75%"
+    console.log('Model loading:', progress.progress + '%');
   }
 });
 
-// Generate speech with custom parameters
-const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?', {
-  voice: 'female_a',
-  speed: 1.2,
-  pitch: 1.0,
-  language: 'en-US',
-  quality: 'high',
-  format: 'wav'
+await browserAI.startRecording({
+  sampleRate: 16000,
+  channels: 1
 });
 
-console.log('Audio Status:', 'Generated successfully'); 
-// "Audio Status: Generated successfully"
+const audioBlob = await browserAI.stopRecording();
+const transcription = await browserAI.transcribeAudio(audioBlob, {
+  return_timestamps: true,
+  chunk_length_s: 30,
+  stride_length_s: 5,
+  language: 'en'
+});
+
+// Load the TTS model
+await browserAI.loadModel('kokoro-tts', {
+  dtype: 'fp32',
+  onProgress: (progress) => {
+    console.log('Model loading:', progress.progress + '%');
+  }
+});
+
+// Generate speech from text
+const audioData = await browserAI.textToSpeech(
+  "Hello, this is a test message!", 
+  {
+    voice: "af_bella",
+    speed: 1.0
+  }
+);
+
+// Play the generated audio
+if (audioData) {
+  const blob = new Blob([audioData], { type: 'audio/wav' });
+  const audioUrl = URL.createObjectURL(blob);
+  const audio = new Audio(audioUrl);
+  
+  audio.onended = () => {
+    URL.revokeObjectURL(audioUrl); // Clean up
+  };
+  
+  await audio.play();
+}
 ```
 
 export const metadata = {
-    title: 'Text to Speech Options',
-    description: 'Configuration options and parameters for text-to-speech with BrowserAI'
+    title: 'Speech & TTS Options',
+    description: 'Configuration options and parameters for speech recognition and text-to-speech with BrowserAI'
 }

@@ -1,0 +1,95 @@
+---
+title: 'Structured Generation'
+description: 'Guide for generating structured outputs with JSON schemas'
+---
+
+# Structured Generation
+
+BrowserAI supports generating structured outputs using JSON schemas to enforce specific response formats.
+
+## Using JSON Schemas
+
+Define output structure using the `json_schema` option and specify `response_format`:
+
+```javascript copy
+const response = await browserAI.generateText('List 3 popular colors', {
+  json_schema: {
+    type: "object",
+    properties: {
+      colors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            hex: { type: "string" }
+          }
+        }
+      }
+    }
+  },
+  response_format: {
+    type: "json_object"
+  }
+});
+
+// Returns:
+// {
+//   "colors": [
+//     { "name": "blue", "hex": "#0000FF" },
+//     { "name": "red", "hex": "#FF0000" },
+//     { "name": "green", "hex": "#00FF00" }
+//   ]
+// }
+```
+
+## Schema Examples
+
+### Person Profile Schema
+```javascript copy
+const response = await browserAI.generateText('Create a profile for John', {
+  json_schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      age: { type: "number" },
+      hobbies: {
+        type: "array",
+        items: { type: "string" }
+      }
+    }
+  },
+  response_format: {
+    type: "json_object"
+  }
+});
+```
+
+## Try it Out
+
+You can find a complete working example in the `examples/schema_llm` directory of the BrowserAI repository. This example demonstrates:
+
+- Different schema types and structures
+- Real-time schema validation
+- Error handling
+- UI integration
+
+To run the example:
+```bash
+cd examples/schema_llm
+npm install
+npm run dev
+```
+
+## Best Practices
+
+1. Always include `response_format: { type: "json_object" }` when using JSON schemas
+2. Make your prompts specific about the structure you expect
+3. Use clear property names in your schema
+4. Consider adding validation constraints in your schema (e.g., minimum/maximum values)
+5. Handle the response as JSON using `JSON.parse()`
+
+export const metadata = {
+  title: 'Structured Generation',
+  description: 'Guide for generating structured outputs with JSON schemas'
+} 

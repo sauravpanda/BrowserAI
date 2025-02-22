@@ -1,0 +1,151 @@
+---
+title: 'Database Options'
+description: 'Configuration options and parameters for database operations with BrowserAI'
+---
+
+# Database Options
+
+BrowserAI provides built-in database support using IndexedDB and SQLite for managing AI data, conversations, and embeddings directly in the browser.
+
+## Database Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| databaseName | string | 'BrowserAI-DB' | Name of the database |
+| version | number | 1 | Database version for schema updates |
+| storeName | string | 'BrowserAIStore' | Name of the object store |
+| type | 'indexeddb' \| 'sqlite' | 'indexeddb' | Type of database to use |
+
+## Database Operations
+
+The database implementation supports the following core operations:
+
+| Operation | Description |
+|-----------|-------------|
+| store | Store a new document with unique ID |
+| get | Retrieve a document by ID |
+| getAll | Retrieve all stored documents |
+| update | Update an existing document |
+| delete | Delete a document by ID |
+| clear | Clear all documents from database |
+
+## Example Usage
+
+```typescript copy
+import { DatabaseImpl } from '@browserai/browserai';
+
+// Initialize database
+const db = new DatabaseImpl();
+await db.initialize({ 
+  type: 'indexeddb',
+  config: {
+    databaseName: 'MyApp-DB',
+    version: 1,
+    storeName: 'documents'
+  }
+});
+
+// Store a document
+await db.store({ 
+  id: 'doc1',
+  text: 'Sample document',
+  embedding: [0.1, 0.2, 0.3] // Optional embedding vector
+});
+
+// Retrieve a document
+const doc = await db.get('doc1');
+console.log(doc); // { id: 'doc1', text: 'Sample document', ... }
+
+// Update a document
+await db.update({
+  id: 'doc1',
+  text: 'Updated document'
+});
+
+// Delete a document
+await db.delete('doc1');
+
+// Clear database
+await db.clear();
+
+// Close database connection
+db.close();
+```
+
+## Vector Store Support
+
+The database also supports vector storage and similarity search when working with embeddings:
+
+```typescript copy
+// Initialize vector store
+db.setVectorStore('default');
+
+// Add vector for a document
+await db.addVector('doc1', [0.1, 0.2, 0.3]);
+
+// Search similar documents
+const similarDocs = await db.searchVector([0.1, 0.2, 0.3], 5);
+console.log(similarDocs); // ['doc2', 'doc3', ...]
+```
+
+## IndexedDB Demo Implementation
+
+Here's a complete example showing how to implement a database interface with React:
+
+```typescript copy
+import { useEffect, useState } from 'react';
+import { DatabaseImpl } from '@browserai/browserai';
+
+function DatabaseDemo() {
+  const [db, setDb] = useState(null);
+  
+  useEffect(() => {
+    const initDb = async () => {
+      const database = new DatabaseImpl();
+      await database.initialize({
+        type: 'indexeddb',
+        config: {
+          databaseName: 'BrowserAI-DB',
+          version: 1,
+          stores: { documents: { keyPath: 'id' } }
+        }
+      });
+      setDb(database);
+    };
+    
+    initDb();
+    return () => db?.close();
+  }, []);
+
+  const handleStore = async () => {
+    await db.store({
+      id: 'doc1',
+      text: 'Sample text',
+      embedding: [0.1, 0.2, 0.3]
+    });
+  };
+
+  // ... other database operations
+}
+```
+
+## Best Practices
+
+1. **Initialize Early**: Initialize the database when your application starts
+2. **Close Properly**: Always close database connections when no longer needed
+3. **Error Handling**: Implement proper error handling for database operations
+4. **Version Management**: Increment database version when changing schema
+5. **Unique IDs**: Ensure document IDs are unique within your application
+
+## Limitations
+
+- IndexedDB storage is limited by available browser storage
+- Vector store operations require additional memory for similarity computations
+- SQLite support requires additional setup in some environments
+
+For detailed examples of database implementations, see the [Database Demo](/demo/database_demo).
+
+export const metadata = {
+  title: 'Database Options',
+  description: 'Configuration options and parameters for database operations with BrowserAI'
+} 

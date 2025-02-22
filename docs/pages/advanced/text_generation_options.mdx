@@ -19,12 +19,14 @@ description: 'Configuration options and parameters for text generation with Brow
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | temperature | number | 0.7 | Controls randomness (0.0 - 1.0) |
-| maxTokens | number | 100 | Maximum length of response |
-| topP | number | 0.9 | Nucleus sampling parameter |
-| topK | number | 40 | Top-k sampling parameter |
+| max_tokens | number | 100 | Maximum length of response |
+| top_p | number | 0.9 | Nucleus sampling parameter |
+| top_k | number | 40 | Top-k sampling parameter |
 | system_prompt | string | - | System prompt for context |
-| stop_tokens | string[] | [] | Tokens that stop generation |
-| context_window | number | 2048 | Maximum context size |
+| stream | boolean | false | Enable streaming response |
+| json_schema | object/string | - | JSON schema for structured output |
+| response_format | object | - | Format specification for response |
+
 
 ## Example
 
@@ -47,16 +49,65 @@ await browserAI.loadModel('llama-3.2-1b-instruct', {
 // Generate text with custom parameters
 const response = await browserAI.generateText('Write a story about AI', {
   temperature: 0.8,
-  maxTokens: 200,
-  topP: 0.9,
-  topK: 40,
+  max_tokens: 200,
   system_prompt: "You are a creative storyteller specialized in science fiction.",
-  stop_tokens: ["\n\n", "THE END"],
-  context_window: 2048
 });
 
 console.log('Generated Story:', response); // "In the year 2045..."
 ```
+
+## Structured Output Generation
+
+You can generate structured JSON responses by providing a JSON schema and response format. This is useful when you need the output in a specific format for programmatic use.
+
+```javascript copy
+const response = await browserAI.generateText('List 3 colors', {
+  json_schema: {
+    type: "object",
+    properties: {
+      colors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            hex: { type: "string" }
+          }
+        }
+      }
+    }
+  },
+  response_format: {
+    type: "json_object"
+  }
+});
+```
+
+## Web Worker Support
+
+For better performance and to avoid blocking the main thread during text generation, you can enable web worker support:
+
+```javascript copy
+const response = await browserAI.generateText('Write a story about AI', {
+  useWorker: true,
+  // other parameters...
+});
+```
+
+## Streaming Responses
+
+You can receive text generation responses in chunks using the streaming option:
+
+```javascript copy
+const response = await browserAI.generateText('Write a story', {
+  stream: true,
+  // other parameters...
+});
+```
+
+For detailed examples of structured output, streaming responses, and web worker implementation, see the [Generate Text API Reference](/api_reference/generate_text).
+
+
 
 export const metadata = {
 title: 'Text Generation Options',

@@ -1,6 +1,6 @@
 ---
-title: 'Speech Recognition Options'
-description: 'Configuration options and parameters for speech recognition with BrowserAI'
+title: 'Audio & Speech Recognition Options'
+description: 'Configuration options and parameters for audio and speech recognition with BrowserAI'
 ---
 
 # Speech Recognition Options
@@ -9,59 +9,64 @@ description: 'Configuration options and parameters for speech recognition with B
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| language | string | 'en' | Target language for recognition |
-| task | string | 'transcribe' | Task type ('transcribe' or 'translate') |
+| device | string | 'webgpu' | Device to run model on |
 | onProgress | function | - | Callback for loading progress updates |
-| onComplete | function | - | Callback when loading completes |
-| onError | function | - | Callback for error handling |
+| quantization | string | 'q4' | Model quantization level |
 
-## Recording Parameters
+## Available Models
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| sampleRate | number | 16000 | Audio sample rate |
-| channels | number | 1 | Number of audio channels |
+| Model | Description | Size | Languages |
+|-------|-------------|------|-----------|
+| whisper-tiny-en | Lightweight English-only model | ~150MB | English |
+| whisper-base-all | Base multilingual model | ~290MB | 99 languages |
+| whisper-small-all | Enhanced multilingual model | ~490MB | 99 languages |
 
 ## Transcription Parameters 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| return_timestamps | boolean | false | Include word timestamps |
-| chunk_length_s | number | 30 | Processing chunk length in seconds |
-| stride_length_s | number | 5 | Overlap between chunks in seconds |
-| language | string | 'en' | Force specific language |
+| language | string | - | Target language code (optional) |
+| task | string | 'transcribe' | Task type ('transcribe' or 'translate') |
+| return_timestamps | boolean | false | Return word-level timestamps |
 
 ## Example
 
 ```javascript copy
 const browserAI = new BrowserAI();
 
-// Load Whisper model with options
+// Load speech recognition model
 await browserAI.loadModel('whisper-tiny-en', {
-  language: 'en',
-  task: 'transcribe',
+  device: 'webgpu',
   onProgress: (progress) => {
-    console.log('Model loading:', progress.progress + '%'); // "Model loading: 60%"
+    console.log('Loading model:', progress.progress + '%');
   }
 });
 
-// Start recording with custom parameters
-await browserAI.startRecording({
-  sampleRate: 16000,
-  channels: 1
-});
-
-// Transcribe with options
-const audioBlob = await browserAI.stopRecording();
-const transcription = await browserAI.transcribeAudio(audioBlob, {
+// Transcribe audio from blob/array
+const result = await browserAI.transcribe(audioInput, {
+  language: 'en',
   return_timestamps: true,
-  chunk_length_s: 30,
-  stride_length_s: 5,
-  language: 'en'
+  chunk_length_s: 30
 });
 
-console.log('Transcription Result:', transcription); 
-// { text: "Hello world", timestamps: [...] }
+console.log('Transcription:', result.text);
+// "Hello, how are you today?"
+```
+
+## Recording Audio
+
+BrowserAI provides built-in methods for recording audio:
+
+```javascript copy
+// Start recording
+await browserAI.startRecording();
+
+// Stop and get audio blob
+const audioBlob = await browserAI.stopRecording();
+
+// Transcribe the recorded audio
+const transcription = await browserAI.transcribeAudio(audioBlob);
+console.log(transcription.text);
 ```
 
 export const metadata = {

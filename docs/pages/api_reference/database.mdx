@@ -1,0 +1,198 @@
+---
+title: 'Database API'
+description: 'API reference for database operations in BrowserAI'
+---
+
+# Database API
+
+Manage data storage and retrieval using the built-in database functionality.
+
+```typescript copy
+const db = new DatabaseImpl();
+await db.initialize({
+  type: 'indexeddb',
+  config: {
+    databaseName: 'MyApp-DB'
+  }
+});
+```
+
+### Initialize Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| options | DatabaseOptions | Yes | Database configuration options |
+
+### DatabaseOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| type | 'indexeddb' \| 'sqlite' | 'indexeddb' | Database type to use |
+| config | DatabaseConfig | - | Configuration object |
+
+### DatabaseConfig
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| databaseName | string | 'BrowserAI-DB' | Database name |
+| version | number | 1 | Database version |
+| storeName | string | 'BrowserAIStore' | Store name |
+| stores | object | - | Store configurations |
+
+## Core Operations
+
+### store()
+
+Store a document in the database.
+
+```typescript copy
+await db.store({
+  id: 'doc1',
+  text: 'Sample document',
+  embedding: [0.1, 0.2, 0.3]
+});
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| document | Document | Yes | Document to store |
+| options | StoreOptions | No | Storage options |
+
+### get()
+
+Retrieve a document by ID.
+
+```typescript copy
+const doc = await db.get('doc1');
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | string | Yes | Document ID |
+
+#### Returns
+`Promise<Document | null>`
+
+### update()
+
+Update an existing document.
+
+```typescript copy
+await db.update({
+  id: 'doc1',
+  text: 'Updated content'
+});
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| document | Partial<Document> | Yes | Updated document fields |
+
+### delete()
+
+Delete a document by ID.
+
+```typescript copy
+await db.delete('doc1');
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | string | Yes | Document ID to delete |
+
+## Vector Operations
+
+### setVectorStore()
+
+Initialize vector store functionality.
+
+```typescript copy
+await db.setVectorStore('default');
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Vector store name |
+| options | VectorStoreOptions | No | Vector store configuration |
+
+### addVector()
+
+Add a vector embedding for a document.
+
+```typescript copy
+await db.addVector('doc1', [0.1, 0.2, 0.3]);
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | string | Yes | Document ID |
+| vector | number[] | Yes | Vector embedding |
+| metadata | object | No | Additional metadata |
+
+### searchVector()
+
+Search for similar documents using vector similarity.
+
+```typescript copy
+const results = await db.searchVector(
+  [0.1, 0.2, 0.3], 
+  5, 
+  { threshold: 0.8 }
+);
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| vector | number[] | Yes | Query vector |
+| k | number | Yes | Number of results |
+| options | SearchOptions | No | Search configuration |
+
+#### Returns
+`Promise<Array<{ id: string, score: number }>>`
+
+### Types
+
+```typescript
+interface Document {
+  id: string;
+  text?: string;
+  embedding?: number[];
+  [key: string]: any;
+}
+
+interface DatabaseConfig {
+  databaseName?: string;
+  version?: number;
+  storeName?: string;
+  stores?: Record<string, StoreConfig>;
+}
+
+interface StoreConfig {
+  keyPath?: string;
+  indexes?: Array<string>;
+}
+
+interface SearchOptions {
+  threshold?: number;
+  filter?: (doc: Document) => boolean;
+}
+```
+
+export const metadata = {
+  title: 'Database API',
+  description: 'API reference for database operations in BrowserAI'
+} 

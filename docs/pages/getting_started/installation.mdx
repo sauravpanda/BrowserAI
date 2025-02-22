@@ -38,7 +38,7 @@ const browserAI = new BrowserAI();
 // Load a model and generate text
 async function quickStart() {
     // Load a small, efficient model
-    await browserAI.loadModel('smollm2-135m-instruct');
+    await browserAI.loadModel('llama-3.2-1b-instruct');
     
     // Generate your first AI response!
     const response = await browserAI.generateText('Hello, BrowserAI!');

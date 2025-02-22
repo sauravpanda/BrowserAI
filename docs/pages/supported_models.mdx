@@ -9,26 +9,49 @@ BrowserAI comes with a carefully curated selection of models optimized for brows
 
 ## Text Generation Models
 
-| Model | Size | Best For | Memory Required | Loading Time |
-|-------|------|----------|-----------------|--------------|
-| **smollm2-135m-instruct** | 135MB | Quick tasks, Getting started | 512MB | Fast |
-| **smollm2-350m-instruct** | 350MB | Production use | 1GB | Medium |
-| **llama-3.2-1b-instruct** | 1GB | Complex tasks | 2GB | Slower |
+| Model | Description | Best For | Memory Required |
+|-------|-------------|----------|-----------------|
+| **smollm2-135m-instruct** | 135M parameters | Quick tasks, Getting started | 256MB |
+| **smollm2-360m-instruct** | 360M parameters | Balanced performance | 512MB |
+| **smollm2-1.7b-instruct** | 1.7B parameters | Better comprehension | 1GB |
+| **llama-3.2-1b-instruct** | 1B parameters | General purpose | 1GB |
+| **qwen2.5-0.5b-instruct** | 500M parameters | Efficient inference | 1GB |
+| **qwen2.5-1.5b-instruct** | 1.5B parameters | Better reasoning | 1GB |
+| **gemma-2b-it** | 2B parameters | Advanced tasks | 2GB |
+| **phi-3.5-mini-instruct** | Compact model | Quick responses | 2GB |
+| **tinyllama-1.1b-chat** | 1.1B parameters | Chat interactions | 1GB |
+| **deepseek-r1-distill-qwen-7b** | 7B parameters | General purpose | 2GB |
+| **deepseek-r1-distill-llama-8b** | 8B parameters | General purpose | 2GB |
 
 ## Speech Models
 
-| Model | Type | Size | Memory Required | Best For |
-|-------|------|------|-----------------|----------|
-| **whisper-tiny-en** | Speech Recognition | 75MB | 256MB | Quick transcription tasks |
-| **speecht5-tts** | Text-to-Speech | 150MB | 512MB | Natural speech synthesis |
+| Model | Type | Best For | Memory Required |
+|-------|------|----------|-----------------|
+| **whisper-tiny-en** | Speech Recognition | English transcription | 256MB |
+| **whisper-base-all** | Speech Recognition | Multi-language transcription | 512MB |
+| **whisper-small-all** | Speech Recognition | Improved accuracy | 1GB |
+| **kokoro-tts** | Text-to-Speech | Natural speech synthesis | 512MB |
+
+## Embedding Models
+
+| Model | Size | Best For | Memory Required |
+|-------|------|----------|-----------------|
+| **snowflake-arctic-embed-s** | Small (66MB) | Efficient embeddings | 128MB |
+| **snowflake-arctic-embed-m** | Medium (218MB) | Better quality embeddings | 256MB |
+
+## Multimodal Models (Coming Soon)
+
+| Model | Description | Best For | Memory Required |
+|-------|-------------|----------|-----------------|
+| **janus-1.3 (Coming Soon)b** | 1.3B parameters | Vision-language tasks | 1GB |
 
 ## Coming Soon
 
 We're constantly working on adding new models and improving existing ones. Stay tuned for:
 
-- More language support
-- Smaller, faster models
-- Specialized task models
+- More specialized task models
+- Improved multilingual support
+- Smaller and faster variants
 
 export const metadata = {
   title: 'BrowserAI Supported Models',
