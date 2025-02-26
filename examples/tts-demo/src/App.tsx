@@ -108,12 +108,79 @@ const Status = styled.div`
   gap: 8px;
 `;
 
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 8px;
+  background: #2a2a2a;
+  color: white;
+  border: 1px solid #444;
+  margin-bottom: 1rem;
+
+  &:focus {
+    outline: none;
+    border-color: #4CAF50;
+  }
+`;
+
+const InputGroup = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const RangeInput = styled.input`
+  width: 100%;
+  background: #2a2a2a;
+  -webkit-appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  margin: 10px 0;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #4CAF50;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+`;
+
+const Label = styled.label`
+  color: #888;
+  margin-bottom: 0.5rem;
+  display: block;
+`;
+
+const VOICE_OPTIONS = [
+  { id: 'af_bella', name: 'Bella', language: 'en-us', gender: 'Female' },
+  { id: 'af_nicole', name: 'Nicole', language: 'en-us', gender: 'Female' },
+  { id: 'af_sarah', name: 'Sarah', language: 'en-us', gender: 'Female' },
+  { id: 'af_sky', name: 'Sky', language: 'en-us', gender: 'Female' },
+  { id: 'am_adam', name: 'Adam', language: 'en-us', gender: 'Male' },
+  { id: 'am_michael', name: 'Michael', language: 'en-us', gender: 'Male' },
+  { id: 'bf_emma', name: 'Emma', language: 'en-gb', gender: 'Female' },
+  { id: 'bf_isabella', name: 'Isabella', language: 'en-gb', gender: 'Female' },
+  { id: 'bm_george', name: 'George', language: 'en-gb', gender: 'Male' },
+  { id: 'bm_lewis', name: 'Lewis', language: 'en-gb', gender: 'Male' },
+];
+
 function App() {
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [ttsAI] = useState(new BrowserAI());
   const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState('af_bella');
+  const [speed, setSpeed] = useState(1.0);
 
   const loadModel = async () => {
     try {
@@ -145,6 +212,7 @@ function App() {
       if (audioData) {
         // Create a blob with WAV MIME type
         const blob = new Blob([audioData], { type: 'audio/wav' });
+        setAudioBlob(blob); // Store the blob for download
         const audioUrl = URL.createObjectURL(blob);
         
         // Create and play audio element
@@ -173,6 +241,19 @@ function App() {
     }
   };
 
+  const downloadAudio = () => {
+    if (audioBlob) {
+      const url = URL.createObjectURL(audioBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'generated-speech.wav';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   return (
     <>
       <Banner>
@@ -197,6 +278,35 @@ function App() {
           </ButtonContent>
         </Button>
 
+        <InputGroup>
+          <div style={{ flex: 1 }}>
+            <Label>Voice</Label>
+            <Select
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+              disabled={!isModelLoaded || isLoading}
+            >
+              {VOICE_OPTIONS.map(voice => (
+                <option key={voice.id} value={voice.id}>
+                  {voice.name} ({voice.language}, {voice.gender})
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <Label>Speed: {speed.toFixed(1)}x</Label>
+            <RangeInput
+              type="range"
+              min="0.2"
+              max="2"
+              step="0.1"
+              value={speed}
+              onChange={(e) => setSpeed(parseFloat(e.target.value))}
+              disabled={!isModelLoaded || isLoading}
+            />
+          </div>
+        </InputGroup>
+
         <TextArea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -204,16 +314,26 @@ function App() {
           disabled={!isModelLoaded || isLoading}
         />
 
-        <Button
-          onClick={speak}
-          disabled={!isModelLoaded || isLoading || !text.trim()}
-          isLoading={isLoading && isModelLoaded}
-        >
-          <ButtonContent>
-            {(isLoading && isModelLoaded) && <Spinner />}
-            {isLoading ? 'Processing...' : 'Speak'}
-          </ButtonContent>
-        </Button>
+        <ButtonGroup>
+          <Button
+            onClick={speak}
+            disabled={!isModelLoaded || isLoading || !text.trim()}
+            isLoading={isLoading && isModelLoaded}
+          >
+            <ButtonContent>
+              {(isLoading && isModelLoaded) && <Spinner />}
+              {isLoading ? 'Processing...' : 'Speak'}
+            </ButtonContent>
+          </Button>
+
+          {audioBlob && (
+            <Button onClick={downloadAudio}>
+              <ButtonContent>
+                Download Audio
+              </ButtonContent>
+            </Button>
+          )}
+        </ButtonGroup>
 
         {(status || isLoading) && (
           <Status>

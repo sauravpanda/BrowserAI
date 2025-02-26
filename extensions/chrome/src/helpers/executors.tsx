@@ -25,6 +25,7 @@ export type StepStatus = 'pending' | 'running' | 'completed' | 'error';
 interface ExecuteWorkflowParams {
   nodes: WorkflowStep[];
   onProgress?: (message: string) => void;
+  onModelLoadProgress?: (progress: number, eta: number) => void;
   setNodes: (updater: any) => void;
   isTestMode?: boolean;
 }
@@ -116,13 +117,17 @@ const nodeExecutors = {
     };
   },
 
-  'chatAgent': async (node: WorkflowStep, input: any) => {
+  'chatAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
     try {
       const browserAI = new BrowserAI();
 
-      // Use the systemPrompt from nodeData or from previous system-prompt node
-      //   const systemPrompt = node.nodeData?.systemPrompt || input?.systemPrompt || '';
-      await browserAI.loadModel(node.nodeData?.model || 'llama-3.2-1b-instruct');
+      await browserAI.loadModel(node.nodeData?.model || 'llama-3.2-1b-instruct', {
+        onProgress: (progress: any) => {
+          const progressPercent = progress.progress || 0;
+          const eta = progress.eta || 0;
+          params?.onModelLoadProgress?.(progressPercent * 100, eta);
+        }
+      });
 
       // Safely prepare the input
       let promptInput = '';
@@ -207,14 +212,18 @@ const nodeExecutors = {
     };
   },
 
-  'transcriptionAgent': async (node: WorkflowStep, input: any) => {
+  'transcriptionAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
     try {
       console.debug("transcription-agent", node, input);
       const browserAI = new BrowserAI();
 
-      // Load the specified Whisper model or default to tiny
-      const modelName = node.nodeData?.model || 'whisper-tiny-en';
-      await browserAI.loadModel(modelName);
+      await browserAI.loadModel(node.nodeData?.model || 'whisper-tiny-en', {
+        onProgress: (progress: any) => {
+          const progressPercent = progress.progress || 0;
+          const eta = progress.eta || 0;
+          params?.onModelLoadProgress?.(progressPercent * 100, eta);
+        }
+      });
 
       // Extract audio data from input
       if (!input?.audioData) {
@@ -223,14 +232,14 @@ const nodeExecutors = {
 
       // Transcribe the audio
       const transcription = await browserAI.transcribeAudio(input.audioData, {
-        model: modelName,
+        model: node.nodeData?.model || 'whisper-tiny-en',
         // Add any additional options here
       });
 
       return {
         success: true,
         output: transcription,
-        log: `Audio transcribed successfully using ${modelName}`
+        log: `Audio transcribed successfully using ${node.nodeData?.model || 'whisper-tiny-en'}`
       };
     } catch (error) {
       console.error('TranscriptionAgent error:', error);
@@ -242,6 +251,7 @@ const nodeExecutors = {
 export const executeWorkflow = async ({
   nodes,
   onProgress,
+  onModelLoadProgress,
   setNodes,
 }: ExecuteWorkflowParams): Promise<WorkflowResult> => {
   try {
@@ -322,7 +332,7 @@ export const executeWorkflow = async ({
 
         console.debug("Final nodeInput:", nodeInput);
 
-        const result = await executor(node, nodeInput);
+        const result = await executor(node, nodeInput, { onProgress, onModelLoadProgress, setNodes, nodes });
         console.debug("Node execution result:", result);
 
         // Store output in workflow data

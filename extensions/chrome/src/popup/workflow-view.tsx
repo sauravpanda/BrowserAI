@@ -56,6 +56,8 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   const [inputs, setInputs] = useState<Record<string, AudioInput | string>>({})
   const [finalOutput, setFinalOutput] = useState<string | null>(null)
   const [expandedInputs, setExpandedInputs] = useState<Record<string, boolean>>({})
+  const [modelLoadProgress, setModelLoadProgress] = useState<number | null>(null);
+  const [modelLoadEta, setModelLoadEta] = useState<number | null>(null);
 
   useEffect(() => {
     console.log('Workflow data received:', workflow);
@@ -88,6 +90,8 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   const handleExecute = async () => {
     setIsExecuting(true);
     setExecutionProgress('');
+    setModelLoadProgress(null);
+    setModelLoadEta(null);
 
     try {
       // Process nodes and convert audio files to base64
@@ -126,6 +130,10 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
         nodes: updatedNodes as WorkflowStep[],
         onProgress: (progress: string) => {
           setExecutionProgress(progress);
+        },
+        onModelLoadProgress: (progress: number, eta: number) => {
+          setModelLoadProgress(progress);
+          setModelLoadEta(eta);
         },
         setNodes: (updatedNodes: WorkflowStep[]) => {
           setNodes(updatedNodes);
@@ -275,6 +283,25 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {modelLoadProgress !== null && (
+          <div className="p-2 bg-primary/10 text-primary text-sm sticky top-0 z-10">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-primary/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 rounded-full"
+                  style={{ width: `${modelLoadProgress}%` }}
+                />
+              </div>
+              <span className="text-xs whitespace-nowrap">
+                Downloading model: {Math.round(modelLoadProgress)}%
+                {modelLoadEta !== null && modelLoadEta > 0 && (
+                  ` (${modelLoadEta.toFixed(1)}s remaining)`
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
         {executionProgress && (
           <div className="p-2 bg-primary/10 text-primary text-sm sticky top-0 z-10">
             {executionProgress}
