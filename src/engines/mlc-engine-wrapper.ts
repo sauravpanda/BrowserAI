@@ -224,12 +224,34 @@ export class MLCEngineWrapper {
       throw new Error('MLC Engine not initialized.');
     }
 
-    let messages: Record<string, any>[] = Array.isArray(input) 
-      ? input 
-      : [
-          ...(options.system_prompt ? [{ role: 'system', content: options.system_prompt }] : []),
-          { role: 'user', content: input }
-        ];
+    // Start with system messages
+    let messages: Record<string, any>[] = [];
+    
+    // Combine system prompts into a single message
+    let systemContent = '';
+    
+    if (options.json_schema) {
+      systemContent += 'You must respond with valid JSON that matches the provided schema. Do not include any explanations or additional text.\n\n';
+    }
+    
+    if (options.system_prompt) {
+      systemContent += options.system_prompt;
+    }
+
+    // Add combined system message if we have any system content
+    if (systemContent) {
+      messages.push({
+        role: 'system',
+        content: systemContent.trim()
+      });
+    }
+
+    // Then add the user input
+    if (Array.isArray(input)) {
+      messages.push(...input);
+    } else {
+      messages.push({ role: 'user', content: input });
+    }
 
     // Set default options
     const defaultOptions = {
@@ -242,11 +264,6 @@ export class MLCEngineWrapper {
 
     // Handle JSON schema
     if (options.json_schema) {
-      messages.unshift({
-        role: 'system',
-        content: 'You must respond with valid JSON that matches the provided schema. Do not include any explanations or additional text.'
-      });
-
       // Ensure the schema is properly stringified
       const schema = typeof options.json_schema === 'string' 
         ? options.json_schema 
@@ -254,7 +271,7 @@ export class MLCEngineWrapper {
 
       options.response_format = {
         type: "json_object",
-        schema:schema
+        schema: schema
       };
     }
 
