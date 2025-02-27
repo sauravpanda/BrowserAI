@@ -112,7 +112,7 @@ const nodeExecutors = {
     // console.debug("system-prompt", node, input)
     return {
       success: true,
-      output: `Guidelines: ${node.nodeData?.value}\n\nContext: ${input}`,
+      output: `Guidelines: ${node.nodeData?.value}\n\n${input}`,
       log: 'System prompt processed'
     };
   },
@@ -143,12 +143,43 @@ const nodeExecutors = {
 
       // Use node's prompt if available, otherwise use the processed input
       const finalPrompt = node.nodeData?.prompt || promptInput;
+      
+      // Estimate token usage for system prompt and JSON schema
+      const systemPrompt = node.nodeData?.systemPrompt || '';
+      const jsonSchema = node.nodeData?.outputFormat ? JSON.stringify(node.nodeData.outputFormat) : '';
+      
+      // Rough estimation: ~4 chars per token
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const jsonSchemaTokens = Math.ceil(jsonSchema.length / 4);
+      const reservedTokens = systemPromptTokens + jsonSchemaTokens;
+      
+      const overheadTokens = 100; // For model instructions and formatting
+      
+      // Calculate available tokens for the main prompt
+      const contextSize = 4096; // Standard context size for most models
+      const availableTokens = contextSize - reservedTokens - overheadTokens;
+      
+      // Convert to character limit (rough estimation)
+      const maxPromptLength = Math.max(1000, availableTokens * 3); // Ensure at least 1000 chars
+      
+      console.debug("Token budget calculation:");
+      console.debug("- System prompt tokens (est):", systemPromptTokens);
+      console.debug("- JSON schema tokens (est):", jsonSchemaTokens);
+      console.debug("- Overhead:", overheadTokens);
+      console.debug("- Available for main prompt:", availableTokens);
+      console.debug("- Max prompt length (chars):", maxPromptLength);
+      
+      let truncatedPrompt = finalPrompt;
+      
+      if (finalPrompt.length > maxPromptLength) {
+        // Add a note about truncation
+        const truncationNote = "\n[Note: Input was truncated due to length constraints]\n";
+        truncatedPrompt = finalPrompt.slice(0, maxPromptLength - truncationNote.length);
+      }
 
-      // Ensure the prompt is not too large (add a reasonable limit)
-      const maxPromptLength = (node.nodeData?.maxTokens || 2048) * 3.6; // Adjust this value based on your model's requirements
-      const truncatedPrompt = finalPrompt.slice(0, maxPromptLength);
-
-      console.debug("Main Prompt", truncatedPrompt)
+      console.debug("Main Prompt Length:", truncatedPrompt.length);
+      console.debug("Main Prompt (truncated):", truncatedPrompt.slice(0, 100) + "...");
+      
       const result = await browserAI.generateText(
         truncatedPrompt,
         {
@@ -181,10 +212,17 @@ const nodeExecutors = {
   },
 
   'textInput': async (node: WorkflowStep, input: any) => {
-    console.debug("input-text", node, input)
+      // Handle context from previous node
+      const context = input ? String(input) : '';
+      const value = node.data?.value || '';
+
+      // Combine value and context
+      const finalOutput = value
+        ? (context ? `${value}\n${context}` : value)
+        : context;
     return {
       success: true,
-      output: input,
+      output: `Input text: ${finalOutput}`,
       log: 'Input text processed successfully'
     };
   },
@@ -293,6 +331,199 @@ const nodeExecutors = {
       };
     } catch (error) {
       console.error('TTSAgent error:', error);
+      throw error;
+    }
+  },
+
+  'stringManipulation': async (node: WorkflowStep, input: any) => {
+    try {
+      if (!input) {
+        throw new Error('No input provided');
+      }
+
+      const inputStr = String(input);
+      let result = inputStr;
+
+      switch (node.nodeData?.operation) {
+        case 'split':
+          result = inputStr.split(node.nodeData.parameter).join('\n');
+          break;
+        case 'slice':
+          const [start, end] = node.nodeData.parameter.split(',').map(Number);
+          result = inputStr.slice(start, end);
+          break;
+        case 'replace':
+          const [find, replace] = node.nodeData.parameter.split(',');
+          result = inputStr.replace(new RegExp(find, 'g'), replace);
+          break;
+        case 'trim':
+          result = inputStr.trim();
+          break;
+        case 'uppercase':
+          result = inputStr.toUpperCase();
+          break;
+        case 'lowercase':
+          result = inputStr.toLowerCase();
+          break;
+        case 'substring':
+          const [subStart, length] = node.nodeData.parameter.split(',').map(Number);
+          result = inputStr.substr(subStart, length);
+          break;
+        default:
+          throw new Error('Invalid operation');
+      }
+
+      return {
+        success: true,
+        output: result,
+        log: `String manipulation (${node.nodeData?.operation}) completed successfully`
+      };
+    } catch (error) {
+      console.error('Error in string manipulation node:', error);
+      throw error;
+    }
+  },
+
+  'ifElse': async (node: WorkflowStep, input: any) => {
+    try {
+      const inputStr = String(input || '');
+      const operator = node.nodeData?.operator;
+      const comparisonValue = node.nodeData?.comparisonValue;
+      let result = false;
+
+      switch (operator) {
+        case 'equals':
+          result = inputStr === comparisonValue;
+          break;
+        case 'notEquals':
+          result = inputStr !== comparisonValue;
+          break;
+        case 'greaterThan':
+          result = Number(inputStr) > Number(comparisonValue);
+          break;
+        case 'lessThan':
+          result = Number(inputStr) < Number(comparisonValue);
+          break;
+        case 'contains':
+          result = inputStr.includes(comparisonValue);
+          break;
+        case 'notContains':
+          result = !inputStr.includes(comparisonValue);
+          break;
+        default:
+          result = false;
+      }
+
+      return {
+        success: true,
+        output: input,
+        handle: result ? 'true' : 'false',
+        log: `Condition evaluated to ${result ? 'true' : 'false'}`
+      };
+    } catch (error) {
+      console.error('Error in if-else node:', error);
+      throw error;
+    }
+  },
+
+  'webhook': async (node: WorkflowStep, input: any) => {
+    try {
+      const endpoint = node.nodeData?.endpoint;
+      const method = node.nodeData?.method;
+      const authKey = node.nodeData?.authKey;
+      const inputData = input;
+
+      if (!endpoint) {
+        throw new Error('Webhook endpoint is required');
+      }
+
+      if (!method) {
+        throw new Error('HTTP method is required');
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (authKey) {
+        headers['Authorization'] = authKey;
+      }
+
+      // Use fetch instead of axios in the Chrome extension
+      let response;
+      if (method.toLowerCase() === 'get') {
+        const url = new URL(endpoint);
+        if (inputData) {
+          url.searchParams.append('input', String(inputData));
+        }
+        response = await fetch(url.toString(), { headers });
+      } else {
+        response = await fetch(endpoint, {
+          method: method.toLowerCase(),
+          headers,
+          body: inputData ? JSON.stringify(inputData) : undefined
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        output: JSON.stringify(result),
+        log: `Webhook (${method} to ${endpoint}) completed successfully`
+      };
+    } catch (error) {
+      console.error('Error in webhook node:', error);
+      throw error;
+    }
+  },
+
+  'openWebpage': async (node: WorkflowStep, input: any) => {
+    try {
+      // Check if URL is provided
+      if (!node.nodeData?.url) {
+        throw new Error('URL is required to open a webpage');
+      }
+
+      // Use Chrome extension API to open a new tab with the URL
+      await chrome.tabs.create({ url: node.nodeData.url });
+
+      // Pass through any input as output for workflow continuity
+      return {
+        success: true,
+        output: input,
+        log: `Opened webpage: ${node.nodeData?.url}`
+      };
+    } catch (error) {
+      console.error('Error opening webpage:', error);
+      throw error;
+    }
+  },
+
+  'iterator': async (node: WorkflowStep, input: any) => {
+    try {
+      // Combine input with items if present
+      const items = input ? [input, ...(node.nodeData?.items || [])] : (node.nodeData?.items || []);
+      if (items.length === 0) {
+        return {
+          success: true,
+          output: null,
+          log: 'No items to iterate'
+        };
+      }
+
+      // In the Chrome extension, we'll handle iteration differently
+      // Just return the first item and a note that iteration is limited
+      return {
+        success: true,
+        output: items[0],
+        log: 'Iterator processed first item (note: full iteration requires the web app)'
+      };
+    } catch (error) {
+      console.error('Error in iterator node:', error);
       throw error;
     }
   },

@@ -80,6 +80,22 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
     return `${uniqueTypes.join(' and ')} ${uniqueTypes.length > 1 ? 'are' : 'is'} not supported in the Chrome extension. Please use the web app version instead.`;
   };
 
+  // Add helper functions to identify node types
+  const isStringManipulationNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'stringmanipulation';
+
+  const isIfElseNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'ifelse';
+
+  const isWebhookNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'webhook';
+
+  const isOpenWebpageNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'openwebpage';
+
+  const isIteratorNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'iterator';
+
   useEffect(() => {
     console.log('Workflow data received:', workflow);
     console.log('Initial nodes:', nodes);
@@ -215,8 +231,18 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
         return 'bg-gradient-to-r from-[#95E2A1] to-[#90DEB4] dark:from-[#3E6C43] dark:to-[#2B503D]';
       case 'readcurrentpage':
         return 'bg-gradient-to-r from-[#9DE8F2] to-[#7ABCDF] dark:from-[#2F555A] dark:to-[#213551]';
+      case 'stringmanipulation':
+        return 'bg-gradient-to-r from-[#F2C36C] to-[#F5A769] dark:from-[#61431D] dark:to-[#5F3D1D]';
+      case 'ifelse':
+        return 'bg-gradient-to-r from-[#7A90F1] to-[#739AF3] dark:from-[#202761] dark:to-[#39456E]';
+      case 'webhook':
+        return 'bg-gradient-to-r from-[#C69EF7] to-[#D69ADE] dark:from-[#442966] dark:to-[#4F2956]';
+      case 'openwebpage':
+        return 'bg-gradient-to-r from-[#90DEB4] to-[#95E2A1] dark:from-[#2B503D] dark:to-[#3E6C43]';
+      case 'iterator':
+        return 'bg-gradient-to-r from-[#7ABCDF] to-[#9DE8F2] dark:from-[#213551] dark:to-[#2F555A]';
       default:
-      return 'bg-gray-500/10 dark:bg-gray-500/20';
+        return 'bg-gray-500/10 dark:bg-gray-500/20';
     }
   };
 
@@ -251,10 +277,12 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
     return node.nodeData?.value && node.nodeData.value.trim().length > 0;
   };
 
-  // Update helper to check if node should show content section
+  // Update shouldShowContentSection to handle new node types
   const shouldShowContentSection = (node: WorkflowStep) => {
-    const inputTypes = ['input', 'output', 'systemprompt']; // Add other input-capable node types here
-    return inputTypes.some(type => node.nodeType?.toLowerCase().includes(type)) || hasPersistedInput(node);
+    const inputTypes = ['input', 'output', 'systemprompt', 'stringmanipulation', 'webhook', 'openwebpage', 'iterator']; 
+    return inputTypes.some(type => node.nodeType?.toLowerCase().includes(type)) || 
+           hasPersistedInput(node) || 
+           isIfElseNode(node);
   };
 
   // Add helper to check if node is output type
@@ -369,6 +397,90 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
 
                     {shouldShowContentSection(node) && (
                       <div className="bg-white dark:bg-gray-900 p-3">
+                        {/* String Manipulation Node */}
+                        {isStringManipulationNode(node) && (
+                          <div className="w-full">
+                            {!node.logs.length ? (
+                              <div className="text-sm text-muted-foreground text-left italic">
+                                String operation: {node.nodeData?.operation || 'Not specified'}
+                                {node.nodeData?.parameter && 
+                                  <span className="ml-2">Parameter: {node.nodeData.parameter}</span>
+                                }
+                              </div>
+                            ) : (
+                              <div className="text-sm text-foreground text-left">
+                                {node.nodeData?.value || 'Operation completed'}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* If-Else Node */}
+                        {isIfElseNode(node) && (
+                          <div className="w-full">
+                            <div className="text-sm text-muted-foreground text-left">
+                              Condition: {node.nodeData?.operator || 'equals'} {node.nodeData?.comparisonValue || ''}
+                            </div>
+                            {node.status === 'completed' && (
+                              <div className="mt-1 text-sm font-medium text-left">
+                                Result: <span className={node.nodeData?.result === 'true' ? 'text-green-500' : 'text-amber-500'}>
+                                  {node.nodeData?.result === 'true' ? 'True' : 'False'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Webhook Node */}
+                        {isWebhookNode(node) && (
+                          <div className="w-full">
+                            <div className="text-sm text-muted-foreground text-left">
+                              {node.nodeData?.method || 'GET'} {node.nodeData?.endpoint || 'No endpoint specified'}
+                            </div>
+                            {node.status === 'completed' && node.nodeData?.value && (
+                              <div className="mt-2 text-sm text-foreground text-left overflow-hidden text-ellipsis">
+                                Response: {node.nodeData.value.length > 50 
+                                  ? node.nodeData.value.substring(0, 50) + '...' 
+                                  : node.nodeData.value}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Open Webpage Node */}
+                        {isOpenWebpageNode(node) && (
+                          <div className="w-full">
+                            <div className="text-sm text-muted-foreground text-left">
+                              URL: {node.nodeData?.url || 'No URL specified'}
+                            </div>
+                            {node.status === 'completed' && (
+                              <div className="mt-1 text-sm text-green-500 text-left">
+                                Page opened in new tab
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Iterator Node */}
+                        {isIteratorNode(node) && (
+                          <div className="w-full">
+                            <div className="text-sm text-muted-foreground text-left">
+                              Items: {node.nodeData?.items?.length || 0} 
+                              {node.nodeData?.items && node.nodeData.items.length > 0 && (
+                                <span className="ml-2">
+                                  (First: {String(node.nodeData.items[0]).substring(0, 20)}
+                                  {String(node.nodeData.items[0]).length > 20 ? '...' : ''})
+                                </span>
+                              )}
+                            </div>
+                            {node.status === 'completed' && (
+                              <div className="mt-1 text-sm text-amber-500 text-left">
+                                Note: Full iteration requires the web app
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Audio Input Node */}
                         {isAudioInputNode(node) && (
                           <div className="w-full">
