@@ -143,34 +143,34 @@ const nodeExecutors = {
 
       // Use node's prompt if available, otherwise use the processed input
       const finalPrompt = node.nodeData?.prompt || promptInput;
-      
+
       // Estimate token usage for system prompt and JSON schema
       const systemPrompt = node.nodeData?.systemPrompt || '';
       const jsonSchema = node.nodeData?.outputFormat ? JSON.stringify(node.nodeData.outputFormat) : '';
-      
+
       // Rough estimation: ~4 chars per token
       const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
       const jsonSchemaTokens = Math.ceil(jsonSchema.length / 4);
       const reservedTokens = systemPromptTokens + jsonSchemaTokens;
-      
+
       const overheadTokens = 100; // For model instructions and formatting
-      
+
       // Calculate available tokens for the main prompt
       const contextSize = 4096; // Standard context size for most models
       const availableTokens = contextSize - reservedTokens - overheadTokens;
-      
+
       // Convert to character limit (rough estimation)
       const maxPromptLength = Math.max(1000, availableTokens * 3); // Ensure at least 1000 chars
-      
+
       console.debug("Token budget calculation:");
       console.debug("- System prompt tokens (est):", systemPromptTokens);
       console.debug("- JSON schema tokens (est):", jsonSchemaTokens);
       console.debug("- Overhead:", overheadTokens);
       console.debug("- Available for main prompt:", availableTokens);
       console.debug("- Max prompt length (chars):", maxPromptLength);
-      
+
       let truncatedPrompt = finalPrompt;
-      
+
       if (finalPrompt.length > maxPromptLength) {
         // Add a note about truncation
         const truncationNote = "\n[Note: Input was truncated due to length constraints]\n";
@@ -179,21 +179,100 @@ const nodeExecutors = {
 
       console.debug("Main Prompt Length:", truncatedPrompt.length);
       console.debug("Main Prompt (truncated):", truncatedPrompt.slice(0, 100) + "...");
-      
-      const result = await browserAI.generateText(
+
+      let result = '';
+
+      // Update node with streaming status
+      params?.setNodes?.((prev: WorkflowStep[]) =>
+        prev.map(n =>
+          n.id === node.id
+            ? {
+              ...n,
+              logs: [...(n.logs || []), 'Streaming response...']
+            }
+            : n
+        )
+      );
+
+      // Find any textOutput nodes that come after this node and mark them as running
+      const allNodes = params?.nodes || [];
+      const currentNodeIndex = allNodes.findIndex(n => n.id === node.id);
+      if (currentNodeIndex >= 0) {
+        const textOutputNodes = allNodes
+          .slice(currentNodeIndex + 1)
+          .filter(n => n.nodeType === 'textOutput');
+        
+        if (textOutputNodes.length > 0) {
+          params?.setNodes?.((prev: WorkflowStep[]) =>
+            prev.map(n =>
+              textOutputNodes.some(ton => ton.id === n.id)
+                ? {
+                  ...n,
+                  status: 'running',
+                  logs: [...(n.logs || []), 'Receiving streaming content...'],
+                  data: { ...n.data, value: 'Waiting for content...' }
+                }
+                : n
+            )
+          );
+        }
+      }
+
+      const chunks = await browserAI.generateText(
         truncatedPrompt,
         {
           temperature: node.nodeData?.temperature || 0.7,
           max_tokens: node.nodeData?.maxTokens || 2048,
           system_prompt: node.nodeData?.systemPrompt,
-          json_schema: node.nodeData?.outputFormat
+          json_schema: node.nodeData?.outputFormat,
+          stream: true
         }
       );
+
+      for await (const chunk of chunks as AsyncIterable<{
+        choices: Array<{ delta: { content?: string } }>,
+        usage: any
+      }>) {
+        // Get the new content from the chunk
+        const newContent = chunk.choices[0]?.delta.content || '';
+        result += newContent;
+
+        // Update the node with the current result
+        if (newContent) {
+          params?.setNodes?.((prev: WorkflowStep[]) => {
+            // Update current node
+            const updatedNodes = prev.map(n =>
+              n.id === node.id
+                ? {
+                    ...n,
+                    data: { ...n.data, value: result }
+                  }
+                : n
+            );
+            
+            // Find any textOutput nodes that come after this node and update them too
+            const currentNodeIndex = prev.findIndex(n => n.id === node.id);
+            if (currentNodeIndex >= 0) {
+              return prev.map((n, index) => {
+                if (index > currentNodeIndex && n.nodeType === 'textOutput') {
+                  return {
+                    ...n,
+                    data: { ...n.data, value: result }
+                  };
+                }
+                return updatedNodes.find(node => node.id === n.id) || n;
+              });
+            }
+            
+            return updatedNodes;
+          });
+        }
+      }
 
       return {
         success: true,
         output: result,
-        log: 'Chat agent completed successfully'
+        log: 'Chat agent completed successfully (streaming)'
       };
     } catch (error) {
       console.error('ChatAgent error:', error);
@@ -212,14 +291,14 @@ const nodeExecutors = {
   },
 
   'textInput': async (node: WorkflowStep, input: any) => {
-      // Handle context from previous node
-      const context = input ? String(input) : '';
-      const value = node.data?.value || '';
+    // Handle context from previous node
+    const context = input ? String(input) : '';
+    const value = node.data?.value || '';
 
-      // Combine value and context
-      const finalOutput = value
-        ? (context ? `${value}\n${context}` : value)
-        : context;
+    // Combine value and context
+    const finalOutput = value
+      ? (context ? `${value}\n${context}` : value)
+      : context;
     return {
       success: true,
       output: `Input text: ${finalOutput}`,
@@ -228,7 +307,17 @@ const nodeExecutors = {
   },
 
   'textOutput': async (node: WorkflowStep, input: any) => {
-    console.debug("output", node, input)
+    console.debug("output", node, input);
+    
+    // If there's streaming content from a previous node, use it
+    if (node.data?.streamingValue) {
+      return {
+        success: true,
+        output: node.data.streamingValue,
+        log: 'Output processed successfully (streaming)'
+      };
+    }
+    
     return {
       success: true,
       output: input,
@@ -253,10 +342,10 @@ const nodeExecutors = {
   'transcriptionAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
     try {
       console.debug("transcription-agent", node, input);
-      
+
       // Throw a specific error for speech transcription in Chrome extension
       throw new Error("Speech transcription models are not supported in the Chrome extension. Please use the web app version instead.");
-      
+
       // The code below will not execute due to the error above
       const browserAI = new BrowserAI();
 
@@ -293,10 +382,10 @@ const nodeExecutors = {
   'ttsAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
     try {
       console.debug("tts-agent", node, input);
-      
+
       // Throw a specific error for TTS in Chrome extension
       throw new Error("Text-to-speech models are not supported in the Chrome extension. Please use the web app version instead.");
-      
+
       // The code below will not execute due to the error above
       const browserAI = new BrowserAI();
 
@@ -317,10 +406,10 @@ const nodeExecutors = {
       const audioData = await browserAI.textToSpeech(input, {
         voice: node.nodeData?.voice || 'af_bella'
       });
-      
+
       // Create blob with proper MIME type
       const blob = new Blob([audioData], { type: 'audio/wav' });
-      
+
       // Create and store blob URL
       const audioUrl = URL.createObjectURL(blob);
 
@@ -612,6 +701,22 @@ export const executeWorkflow = async ({
         }
 
         console.debug("Final nodeInput:", nodeInput);
+
+        // Special handling for textOutput nodes that follow a chatAgent
+        // Mark them as running immediately so they can receive streaming updates
+        if (node.nodeType === 'textOutput' && i > 0 && nodes[i-1].nodeType === 'chatAgent') {
+          setNodes((prev: WorkflowStep[]) =>
+            prev.map(n =>
+              n.id === node.id
+                ? {
+                  ...n,
+                  status: 'running',
+                  logs: [...n.logs, 'Receiving streaming content...']
+                }
+                : n
+            )
+          );
+        }
 
         const result = await executor(node, nodeInput, { onProgress, onModelLoadProgress, setNodes, nodes });
         console.debug("Node execution result:", result);
