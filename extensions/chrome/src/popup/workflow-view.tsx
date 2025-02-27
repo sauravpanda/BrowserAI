@@ -621,7 +621,7 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
 
                             {isOutputNode(node) && (
                               <div className="w-full">
-                                {!node.logs.length ? (
+                                {!node.logs.length && !node.data?.value ? (
                                   <div className="text-sm text-muted-foreground text-left italic">
                                     Output will be rendered here
                                   </div>
@@ -629,11 +629,11 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
                                   <div className="space-y-2">
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="text-base text-foreground text-left whitespace-pre-wrap flex-1">
-                                        {node.nodeData?.value || finalOutput}
+                                        {node.data?.value || node.nodeData?.value || finalOutput}
                                       </div>
                                       <div 
                                         onClick={() => {
-                                          copyToClipboard(node.nodeData?.value || finalOutput || '');
+                                          copyToClipboard(node.data?.value || node.nodeData?.value || finalOutput || '');
                                           toast({
                                             title: "Copied to clipboard",
                                             duration: 1500,
