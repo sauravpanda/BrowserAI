@@ -148,15 +148,14 @@ const nodeExecutors = {
       const maxPromptLength = (node.nodeData?.maxTokens || 2048) * 3.6; // Adjust this value based on your model's requirements
       const truncatedPrompt = finalPrompt.slice(0, maxPromptLength);
 
-      //   console.debug("Final prompt length:", truncatedPrompt.length);
-      //   console.debug("First 100 chars of prompt:", truncatedPrompt.slice(0, 100));
       console.debug("Main Prompt", truncatedPrompt)
       const result = await browserAI.generateText(
         truncatedPrompt,
         {
           temperature: node.nodeData?.temperature || 0.7,
           max_tokens: node.nodeData?.maxTokens || 2048,
-          system_prompt: node.nodeData?.systemPrompt
+          system_prompt: node.nodeData?.systemPrompt,
+          json_schema: node.nodeData?.outputFormat
         }
       );
 
