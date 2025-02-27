@@ -1,7 +1,7 @@
 {
   "name": "@browserai/chrome-extension",
   "private": false,
-  "version": "0.0.1",
+  "version": "1.0.5",
   "type": "module",
   "license": "MIT",
   "repository": {
