@@ -155,7 +155,8 @@ const nodeExecutors = {
         truncatedPrompt,
         {
           temperature: node.nodeData?.temperature || 0.7,
-          max_tokens: node.nodeData?.maxTokens || 2048
+          max_tokens: node.nodeData?.maxTokens || 2048,
+          system_prompt: node.nodeData?.systemPrompt
         }
       );
 
@@ -215,6 +216,11 @@ const nodeExecutors = {
   'transcriptionAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
     try {
       console.debug("transcription-agent", node, input);
+      
+      // Throw a specific error for speech transcription in Chrome extension
+      throw new Error("Speech transcription models are not supported in the Chrome extension. Please use the web app version instead.");
+      
+      // The code below will not execute due to the error above
       const browserAI = new BrowserAI();
 
       await browserAI.loadModel(node.nodeData?.model || 'whisper-tiny-en', {
@@ -243,6 +249,51 @@ const nodeExecutors = {
       };
     } catch (error) {
       console.error('TranscriptionAgent error:', error);
+      throw error;
+    }
+  },
+
+  'ttsAgent': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
+    try {
+      console.debug("tts-agent", node, input);
+      
+      // Throw a specific error for TTS in Chrome extension
+      throw new Error("Text-to-speech models are not supported in the Chrome extension. Please use the web app version instead.");
+      
+      // The code below will not execute due to the error above
+      const browserAI = new BrowserAI();
+
+      await browserAI.loadModel(node.nodeData?.model || 'kokoro-tts', {
+        onProgress: (progress: any) => {
+          const progressPercent = progress.progress || 0;
+          const eta = progress.eta || 0;
+          params?.onModelLoadProgress?.(progressPercent * 100, eta);
+        }
+      });
+
+      // Extract text input
+      if (!input) {
+        throw new Error('No text input provided to TTS agent');
+      }
+
+      // Generate speech
+      const audioData = await browserAI.textToSpeech(input, {
+        voice: node.nodeData?.voice || 'af_bella'
+      });
+      
+      // Create blob with proper MIME type
+      const blob = new Blob([audioData], { type: 'audio/wav' });
+      
+      // Create and store blob URL
+      const audioUrl = URL.createObjectURL(blob);
+
+      return {
+        success: true,
+        output: audioUrl,
+        log: `Text-to-speech generated successfully using ${node.nodeData?.model || 'bark-small'}`
+      };
+    } catch (error) {
+      console.error('TTSAgent error:', error);
       throw error;
     }
   },
