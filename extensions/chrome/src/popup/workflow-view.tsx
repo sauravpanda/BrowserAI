@@ -59,6 +59,27 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   const [modelLoadProgress, setModelLoadProgress] = useState<number | null>(null);
   const [modelLoadEta, setModelLoadEta] = useState<number | null>(null);
 
+  // Add this function to check for unsupported nodes
+  const hasUnsupportedNodes = () => {
+    return nodes.some(node => 
+      node.nodeType?.toLowerCase() === 'ttsagent' || 
+      node.nodeType?.toLowerCase() === 'transcriptionagent'
+    );
+  };
+
+  // Get the unsupported node warning message
+  const getUnsupportedWarningMessage = () => {
+    const unsupportedTypes = nodes
+      .filter(node => 
+        node.nodeType?.toLowerCase() === 'ttsagent' || 
+        node.nodeType?.toLowerCase() === 'transcriptionagent'
+      )
+      .map(node => node.nodeType?.toLowerCase() === 'ttsagent' ? 'Text-to-Speech' : 'Speech Transcription');
+    
+    const uniqueTypes = [...new Set(unsupportedTypes)];
+    return `${uniqueTypes.join(' and ')} ${uniqueTypes.length > 1 ? 'are' : 'is'} not supported in the Chrome extension. Please use the web app version instead.`;
+  };
+
   useEffect(() => {
     console.log('Workflow data received:', workflow);
     console.log('Initial nodes:', nodes);
@@ -71,6 +92,15 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
         fullNodeData: JSON.stringify(node.nodeData, null, 2)
       });
     });
+    
+    // Show toast warning if workflow contains unsupported nodes
+    if (hasUnsupportedNodes()) {
+      toast({
+        variant: "destructive",
+        title: "Unsupported workflow",
+        description: getUnsupportedWarningMessage()
+      });
+    }
   }, []);
 
   // Update areAllInputsFilled function
@@ -273,7 +303,7 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
         <div className="flex items-center gap-8">
           <Button 
             onClick={handleExecute}
-            disabled={isExecuting || !areAllInputsFilled()}
+            disabled={isExecuting || !areAllInputsFilled() || hasUnsupportedNodes()}
             className="flex items-center gap-2"
           >
             <Play className="h-4 w-4" />
@@ -283,6 +313,12 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {hasUnsupportedNodes() && (
+          <div className="p-3 bg-destructive/10 text-destructive text-sm mb-2 mx-4 mt-4 rounded-md">
+            <strong>Warning:</strong> {getUnsupportedWarningMessage()}
+          </div>
+        )}
+
         {modelLoadProgress !== null && (
           <div className="p-2 bg-primary/10 text-primary text-sm sticky top-0 z-10">
             <div className="flex items-center gap-2">
