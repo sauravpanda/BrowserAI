@@ -96,12 +96,16 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   const isIteratorNode = (node: WorkflowStep) => 
     node.nodeType?.toLowerCase() === 'iterator';
 
+  // Add this helper function to identify outputFormat nodes
+  const isOutputFormatNode = (node: WorkflowStep) => 
+    node.nodeType?.toLowerCase() === 'outputformat';
+
   useEffect(() => {
-    console.log('Workflow data received:', workflow);
-    console.log('Initial nodes:', nodes);
+    console.debug('Workflow data received:', workflow);
+    console.debug('Initial nodes:', nodes);
     // Add detailed logging for each node
     nodes.forEach(node => {
-      console.log(`Node ${node.id} details:`, {
+      console.debug(`Node ${node.id} details:`, {
         nodeType: node.nodeType,
         nodeData: node.nodeData,
         value: node.nodeData?.value,
@@ -267,18 +271,21 @@ export function WorkflowView({ workflow, onBack }: WorkflowViewProps) {
   };
 
   const hasPersistedInput = (node: WorkflowStep) => {
-    console.log('Checking node for persisted input:', {
-      nodeId: node.id,
-      nodeType: node.nodeType,
-      nodeData: node.nodeData,
-      value: node.nodeData?.value,
-      fullNode: node
-    });
+    // console.debug('Checking node for persisted input:', {
+    //   nodeId: node.id,
+    //   nodeType: node.nodeType,
+    //   nodeData: node.nodeData,
+    //   value: node.nodeData?.value,
+    //   fullNode: node
+    // });
     return node.nodeData?.value && node.nodeData.value.trim().length > 0;
   };
 
-  // Update shouldShowContentSection to handle new node types
+  // Update shouldShowContentSection to exclude outputFormat nodes completely
   const shouldShowContentSection = (node: WorkflowStep) => {
+    // Don't show content section for outputFormat nodes at all
+    if (isOutputFormatNode(node)) return false;
+    
     const inputTypes = ['input', 'output', 'systemprompt', 'stringmanipulation', 'webhook', 'openwebpage', 'iterator']; 
     return inputTypes.some(type => node.nodeType?.toLowerCase().includes(type)) || 
            hasPersistedInput(node) || 

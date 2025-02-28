@@ -141,16 +141,26 @@ const nodeExecutors = {
         }
       }
 
+      // Get the system prompt
+      let systemPrompt = node.nodeData?.systemPrompt || '';
+      let jsonSchemaStr = '';
+      // If we have a JSON schema from an OutputFormat node, add it to the system prompt
+      if (node.nodeData?.jsonSchema) {
+        console.debug("Using JSON schema in chatAgent:", node.nodeData.jsonSchema);
+        jsonSchemaStr = typeof node.nodeData.jsonSchema === 'string' 
+          ? node.nodeData.jsonSchema 
+          : JSON.stringify(node.nodeData.jsonSchema, null, 2);
+        
+        // Add the JSON schema to the system prompt
+        systemPrompt += `\n\nYou MUST format your response according to this JSON schema:\n${jsonSchemaStr}`;
+      }
+
       // Use node's prompt if available, otherwise use the processed input
       const finalPrompt = node.nodeData?.prompt || promptInput;
 
       // Estimate token usage for system prompt and JSON schema
-      const systemPrompt = node.nodeData?.systemPrompt || '';
-      const jsonSchema = node.nodeData?.outputFormat ? JSON.stringify(node.nodeData.outputFormat) : '';
-
-      // Rough estimation: ~4 chars per token
       const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
-      const jsonSchemaTokens = Math.ceil(jsonSchema.length / 4);
+      const jsonSchemaTokens = Math.ceil(jsonSchemaStr.length / 4);
       const reservedTokens = systemPromptTokens + jsonSchemaTokens;
 
       const overheadTokens = 100; // For model instructions and formatting
@@ -223,8 +233,8 @@ const nodeExecutors = {
         {
           temperature: node.nodeData?.temperature || 0.7,
           max_tokens: node.nodeData?.maxTokens || 2048,
-          system_prompt: node.nodeData?.systemPrompt,
-          json_schema: node.nodeData?.outputFormat,
+          system_prompt: systemPrompt,
+          json_schema: jsonSchemaStr,
           stream: true
         }
       );
@@ -592,6 +602,60 @@ const nodeExecutors = {
     }
   },
 
+  'outputFormat': async (node: WorkflowStep, input: any, params?: ExecuteWorkflowParams) => {
+    try {
+      // Get the value from node data or use input if available
+      const value = node.data?.value || input || '';
+      
+      // Only process JSON format
+      try {
+        // Test if valid JSON
+        const parsedJson = JSON.parse(typeof value === 'string' ? value : JSON.stringify(value));
+        
+        // Update node with formatted output
+        params?.setNodes?.((prev: WorkflowStep[]) =>
+          prev.map(n =>
+            n.id === node.id ? { 
+              ...n, 
+              data: { ...n.data, output: value },
+              logs: [...(n.logs || []), 'JSON schema validated successfully']
+            } : n
+          )
+        );
+        
+        return {
+          success: true,
+          output: value,
+          log: 'JSON schema validated successfully',
+          // Store the parsed JSON schema for use by chatAgent
+          jsonSchema: parsedJson
+        };
+      } catch (e) {
+        console.error('Error in output format node:', e);
+        
+        // Update node with error state
+        params?.setNodes?.((prev: WorkflowStep[]) =>
+          prev.map(n =>
+            n.id === node.id ? { 
+              ...n, 
+              data: { ...n.data, hasError: true },
+              logs: [...(n.logs || []), 'Invalid JSON format']
+            } : n
+          )
+        );
+        
+        return {
+          success: false,
+          output: value, // Still pass through the value
+          log: 'Invalid JSON format'
+        };
+      }
+    } catch (error) {
+      console.error('Error in output format node:', error);
+      throw error;
+    }
+  },
+
   'iterator': async (node: WorkflowStep, input: any) => {
     try {
       // Combine input with items if present
@@ -625,6 +689,60 @@ export const executeWorkflow = async ({
   setNodes,
 }: ExecuteWorkflowParams): Promise<WorkflowResult> => {
   try {
+    // First, preprocess the nodes to merge OutputFormat nodes with subsequent ChatAgent nodes
+    let processedNodes = [...nodes];
+    let outputFormatSchemas: Record<string, any> = {};
+    
+    // Find all OutputFormat nodes and store their schemas
+    for (let i = 0; i < processedNodes.length; i++) {
+      const node = processedNodes[i];
+      if (node.nodeType === 'outputFormat') {
+        try {
+          // Parse the schema from the node
+          const schemaValue = node.data?.value || node.nodeData?.value;
+          if (schemaValue) {
+            const parsedSchema = typeof schemaValue === 'string' 
+              ? JSON.parse(schemaValue) 
+              : schemaValue;
+            
+            // Store the schema with the node ID
+            outputFormatSchemas[node.id] = parsedSchema;
+            console.debug(`Stored schema from OutputFormat node ${node.id}:`, parsedSchema);
+          }
+        } catch (error) {
+          console.error(`Failed to parse schema from OutputFormat node ${node.id}:`, error);
+        }
+      }
+    }
+    
+    // Find the next ChatAgent node after each OutputFormat node
+    for (let i = 0; i < processedNodes.length; i++) {
+      if (processedNodes[i].nodeType === 'outputFormat') {
+        // Look for the next ChatAgent node
+        for (let j = i + 1; j < processedNodes.length; j++) {
+          if (processedNodes[j].nodeType === 'chatAgent') {
+            // Merge the schema into the ChatAgent node
+            const schema = outputFormatSchemas[processedNodes[i].id];
+            if (schema) {
+              processedNodes[j] = {
+                ...processedNodes[j],
+                nodeData: {
+                  ...processedNodes[j].nodeData,
+                  jsonSchema: schema
+                }
+              };
+              console.debug(`Merged schema into ChatAgent node ${processedNodes[j].id}`);
+            }
+            break; // Only merge with the first ChatAgent node found
+          }
+        }
+      }
+    }
+    
+    // Filter out OutputFormat nodes for execution
+    const executableNodes = processedNodes.filter(node => node.nodeType !== 'outputFormat');
+    console.debug(`Removed ${processedNodes.length - executableNodes.length} OutputFormat nodes for execution`);
+    
     // Reset all nodes to pending with theme-aware styling
     setNodes((prev: WorkflowStep[]) =>
       prev.map(node => ({
@@ -642,7 +760,7 @@ export const executeWorkflow = async ({
     let workflowData: Record<string, any> = {};
 
     // Get the first node's input if it exists
-    const firstNode = nodes[0];
+    const firstNode = executableNodes[0];
     if (firstNode?.nodeType?.toLowerCase().includes('input')) {
       const inputValue = firstNode.data?.value;
       console.debug('First Node Input Value:', inputValue);
@@ -661,11 +779,26 @@ export const executeWorkflow = async ({
     }
 
     let lastOutput = null;
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
+    for (let i = 0; i < executableNodes.length; i++) {
+      const node = executableNodes[i];
       console.debug(`\n--- Executing node: ${node.name} ---`);
-      //   console.debug("Node parameters:", node.nodeData);
-      //   console.debug("Current workflowData:", workflowData);
+      let jsonSchemaStr = '';
+
+      if (node.nodeType === 'outputFormat') {
+        console.debug("node.nodeData?", node.nodeData);
+        jsonSchemaStr = node.nodeData?.jsonSchema;
+
+        // Find the next chatAgent node
+        for (let j = i + 1; j < executableNodes.length; j++) {
+          if (executableNodes[j].nodeType === 'chatAgent') {
+            executableNodes[j] = { ...executableNodes[j], nodeData: { ...executableNodes[j].nodeData, jsonSchema: jsonSchemaStr } };
+          }
+        }
+        continue;
+      }
+      // Find the original node in the full nodes array
+      const originalNodeIndex = nodes.findIndex(n => n.id === node.id);
+      if (originalNodeIndex === -1) continue;
 
       // Update current node to running
       setNodes((prev: WorkflowStep[]) =>
@@ -674,7 +807,7 @@ export const executeWorkflow = async ({
             ? {
               ...n,
               status: 'running',
-              logs: [...n.logs, `Starting ${n.name}...`]
+              logs: [...(n.logs || []), `Starting ${n.name}...`]
             }
             : n
         )
@@ -685,7 +818,7 @@ export const executeWorkflow = async ({
       }
 
       try {
-        console.log("node", node)
+        console.debug("node", node);
         const executor = nodeExecutors[node.nodeType as keyof typeof nodeExecutors];
         if (!executor) {
           throw new Error(`No executor found for node type: ${node.nodeType}`);
@@ -703,15 +836,14 @@ export const executeWorkflow = async ({
         console.debug("Final nodeInput:", nodeInput);
 
         // Special handling for textOutput nodes that follow a chatAgent
-        // Mark them as running immediately so they can receive streaming updates
-        if (node.nodeType === 'textOutput' && i > 0 && nodes[i-1].nodeType === 'chatAgent') {
+        if (node.nodeType === 'textOutput' && i > 0 && executableNodes[i-1].nodeType === 'chatAgent') {
           setNodes((prev: WorkflowStep[]) =>
             prev.map(n =>
               n.id === node.id
                 ? {
                   ...n,
                   status: 'running',
-                  logs: [...n.logs, 'Receiving streaming content...']
+                  logs: [...(n.logs || []), 'Receiving streaming content...']
                 }
                 : n
             )
@@ -743,7 +875,7 @@ export const executeWorkflow = async ({
               ? {
                 ...n,
                 status: 'completed',
-                logs: [...n.logs, result.log],
+                logs: [...(n.logs || []), result.log || ''],
                 style: {
                   background: 'var(--background)',
                   color: 'var(--foreground)',
@@ -763,7 +895,7 @@ export const executeWorkflow = async ({
               ? {
                 ...n,
                 status: 'error',
-                logs: [...n.logs, `Error: ${error}`],
+                logs: [...(n.logs || []), `Error: ${error instanceof Error ? error.message : String(error)}`],
                 style: {
                   background: 'var(--destructive)',
                   color: 'var(--destructive-foreground)',
@@ -789,6 +921,6 @@ export const executeWorkflow = async ({
     };
   } catch (error) {
     console.error('Workflow execution failed:', error);
-    return { success: false, error };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 };
