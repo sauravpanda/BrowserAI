@@ -803,17 +803,20 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
                 onChange={e => handleModelChange(e.target.value)}
                 disabled={loading}
               >
-                <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (360MB)</option>
-                <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (380MB)</option>
-                <option value="deepseek-r1-distill-qwen-7b">DeepSeek R1 Distill Qwen 7B (5.1GB)</option>
-                <option value="deepseek-r1-distill-llama-8b">DeepSeek R1 Distill Llama 8B (6.1GB)</option>
-                <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1.75GB)</option>
-                <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (880MB)</option>
-                <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (3.6GB)</option>
-                <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (950MB)</option>
-                <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (1.6GB)</option>
-                <option value="gemma-2b-it">Gemma 2B Instruct (1.4GB)</option>
-                <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (670MB)</option>
+                <option value="smollm2-135m-instruct">SmolLM2 135M Instruct (78MB)</option>
+                <option value="smollm2-360m-instruct">SmolLM2 360M Instruct (210MB)</option>
+                <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct (1GB)</option>
+                <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct (712MB)</option>
+                <option value="hermes-llama-3.2-3b">Hermes Llama 3.2 3B (1.76GB)</option>
+                <option value="llama-3.2-3b-instruct">Llama 3.2 3B Instruct (1.76GB)</option>
+                <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (278MB)</option>
+                <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (868MB)</option>
+                <option value="qwen2.5-3b-instruct">Qwen2.5 3B Instruct (1.7GB)</option>
+                <option value="gemma-2b-it">Gemma 2B Instruct (1.44GB)</option>
+                <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (2.1GB)</option>
+                <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (800MB)</option>
+                <option value="deepseek-r1-distill-qwen-7b">DeepSeek R1 Distill Qwen 7B (4.18GB)</option>
+                <option value="deepseek-r1-distill-llama-8b">DeepSeek R1 Distill Llama 8B (4.41GB)</option>
               </ModelSelect>
               
               <div style={{ 
