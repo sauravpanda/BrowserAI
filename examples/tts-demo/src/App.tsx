@@ -170,6 +170,10 @@ const VOICE_OPTIONS = [
   { id: 'bf_isabella', name: 'Isabella', language: 'en-gb', gender: 'Female' },
   { id: 'bm_george', name: 'George', language: 'en-gb', gender: 'Male' },
   { id: 'bm_lewis', name: 'Lewis', language: 'en-gb', gender: 'Male' },
+  { id: 'hf_alpha', name: 'Alpha', language: 'hi', gender: 'Female' },
+  { id: 'hf_beta', name: 'Beta', language: 'hi', gender: 'Female' },
+  { id: 'hm_omega', name: 'Omega', language: 'hi', gender: 'Male' },
+  { id: 'hm_psi', name: 'Psi', language: 'hi', gender: 'Male' },
 ];
 
 function App() {
@@ -205,8 +209,8 @@ function App() {
       setIsLoading(true);
       setStatus('Generating speech...');
       const audioData = await ttsAI.textToSpeech(text, {
-        voice: 'af_bella',
-        speed: 1
+        voice: selectedVoice,
+        speed: speed
       });
       
       if (audioData) {
