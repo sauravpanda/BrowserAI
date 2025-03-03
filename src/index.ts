@@ -17,6 +17,18 @@ export {
   extractTextFromPdf, 
   extractStructuredTextFromPdf,
   processPdfFile,
+  pdfToText,
   type PDFParseOptions,
   type PDFParseResult
 } from './core/parsers/pdf';
+
+// Export CSV parser
+export {
+  CSVParser,
+  extractDataFromCSV,
+  extractTextFromCSV,
+  processCSVFile,
+  csvToText,
+  type CSVParseOptions,
+  type CSVParseResult
+} from './core/parsers/csv';

@@ -293,7 +293,7 @@ export class PDFParser {
       }
       return;
     }
-
+    
     // Load PDF.js from CDN
     return new Promise((resolve, reject) => {
       if (typeof window === 'undefined') {
@@ -381,6 +381,58 @@ function initializePdfJs() {
 initializePdfJs();
 
 /**
+ * Formats PDF text with page numbers and additional metadata
+ * @param result The parsed PDF result
+ * @param options Formatting options
+ * @returns Formatted text representation of the PDF
+ */
+export function pdfToText(
+  result: PDFParseResult,
+  options: {
+    includePageNumbers?: boolean;
+    includeSummary?: boolean;
+    pagePrefix?: string;
+    pageSuffix?: string;
+  } = {}
+): string {
+  // Default options
+  const includePageNumbers = options.includePageNumbers !== false;
+  const includeSummary = options.includeSummary !== false;
+  const pagePrefix = options.pagePrefix || '--- Page ';
+  const pageSuffix = options.pageSuffix || ' ---';
+  
+  const lines: string[] = [];
+  
+  // Add each page with optional page numbers
+  if (includePageNumbers) {
+    for (let i = 0; i < result.pages.length; i++) {
+      const pageNum = i + 1;
+      lines.push(`${pagePrefix}${pageNum}${pageSuffix}`);
+      lines.push(result.pages[i]);
+      lines.push(''); // Empty line between pages
+    }
+  } else {
+    // Just concatenate all pages
+    lines.push(result.text);
+  }
+  
+  // Add summary information
+  if (includeSummary) {
+    lines.push('');
+    lines.push(`PDF Summary: ${result.numPages} pages`);
+    
+    if (result.errors && result.errors.length > 0) {
+      lines.push('Errors encountered during parsing:');
+      result.errors.forEach(error => {
+        lines.push(`- ${error}`);
+      });
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
  * Processes a PDF file and returns both text and structured data
  * This is a convenience function that handles buffer copying and multiple extractions
  * 
@@ -390,10 +442,18 @@ initializePdfJs();
  */
 export async function processPdfFile(
   file: File,
-  options: PDFParseOptions = {}
+  options: PDFParseOptions & {
+    textFormatting?: {
+      includePageNumbers?: boolean;
+      includeSummary?: boolean;
+      pagePrefix?: string;
+      pageSuffix?: string;
+    }
+  } = {}
 ): Promise<{
   text: string;
   structured: PDFParseResult;
+  formattedText: string; // New property for AI-friendly text
   debugInfo: string[];
 }> {
   const debugInfo: string[] = [];
@@ -431,9 +491,15 @@ export async function processPdfFile(
     const structured = await extractStructuredTextFromPdf(structuredBuffer, options);
     debugInfo.push(`Structured data extracted (${structured.numPages} pages)`);
     
+    // Create AI-friendly formatted text
+    debugInfo.push('Creating formatted text for AI...');
+    const formattedText = pdfToText(structured, options.textFormatting);
+    debugInfo.push(`Formatted text created (${formattedText.length} characters)`);
+    
     return {
       text,
       structured,
+      formattedText,
       debugInfo
     };
   } catch (error) {
