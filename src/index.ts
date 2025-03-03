@@ -32,3 +32,13 @@ export {
   type CSVParseOptions,
   type CSVParseResult
 } from './core/parsers/csv';
+
+// Export DOCX parser
+export {
+  DOCXParser,
+  extractTextFromDOCX,
+  processDOCXFile,
+  docxToText,
+  type DOCXParseOptions,
+  type DOCXParseResult
+} from './core/parsers/docx';
