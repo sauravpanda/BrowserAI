@@ -10,3 +10,13 @@ export { default as transformersModels } from './config/models/transformers-mode
 
 export { DatabaseImpl } from './core/database';
 export * from './core/agent';
+
+// Export PDF parser
+export { 
+  PDFParser, 
+  extractTextFromPdf, 
+  extractStructuredTextFromPdf,
+  processPdfFile,
+  type PDFParseOptions,
+  type PDFParseResult
+} from './core/parsers/pdf';
