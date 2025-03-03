@@ -42,3 +42,12 @@ export {
   type DOCXParseOptions,
   type DOCXParseResult
 } from './core/parsers/docx';
+
+// Export image parser
+export {
+  ImageParser,
+  extractTextFromImage,
+  processImageFile,
+  imageToText
+} from './core/parsers/image';
+export type { ImageParseOptions, ImageParseResult } from './core/parsers/image';
