@@ -6,6 +6,8 @@ import { WorkflowList } from "./workflow-list"
 import { Navigation } from "./navigation"
 import { createRoot } from 'react-dom/client'
 import { ChatInterface } from "./chat-interface"
+import { WorkflowRunner } from "../sidepanel/workflow-runner"
+import { ContentIdentifierTest } from "../sidepanel/content-identifier-test"
 
 interface Workflow {
   id: string
@@ -17,13 +19,12 @@ interface Workflow {
 export default function Popup() {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [isLoading, _] = useState(false)
-  const [currentView, setCurrentView] = useState('workflow-view')
+  const [currentView, setCurrentView] = useState(window.location.hash.slice(1) || 'workflow-view')
 
   useEffect(() => {
     // Listen for hash changes
     const handleHashChange = () => {
-      const hash = window.location.hash.slice(1) || 'workflow-view'
-      setCurrentView(hash)
+      setCurrentView(window.location.hash.slice(1) || 'workflow-view')
     }
 
     window.addEventListener('hashchange', handleHashChange)
@@ -47,6 +48,10 @@ export default function Popup() {
     switch (currentView) {
       case 'chat-view':
         return <ChatInterface />
+      case 'runner-view':
+        return <WorkflowRunner />
+      case 'content-identifier-test':
+        return <ContentIdentifierTest />
       case 'workflow-view':
       default:
         return (

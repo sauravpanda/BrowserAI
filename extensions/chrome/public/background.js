@@ -121,6 +121,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  // Listen for action execution requests
+  if (message.action === 'executeAction') {
+    // Get the active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        // Request permission to execute script in the tab if needed
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          {
+            action: 'executeAction',
+            type: message.type,
+            params: message.params
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              // If content script is not loaded, inject it first
+              chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                files: ['content-script.js']
+              }, () => {
+                // Retry sending the message after script injection
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  {
+                    action: 'executeAction',
+                    type: message.type,
+                    params: message.params
+                  },
+                  sendResponse
+                );
+              });
+            } else {
+              sendResponse(response);
+            }
+          }
+        );
+      } else {
+        sendResponse({ success: false, error: 'No active tab found' });
+      }
+    });
+    
+    return true; // Required for async sendResponse
+  }
 });
 
 // Toggle side panel when command is triggered
