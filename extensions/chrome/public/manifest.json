@@ -55,5 +55,12 @@
 
   "content_security_policy": {
     "extension_pages": "style-src-elem 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; script-src 'self' 'wasm-unsafe-eval'; default-src 'self' data:; connect-src 'self' data: https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://raw.githubusercontent.com https://cdn-lfs-us-1.hf.co"
-  }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["src/core/browser-actions.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
