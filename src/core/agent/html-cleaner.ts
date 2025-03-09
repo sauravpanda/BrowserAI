@@ -130,75 +130,6 @@ export class HTMLCleaner {
     }
 
     /**
-     * Extracts structured data (JSON-LD, microdata, RDFa) from HTML
-     * @private
-     * @param {HTMLElement} element - The root element to process
-     * @returns {string} Formatted structured data
-     */
-    // private extractStructuredData(element: HTMLElement): string {
-    //     let result = '';
-        
-    //     // Extract JSON-LD
-    //     const jsonLdScripts = element.querySelectorAll('script[type="application/ld+json"]');
-    //     if (jsonLdScripts.length > 0) {
-    //         result += "## Structured Data (JSON-LD)\n\n";
-    //         jsonLdScripts.forEach((script, index) => {
-    //             try {
-    //                 const jsonContent = script.textContent?.trim();
-    //                 if (jsonContent) {
-    //                     const parsedJson = JSON.parse(jsonContent);
-    //                     result += `### JSON-LD Block ${index + 1}\n`;
-    //                     result += `Type: ${parsedJson['@type'] || 'Unknown'}\n`;
-                        
-    //                     // Extract key information based on type
-    //                     if (parsedJson['@type'] === 'Person') {
-    //                         result += `Name: ${parsedJson.name || 'N/A'}\n`;
-    //                         result += `Job Title: ${parsedJson.jobTitle || 'N/A'}\n`;
-    //                         result += `Organization: ${parsedJson.worksFor?.name || 'N/A'}\n`;
-    //                     } else if (parsedJson['@type'] === 'Product') {
-    //                         result += `Product: ${parsedJson.name || 'N/A'}\n`;
-    //                         result += `Description: ${parsedJson.description || 'N/A'}\n`;
-    //                         result += `Price: ${parsedJson.offers?.price || 'N/A'}\n`;
-    //                     } else if (parsedJson['@type'] === 'Article' || parsedJson['@type'] === 'BlogPosting') {
-    //                         result += `Title: ${parsedJson.headline || parsedJson.name || 'N/A'}\n`;
-    //                         result += `Author: ${parsedJson.author?.name || 'N/A'}\n`;
-    //                         result += `Date Published: ${parsedJson.datePublished || 'N/A'}\n`;
-    //                     }
-                        
-    //                     result += '\n';
-    //                 }
-    //             } catch (e) {
-    //                 result += `### JSON-LD Block ${index + 1} (Parse Error)\n\n`;
-    //             }
-    //         });
-    //     }
-        
-    //     // Extract microdata
-    //     const itemScopes = element.querySelectorAll('[itemscope]');
-    //     if (itemScopes.length > 0) {
-    //         result += "## Microdata\n\n";
-    //         itemScopes.forEach((scope, index) => {
-    //             const itemType = scope.getAttribute('itemtype') || 'Unknown';
-    //             result += `### Microdata Block ${index + 1}\n`;
-    //             result += `Type: ${itemType.split('/').pop() || itemType}\n`;
-                
-    //             const itemProps = scope.querySelectorAll('[itemprop]');
-    //             itemProps.forEach(prop => {
-    //                 const propName = prop.getAttribute('itemprop');
-    //                 const propValue = prop.textContent?.trim() || prop.getAttribute('content') || 'N/A';
-    //                 if (propName) {
-    //                     result += `${propName}: ${propValue}\n`;
-    //                 }
-    //             });
-                
-    //             result += '\n';
-    //         });
-    //     }
-        
-    //     return result;
-    // }
-
-    /**
      * Creates a concise, structured representation of HTML optimized for LLM understanding.
      * Automatically detects and handles social media content when present.
      * @param {string} html - The HTML content to process
@@ -400,21 +331,21 @@ export class HTMLCleaner {
             '.comment-container', '.tweet-reply', '.comment-thread-item'
         ];
         
-        // Add LinkedIn specific profile selectors
-        // const linkedinProfileSelectors = [
-        //     '.pv-top-card', '.profile-background-image', '.pv-text-details__left-panel',
-        //     '.pv-profile-section', '.pv-profile-section__card-item', '.pv-entity__summary-info'
-        // ];
-        
-        // Add LinkedIn specific experience selectors
+        // Define LinkedIn experience selectors
         const linkedinExperienceSelectors = [
-            '.pv-entity__position-group', '.experience-item', '.pv-profile-section__list-item',
-            '.pv-entity__role-details', '.pv-entity__company-details'
+            '.pv-entity__position-group',
+            '.experience-item',
+            '.pv-profile-section__list-item',
+            '.pv-entity__summary-info',
+            '.artdeco-list__item'
         ];
         
-        // Add LinkedIn specific education selectors
+        // Define LinkedIn education selectors
         const linkedinEducationSelectors = [
-            '.pv-education-entity', '.education-item', '.pv-profile-section__list-item'
+            '.pv-education-entity',
+            '.pv-profile-section__list-item',
+            '.education-item',
+            '.pv-entity__summary-info'
         ];
         
         // Track processed text to avoid duplicates
@@ -1285,6 +1216,362 @@ export class HTMLCleaner {
         
     //     return '';
     // }
+
+    /**
+     * Creates a structured representation of HTML with element IDs for easy reference,
+     * optimized to reduce noise and focus on meaningful content.
+     * @param {string} html - The HTML content to process
+     * @param {Object} options - Configuration options
+     * @param {boolean} [options.includeCodeBlocks=false] - Whether to include code blocks in the output
+     * @param {boolean} [options.includeScripts=false] - Whether to include script content in the output
+     * @returns {Object} Object containing the structured content, element mapping, and reference mapping
+     */
+    cleanWithElementIDs(html: string, options: { 
+        includeCodeBlocks?: boolean,
+        includeScripts?: boolean
+    } = {}): { 
+        content: string, 
+        elements: Record<string, { type: string, text: string, attributes?: Record<string, string> }>,
+        references: Record<string, string>
+    } {
+        const includeCodeBlocks = options.includeCodeBlocks || false;
+        const includeScripts = options.includeScripts || false;
+        
+        let tempElement = document.createElement('div');
+        tempElement.innerHTML = html;
+        
+        // Remove unwanted elements
+        this.tagsToRemove.forEach(tag => {
+            if (tag !== 'a' && tag !== 'button' && tag !== 'input' && tag !== 'select' && tag !== 'textarea') {
+                let elements = tempElement.querySelectorAll(tag);
+                elements.forEach(el => el.remove());
+            }
+        });
+        
+        // Clean attributes except important ones
+        const allowedAttributes = ['href', 'type', 'value', 'placeholder', 'name', 'checked', 'selected'];
+        const allElements = tempElement.querySelectorAll('*');
+        allElements.forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (!allowedAttributes.includes(attr.name)) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        
+        // Track elements and references
+        const elements: Record<string, { type: string, text: string, attributes?: Record<string, string> }> = {};
+        const references: Record<string, string> = {};
+        let elementCounter = 1;
+        
+        // Set to track processed text to avoid duplicates
+        const processedText = new Set<string>();
+        
+        // Process the document to create a structured representation with element IDs
+        const processNode = (node: Node, depth: number = 0, insideCodeBlock: boolean = false): string => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent?.trim();
+                return text ? text + ' ' : '';
+            }
+            
+            if (node.nodeType !== Node.ELEMENT_NODE) return '';
+            
+            const element = node as Element;
+            const tagName = element.tagName.toLowerCase();
+            const indent = '  '.repeat(depth);
+            let result = '';
+            
+            // Skip processing elements that are typically not useful for LLM understanding
+            const skipElements = ['script', 'style', 'noscript', 'svg', 'canvas', 'iframe', 'footer'];
+            if (!includeScripts && skipElements.includes(tagName)) {
+                return '';
+            }
+            
+            // Check if we're entering a code block
+            if (tagName === 'code' || tagName === 'pre') {
+                // Skip processing code blocks unless explicitly requested
+                if (includeCodeBlocks) {
+                    const elementId = `${tagName}_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: tagName,
+                        text: element.textContent?.trim() || ''
+                    };
+                    result += `[code block] [${elementId}] `;
+                    elementCounter++;
+                }
+                return result;
+            }
+            
+            // If we're inside a code block, don't process this node
+            if (insideCodeBlock) {
+                return '';
+            }
+            
+            // Handle headings - these are important for document structure
+            if (/^h[1-6]$/.test(tagName)) {
+                const level = parseInt(tagName.substring(1));
+                const prefix = '#'.repeat(level);
+                const text = element.textContent?.trim();
+                if (text && !processedText.has(text)) {
+                    const elementId = `h${level}_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: tagName,
+                        text: text
+                    };
+                    result += `${indent}${prefix} ${text} [${elementId}]\n`;
+                    elementCounter++;
+                    processedText.add(text);
+                }
+            } 
+            // Handle links with reference - important for navigation and context
+            else if (tagName === 'a' && element.hasAttribute('href')) {
+                const text = element.textContent?.trim();
+                const href = element.getAttribute('href');
+                
+                if (text && text.length > 1 && !processedText.has(`${text}${href}`)) {
+                    const elementId = `link_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: 'link',
+                        text: text,
+                        attributes: { href: href || '' }
+                    };
+                    references[elementId] = href || '';
+                    result += `${text} [${elementId}] `;
+                    elementCounter++;
+                    processedText.add(`${text}${href}`);
+                }
+            }
+            // Handle buttons - important for interactive elements
+            else if (tagName === 'button') {
+                const text = element.textContent?.trim();
+                
+                if (text && text.length > 1 && !processedText.has(`button:${text}`)) {
+                    const elementId = `btn_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: 'button',
+                        text: text
+                    };
+                    result += `${text} [${elementId}] `;
+                    elementCounter++;
+                    processedText.add(`button:${text}`);
+                }
+            }
+            // Handle input elements - important for forms
+            else if (tagName === 'input') {
+                const type = element.getAttribute('type') || 'text';
+                const value = (element as HTMLInputElement).value;
+                const placeholder = element.getAttribute('placeholder');
+                const name = element.getAttribute('name');
+                const checked = (element as HTMLInputElement).checked;
+                
+                const elementId = `input_${elementCounter}`;
+                const attributes: Record<string, string> = { type };
+                if (value) attributes.value = value;
+                if (placeholder) attributes.placeholder = placeholder;
+                if (name) attributes.name = name;
+                if (checked) attributes.checked = 'true';
+                
+                elements[elementId] = { 
+                    type: 'input',
+                    text: placeholder || name || type,
+                    attributes
+                };
+                
+                let displayText = `[${type} input`;
+                if (placeholder) displayText += ` "${placeholder}"`;
+                else if (name) displayText += ` name="${name}"`;
+                if (value) displayText += ` value="${value}"`;
+                if (checked) displayText += ` (checked)`;
+                displayText += `]`;
+                
+                result += `${displayText} [${elementId}] `;
+                elementCounter++;
+            }
+            // Handle select elements
+            else if (tagName === 'select') {
+                const name = element.getAttribute('name');
+                const options = Array.from(element.querySelectorAll('option'))
+                    .map(opt => ({
+                        value: opt.getAttribute('value') || '',
+                        text: opt.textContent?.trim() || '',
+                        selected: (opt as HTMLOptionElement).selected
+                    }));
+                
+                const elementId = `select_${elementCounter}`;
+                elements[elementId] = { 
+                    type: 'select',
+                    text: name || 'dropdown',
+                    attributes: { 
+                        name: name || '',
+                        options: JSON.stringify(options)
+                    }
+                };
+                
+                let displayText = `[dropdown`;
+                if (name) displayText += ` name="${name}"`;
+                displayText += `]`;
+                
+                result += `${displayText} [${elementId}] `;
+                elementCounter++;
+            }
+            // Handle textarea elements
+            else if (tagName === 'textarea') {
+                const value = (element as HTMLTextAreaElement).value;
+                const placeholder = element.getAttribute('placeholder');
+                const name = element.getAttribute('name');
+                
+                const elementId = `textarea_${elementCounter}`;
+                const attributes: Record<string, string> = {};
+                if (value) attributes.value = value;
+                if (placeholder) attributes.placeholder = placeholder;
+                if (name) attributes.name = name;
+                
+                elements[elementId] = { 
+                    type: 'textarea',
+                    text: placeholder || name || 'text area',
+                    attributes
+                };
+                
+                let displayText = `[text area`;
+                if (placeholder) displayText += ` "${placeholder}"`;
+                else if (name) displayText += ` name="${name}"`;
+                displayText += `]`;
+                
+                result += `${displayText} [${elementId}] `;
+                elementCounter++;
+            }
+            // Handle paragraphs
+            else if (tagName === 'p') {
+                const childContent = Array.from(element.childNodes)
+                    .map(child => processNode(child, depth + 1, false))
+                    .join('')
+                    .trim();
+                    
+                if (childContent) {
+                    const elementId = `p_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: 'paragraph',
+                        text: element.textContent?.trim() || ''
+                    };
+                    result += `${indent}${childContent} [${elementId}]\n\n`;
+                    elementCounter++;
+                }
+            }
+            // Handle list items
+            else if (tagName === 'li') {
+                const childContent = Array.from(element.childNodes)
+                    .map(child => processNode(child, depth + 1, false))
+                    .join('')
+                    .trim();
+                    
+                if (childContent) {
+                    const elementId = `li_${elementCounter}`;
+                    elements[elementId] = { 
+                        type: 'list-item',
+                        text: element.textContent?.trim() || ''
+                    };
+                    result += `${indent}• ${childContent} [${elementId}]\n`;
+                    elementCounter++;
+                }
+            }
+            // Handle pre elements (which often contain code blocks)
+            else if (tagName === 'pre') {
+                // Skip processing pre elements - just add a placeholder
+                const elementId = `pre_${elementCounter}`;
+                elements[elementId] = { 
+                    type: 'pre',
+                    text: element.textContent?.trim() || ''
+                };
+                result += `[code block] [${elementId}] `;
+                elementCounter++;
+            }
+            // Handle divs and other block elements
+            else if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer'].includes(tagName)) {
+                // Process children with deduplication
+                const childNodes = Array.from(element.childNodes);
+                const processedChildContent = new Set<string>();
+                let childContent = '';
+                
+                for (const child of childNodes) {
+                    const content = processNode(child, depth + 1, false).trim();
+                    // Only add content if it's not a duplicate or empty
+                    console.log('Div Child Content: ', content, 'Depth: ', depth+1,processedChildContent)
+                    if (content && content.length > 3 && !processedChildContent.has(content)) {
+                        childContent += content + ' ';
+                        processedChildContent.add(content);
+                    }
+                }
+                childContent = childContent.trim();
+                
+                console.log('Child Content: ', childContent, 'Depth: ', depth+1)
+                
+                if (childContent && childContent.length > 3) {
+                    const text = element.textContent?.trim() || '';
+                    // Only add IDs to divs with significant content that hasn't been processed
+                    if (childContent.length > 20 && !processedText.has(text) && text.length > 20) {
+                        const elementId = `${tagName}_${elementCounter}`;
+                        elements[elementId] = { 
+                            type: tagName,
+                            text: text
+                        };
+                        result += `${childContent} [${elementId}]\n`;
+                        elementCounter++;
+                        processedText.add(text);
+                    } else {
+                        result += `${childContent}\n`;
+                    }
+                }
+            }
+            // Handle spans and other inline elements
+            else {
+                // Process children with deduplication
+                const childNodes = Array.from(element.childNodes);
+                const processedChildContent = new Set<string>();
+                let childContent = '';
+                
+                for (const child of childNodes) {
+                    const content = processNode(child, depth, false).trim();
+                    // Only add content if it's not a duplicate or empty
+                    if (content && content.length > 3 && !processedChildContent.has(content)) {
+                        childContent += content + ' ';
+                        processedChildContent.add(content);
+                    }
+                }
+                childContent = childContent.trim();
+                
+                if (childContent && childContent.length > 3) {
+                    result += childContent;
+                }
+            }
+            
+            return result;
+        };
+        
+        // Start processing from the body
+        const body = tempElement.querySelector('body') || tempElement;
+        let content = processNode(body);
+        
+        // Clean up the content
+        content = content
+            .replace(/\n{3,}/g, '\n\n')  // Normalize spacing
+            .replace(/\s{2,}/g, ' ')     // Replace multiple spaces with a single space
+            .replace(/\n +/g, '\n')      // Remove spaces at the beginning of lines
+            .trim();
+        
+        // Apply deduplication
+        content = this.deduplicateFinalOutput(content);
+        
+        // Further clean up the content by removing redundant element IDs
+        // This helps reduce noise in the final output
+        // const elementIdPattern = /\s*\[\w+_\d+\]\s*/g;
+        content = content
+            .replace(/\[\w+_\d+\]\s*\[\w+_\d+\]/g, '') // Remove adjacent element IDs
+            .replace(/\n\s*\[\w+_\d+\]\s*\n/g, '\n')   // Remove element IDs on their own lines
+            .replace(/\s{2,}/g, ' ')                   // Clean up extra spaces again
+            .trim();
+        
+        return { content, elements, references };
+    }
 
     // TODO: Add these methods
     /*

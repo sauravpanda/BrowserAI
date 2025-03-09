@@ -41,9 +41,34 @@ export function HTMLCleanerTest() {
   const cleanHtml = () => {
     try {
       const htmlCleaner = new HTMLCleaner();
-      const cleaned = htmlCleaner.cleanForLLM(originalHtml, { ignoreLinks: true });
-      console.log(cleaned);
-      setCleanedHtml(cleaned);
+      
+      // Use the new cleanWithElementIDs method
+      const { content, elements, references } = htmlCleaner.cleanWithElementIDs(originalHtml);
+      // const formattedResult = htmlCleaner.cleanSemantic(originalHtml)
+      
+      // Format the result to display content and element references
+      const formattedResult = content;
+//       const formattedResult = `
+// # Cleaned Content
+// ${content}
+
+// # Element References
+// ${Object.entries(elements).map(([id, info]) => 
+//   `- [${id}]: ${info.type} "${info.text}"${
+//     info.attributes ? ` (${Object.entries(info.attributes)
+//       .map(([k, v]) => `${k}="${v}"`)
+//       .join(', ')})` : ''
+//   }`
+// ).join('\n')}
+
+// # Link References
+// ${Object.entries(references)
+//   .filter(([_, url]) => url)
+//   .map(([id, url]) => `- [${id}]: ${url}`)
+//   .join('\n')}
+// `;
+      console.log(elements, references)
+      setCleanedHtml(formattedResult);
     } catch (err) {
       setError(`Error cleaning HTML: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -104,6 +129,11 @@ export function HTMLCleanerTest() {
             className="h-[400px] font-mono text-xs"
             placeholder="Cleaned HTML will appear here"
           />
+          {cleanedHtml && (
+            <div className="text-xs text-gray-500 mt-1">
+              Total length: {cleanedHtml.length} characters
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
