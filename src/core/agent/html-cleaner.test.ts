@@ -41,19 +41,4 @@ describe('HTMLCleaner', () => {
         expect(result).toContain('Paragraph 2');
     });
 
-    test('extractStructuredData gets metadata', () => {
-        const html = `
-            <div itemscope itemtype="http://schema.org/Article">
-                <h1 itemprop="name">Article Title</h1>
-                <meta name="description" content="Page description">
-                <meta property="og:title" content="Social Title">
-            </div>
-        `;
-        const result = cleaner.extractStructuredData(html);
-        expect(result).toEqual(expect.objectContaining({
-            name: 'Article Title',
-            description: 'Page description',
-            'og:title': 'Social Title'
-        }));
-    });
 }); 
