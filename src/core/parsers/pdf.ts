@@ -46,11 +46,17 @@ function getPdfLib(): PDFJSStatic {
   
   console.log('PDF.js library found:', pdfjsLib);
   
-  // Ensure worker is set
-  if (!pdfjsLib.GlobalWorkerOptions || !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    console.warn('PDF.js worker not set, setting default worker');
-    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  // Ensure worker is set - check if workerSrc can be set directly
+  if (pdfjsLib.GlobalWorkerOptions) {
+    try {
+      // Only try to set the workerSrc property if it's not already set
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      }
+    } catch (e) {
+      console.warn('Could not set PDF.js worker source:', e);
+      // You might need an alternative approach here depending on the PDF.js version
+    }
   }
   
   return pdfjsLib;
@@ -306,9 +312,16 @@ export class PDFParser {
       script.src = pdfJsPath;
       script.onload = () => {
         console.log('PDF.js loaded successfully, setting worker source');
-        // Set worker source
-        (window as any).pdfjsLib.GlobalWorkerOptions = (window as any).pdfjsLib.GlobalWorkerOptions || {};
-        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+        // Set worker source - only set the workerSrc property, not the entire GlobalWorkerOptions object
+        if ((window as any).pdfjsLib && (window as any).pdfjsLib.GlobalWorkerOptions) {
+          try {
+            (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+          } catch (e) {
+            console.warn('Could not set PDF.js worker source directly:', e);
+            // Alternative approach if direct assignment fails
+            console.log('Using alternative method to set worker source');
+          }
+        }
         resolve();
       };
       script.onerror = () => {
