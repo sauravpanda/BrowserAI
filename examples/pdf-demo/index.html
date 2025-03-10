@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Text Extractor Demo</title>
+    <!-- Include PDF.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+      // Set the worker source path
+      window.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, checking PDF.js');
+        if (typeof pdfjsLib !== 'undefined') {
+          console.log('PDF.js found, setting worker');
+          pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+          console.log('PDF.js worker set to:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+          
+          // Verify PDF.js is ready
+          console.log('PDF.js version:', pdfjsLib.version);
+          
+          // Pre-initialize the worker
+          try {
+            const testDoc = pdfjsLib.getDocument({ url: 'data:application/pdf;base64,JVBERi0xLjcKJeLjz9MKNSAwIG9iago8PAovRmlsdGVyIC9GbGF0ZURlY29kZQovTGVuZ3RoIDM4Cj4+CnN0cmVhbQp4nCvkMlAwMDDgMjJRMAZiCwMuhxDPMK5CLkMuAEuJBREKZW5kc3RyZWFtCmVuZG9iago0IDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9NZWRpYUJveCBbMCAwIDU5NSA4NDJdCi9SZXNvdXJjZXMgPDwKPj4KL0NvbnRlbnRzIDUgMCBSCi9QYXJlbnQgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagozIDAgb2JqCjw8Ci9Nb2REYXRlIChEOjIwMjMwNzI2MDAwMDAwWikKL0NyZWF0aW9uRGF0ZSAoRDoyMDIzMDcyNjAwMDAwMFopCi9Qcm9kdWNlciAoVGVzdCkKPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDIzOSAwMDAwMCBuIAowMDAwMDAwMTgwIDAwMDAwIG4gCjAwMDAwMDAyODggMDAwMDAgbiAKMDAwMDAwMDA4OSAwMDAwMCBuIAowMDAwMDAwMDE1IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAxIDAgUgovSW5mbyAzIDAgUgovSUQgWzwyMjdBRjVDMzU0QzQxQjQ4OEMwQkM0MUVCMkI0MTM1MT4gPDIyN0FGNUMZNAM0MUI0ODhDMEJDNDFFQjJCNDEzNTE+XQo+PgpzdGFydHhyZWYKMzg5CiUlRU9GCg==' });
+            console.log('PDF.js test document created:', testDoc);
+            testDoc.promise.then(function() {
+              console.log('PDF.js worker is fully initialized');
+            }).catch(function(err) {
+              console.warn('PDF.js worker initialization test failed:', err);
+            });
+          } catch (e) {
+            console.error('Error initializing PDF.js worker:', e);
+          }
+        } else {
+          console.error('PDF.js not found!');
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html> 
