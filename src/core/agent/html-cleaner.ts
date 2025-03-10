@@ -1232,7 +1232,7 @@ export class HTMLCleaner {
     } = {}): { 
         content: string, 
         elements: Record<string, { type: string, text: string, attributes?: Record<string, string> }>,
-        references: Record<string, string>
+        references: Record<string, string | { href?: string, class?: string, selector?: string }>
     } {
         const includeCodeBlocks = options.includeCodeBlocks || false;
         const includeScripts = options.includeScripts || false;
@@ -1249,7 +1249,7 @@ export class HTMLCleaner {
         });
         
         // Clean attributes except important ones
-        const allowedAttributes = ['href', 'type', 'value', 'placeholder', 'name', 'checked', 'selected'];
+        const allowedAttributes = ['href', 'type', 'value', 'placeholder', 'name', 'checked', 'selected', 'class', 'id'];
         const allElements = tempElement.querySelectorAll('*');
         allElements.forEach(el => {
             Array.from(el.attributes).forEach(attr => {
@@ -1261,11 +1261,66 @@ export class HTMLCleaner {
         
         // Track elements and references
         const elements: Record<string, { type: string, text: string, attributes?: Record<string, string> }> = {};
-        const references: Record<string, string> = {};
+        const references: Record<string, string | { href?: string, class?: string, selector?: string }> = {};
         let elementCounter = 1;
         
         // Set to track processed text to avoid duplicates
         const processedText = new Set<string>();
+        
+        // Set to track processed interactive elements to avoid duplicates
+        const processedInteractiveElements = new Set<Element>();
+        
+        // Pre-process interactive elements first to ensure they're prioritized
+        const preProcessInteractiveElements = (rootElement: Element): void => {
+            // Process buttons first
+            rootElement.querySelectorAll('button').forEach(button => {
+                processedInteractiveElements.add(button);
+            });
+            
+            // Process inputs
+            rootElement.querySelectorAll('input').forEach(input => {
+                processedInteractiveElements.add(input);
+            });
+            
+            // Process textareas
+            rootElement.querySelectorAll('textarea').forEach(textarea => {
+                processedInteractiveElements.add(textarea);
+            });
+            
+            // Process selects
+            rootElement.querySelectorAll('select').forEach(select => {
+                processedInteractiveElements.add(select);
+            });
+            
+            // Process links
+            rootElement.querySelectorAll('a[href]').forEach(link => {
+                processedInteractiveElements.add(link);
+            });
+        };
+        
+        // Helper function to create a selector for an element
+        const createSelector = (element: Element): string => {
+            const tagName = element.tagName.toLowerCase();
+            let selector = tagName;
+            
+            // Add ID if available
+            if (element.id) {
+                selector += `#${element.id}`;
+            }
+            
+            // Add classes if available
+            if (element.className && typeof element.className === 'string') {
+                const classes = element.className.split(/\s+/).filter(Boolean);
+                classes.forEach(cls => {
+                    selector += `.${cls}`;
+                });
+            }
+            
+            return selector;
+        };
+        
+        // Pre-process interactive elements
+        preProcessInteractiveElements(tempElement);
         
         // Process the document to create a structured representation with element IDs
         const processNode = (node: Node, depth: number = 0, insideCodeBlock: boolean = false): string => {
@@ -1277,6 +1332,12 @@ export class HTMLCleaner {
             if (node.nodeType !== Node.ELEMENT_NODE) return '';
             
             const element = node as Element;
+            
+            // Skip if this element has already been processed as an interactive element
+            if (processedInteractiveElements.has(element)) {
+                processedInteractiveElements.delete(element); // Remove from set to process it now
+            }
+            
             const tagName = element.tagName.toLowerCase();
             const indent = '  '.repeat(depth);
             let result = '';
@@ -1296,7 +1357,16 @@ export class HTMLCleaner {
                         type: tagName,
                         text: element.textContent?.trim() || ''
                     };
-                    result += `[code block] [${elementId}] `;
+                    
+                    // Store class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
+                    result += `[code block] [${elementId}]\n\n`;
                     elementCounter++;
                 }
                 return result;
@@ -1318,7 +1388,16 @@ export class HTMLCleaner {
                         type: tagName,
                         text: text
                     };
-                    result += `${indent}${prefix} ${text} [${elementId}]\n`;
+                    
+                    // Store class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
+                    result += `${indent}${prefix} ${text} [${elementId}]\n\n`;
                     elementCounter++;
                     processedText.add(text);
                 }
@@ -1335,7 +1414,16 @@ export class HTMLCleaner {
                         text: text,
                         attributes: { href: href || '' }
                     };
-                    references[elementId] = href || '';
+                    
+                    // Store href, class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        href: href || undefined,
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
                     result += `${text} [${elementId}] `;
                     elementCounter++;
                     processedText.add(`${text}${href}`);
@@ -1347,11 +1435,34 @@ export class HTMLCleaner {
                 
                 if (text && text.length > 1 && !processedText.has(`button:${text}`)) {
                     const elementId = `btn_${elementCounter}`;
+                    
+                    // Store button attributes
+                    const attributes: Record<string, string> = {};
+                    const type = element.getAttribute('type');
+                    const name = element.getAttribute('name');
+                    const value = element.getAttribute('value');
+                    const class_val = element.getAttribute('class')
+                    
+                    if (type) attributes.type = type;
+                    if (name) attributes.name = name;
+                    if (value) attributes.value = value;
+                    if (class_val) attributes.class = class_val
+                    
                     elements[elementId] = { 
                         type: 'button',
-                        text: text
+                        text: text,
+                        attributes: Object.keys(attributes).length > 0 ? attributes : undefined
                     };
-                    result += `${text} [${elementId}] `;
+                    
+                    // Store class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
+                    result += `[Button: ${text}] [${elementId}] `;
                     elementCounter++;
                     processedText.add(`button:${text}`);
                 }
@@ -1363,6 +1474,7 @@ export class HTMLCleaner {
                 const placeholder = element.getAttribute('placeholder');
                 const name = element.getAttribute('name');
                 const checked = (element as HTMLInputElement).checked;
+                const class_val = element.getAttribute('class')
                 
                 const elementId = `input_${elementCounter}`;
                 const attributes: Record<string, string> = { type };
@@ -1370,11 +1482,20 @@ export class HTMLCleaner {
                 if (placeholder) attributes.placeholder = placeholder;
                 if (name) attributes.name = name;
                 if (checked) attributes.checked = 'true';
+                if (class_val) attributes.class = class_val
                 
                 elements[elementId] = { 
                     type: 'input',
                     text: placeholder || name || type,
                     attributes
+                };
+                
+                // Store class and selector information
+                const classAttr = element.getAttribute('class');
+                const selector = createSelector(element);
+                references[elementId] = {
+                    class: classAttr || undefined,
+                    selector: selector
                 };
                 
                 let displayText = `[${type} input`;
@@ -1407,7 +1528,15 @@ export class HTMLCleaner {
                     }
                 };
                 
-                let displayText = `[dropdown`;
+                // Store class and selector information
+                const classAttr = element.getAttribute('class');
+                const selector = createSelector(element);
+                references[elementId] = {
+                    class: classAttr || undefined,
+                    selector: selector
+                };
+                
+                let displayText = `[Dropdown`;
                 if (name) displayText += ` name="${name}"`;
                 displayText += `]`;
                 
@@ -1419,12 +1548,14 @@ export class HTMLCleaner {
                 const value = (element as HTMLTextAreaElement).value;
                 const placeholder = element.getAttribute('placeholder');
                 const name = element.getAttribute('name');
+                const class_val = element.getAttribute('class')
                 
                 const elementId = `textarea_${elementCounter}`;
                 const attributes: Record<string, string> = {};
                 if (value) attributes.value = value;
                 if (placeholder) attributes.placeholder = placeholder;
                 if (name) attributes.name = name;
+                if (class_val) attributes.class = class_val
                 
                 elements[elementId] = { 
                     type: 'textarea',
@@ -1432,7 +1563,15 @@ export class HTMLCleaner {
                     attributes
                 };
                 
-                let displayText = `[text area`;
+                // Store class and selector information
+                const classAttr = element.getAttribute('class');
+                const selector = createSelector(element);
+                references[elementId] = {
+                    class: classAttr || undefined,
+                    selector: selector
+                };
+                
+                let displayText = `[Text area`;
                 if (placeholder) displayText += ` "${placeholder}"`;
                 else if (name) displayText += ` name="${name}"`;
                 displayText += `]`;
@@ -1442,35 +1581,121 @@ export class HTMLCleaner {
             }
             // Handle paragraphs
             else if (tagName === 'p') {
-                const childContent = Array.from(element.childNodes)
-                    .map(child => processNode(child, depth + 1, false))
-                    .join('')
-                    .trim();
-                    
-                if (childContent) {
+                // Check if this paragraph contains any interactive elements that need to be processed first
+                const interactiveElements = element.querySelectorAll('button, input, textarea, select, a[href]');
+                let hasInteractiveElements = false;
+                
+                if (interactiveElements.length > 0) {
+                    hasInteractiveElements = true;
+                    interactiveElements.forEach(interactive => {
+                        if (processedInteractiveElements.has(interactive)) {
+                            // Process this interactive element now
+                            const interactiveContent = processNode(interactive, depth + 1, false);
+                            if (interactiveContent) {
+                                result += interactiveContent;
+                            }
+                            processedInteractiveElements.delete(interactive);
+                        }
+                    });
+                }
+                
+                // Now process the rest of the paragraph content
+                let paragraphContent = '';
+                if (!hasInteractiveElements) {
+                    paragraphContent = Array.from(element.childNodes)
+                        .map(child => processNode(child, depth + 1, false))
+                        .join('')
+                        .trim();
+                } else {
+                    // Only process non-interactive children
+                    paragraphContent = Array.from(element.childNodes)
+                        .filter(child => {
+                            if (child.nodeType !== Node.ELEMENT_NODE) return true;
+                            const childEl = child as Element;
+                            return !['button', 'input', 'textarea', 'select'].includes(childEl.tagName.toLowerCase()) && 
+                                   !(childEl.tagName.toLowerCase() === 'a' && childEl.hasAttribute('href'));
+                        })
+                        .map(child => processNode(child, depth + 1, false))
+                        .join('')
+                        .trim();
+                }
+                
+                if (paragraphContent) {
                     const elementId = `p_${elementCounter}`;
                     elements[elementId] = { 
                         type: 'paragraph',
                         text: element.textContent?.trim() || ''
                     };
-                    result += `${indent}${childContent} [${elementId}]\n\n`;
+                    
+                    // Store class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
+                    result += `${indent}${paragraphContent} [${elementId}]\n\n`;
                     elementCounter++;
                 }
             }
             // Handle list items
             else if (tagName === 'li') {
-                const childContent = Array.from(element.childNodes)
-                    .map(child => processNode(child, depth + 1, false))
-                    .join('')
-                    .trim();
-                    
-                if (childContent) {
+                // Check if this list item contains any interactive elements that need to be processed first
+                const interactiveElements = element.querySelectorAll('button, input, textarea, select, a[href]');
+                let hasInteractiveElements = false;
+                
+                if (interactiveElements.length > 0) {
+                    hasInteractiveElements = true;
+                    interactiveElements.forEach(interactive => {
+                        if (processedInteractiveElements.has(interactive)) {
+                            // Process this interactive element now
+                            const interactiveContent = processNode(interactive, depth + 1, false);
+                            if (interactiveContent) {
+                                result += interactiveContent;
+                            }
+                            processedInteractiveElements.delete(interactive);
+                        }
+                    });
+                }
+                
+                // Now process the rest of the list item content
+                let listItemContent = '';
+                if (!hasInteractiveElements) {
+                    listItemContent = Array.from(element.childNodes)
+                        .map(child => processNode(child, depth + 1, false))
+                        .join('')
+                        .trim();
+                } else {
+                    // Only process non-interactive children
+                    listItemContent = Array.from(element.childNodes)
+                        .filter(child => {
+                            if (child.nodeType !== Node.ELEMENT_NODE) return true;
+                            const childEl = child as Element;
+                            return !['button', 'input', 'textarea', 'select'].includes(childEl.tagName.toLowerCase()) && 
+                                   !(childEl.tagName.toLowerCase() === 'a' && childEl.hasAttribute('href'));
+                        })
+                        .map(child => processNode(child, depth + 1, false))
+                        .join('')
+                        .trim();
+                }
+                
+                if (listItemContent) {
                     const elementId = `li_${elementCounter}`;
                     elements[elementId] = { 
                         type: 'list-item',
                         text: element.textContent?.trim() || ''
                     };
-                    result += `${indent}• ${childContent} [${elementId}]\n`;
+                    
+                    // Store class and selector information
+                    const classAttr = element.getAttribute('class');
+                    const selector = createSelector(element);
+                    references[elementId] = {
+                        class: classAttr || undefined,
+                        selector: selector
+                    };
+                    
+                    result += `${indent}• ${listItemContent} [${elementId}]\n\n`;
                     elementCounter++;
                 }
             }
@@ -1482,20 +1707,56 @@ export class HTMLCleaner {
                     type: 'pre',
                     text: element.textContent?.trim() || ''
                 };
-                result += `[code block] [${elementId}] `;
+                
+                // Store class and selector information
+                const classAttr = element.getAttribute('class');
+                const selector = createSelector(element);
+                references[elementId] = {
+                    class: classAttr || undefined,
+                    selector: selector
+                };
+                
+                result += `[code block] [${elementId}]\n\n`;
                 elementCounter++;
             }
             // Handle divs and other block elements
             else if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer'].includes(tagName)) {
-                // Process children with deduplication
+                // Check if this element contains any interactive elements that need to be processed first
+                const interactiveElements = element.querySelectorAll('button, input, textarea, select, a[href]');
+                let interactiveContent = '';
+                
+                if (interactiveElements.length > 0) {
+                    interactiveElements.forEach(interactive => {
+                        if (processedInteractiveElements.has(interactive)) {
+                            // Process this interactive element now
+                            const content = processNode(interactive, depth + 1, false);
+                            if (content) {
+                                interactiveContent += content;
+                            }
+                            processedInteractiveElements.delete(interactive);
+                        }
+                    });
+                }
+                
+                // Process remaining children with deduplication
                 const childNodes = Array.from(element.childNodes);
                 const processedChildContent = new Set<string>();
                 let childContent = '';
                 
                 for (const child of childNodes) {
+                    // Skip interactive elements that were already processed
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        const childEl = child as Element;
+                        const isInteractive = ['button', 'input', 'textarea', 'select'].includes(childEl.tagName.toLowerCase()) || 
+                                             (childEl.tagName.toLowerCase() === 'a' && childEl.hasAttribute('href'));
+                        
+                        if (isInteractive && !processedInteractiveElements.has(childEl)) {
+                            continue;
+                        }
+                    }
+                    
                     const content = processNode(child, depth + 1, false).trim();
                     // Only add content if it's not a duplicate or empty
-                    console.log('Div Child Content: ', content, 'Depth: ', depth+1,processedChildContent)
                     if (content && content.length > 3 && !processedChildContent.has(content)) {
                         childContent += content + ' ';
                         processedChildContent.add(content);
@@ -1503,33 +1764,71 @@ export class HTMLCleaner {
                 }
                 childContent = childContent.trim();
                 
-                console.log('Child Content: ', childContent, 'Depth: ', depth+1)
+                // Combine interactive content with regular content
+                let finalContent = interactiveContent + childContent;
                 
-                if (childContent && childContent.length > 3) {
+                if (finalContent && finalContent.length > 3) {
                     const text = element.textContent?.trim() || '';
                     // Only add IDs to divs with significant content that hasn't been processed
-                    if (childContent.length > 20 && !processedText.has(text) && text.length > 20) {
+                    if (finalContent.length > 20 && !processedText.has(text) && text.length > 20) {
                         const elementId = `${tagName}_${elementCounter}`;
                         elements[elementId] = { 
                             type: tagName,
                             text: text
                         };
-                        result += `${childContent} [${elementId}]\n`;
+                        
+                        // Store class and selector information
+                        const classAttr = element.getAttribute('class');
+                        const selector = createSelector(element);
+                        references[elementId] = {
+                            class: classAttr || undefined,
+                            selector: selector
+                        };
+                        
+                        result += `${finalContent} [${elementId}]\n\n`;
                         elementCounter++;
                         processedText.add(text);
                     } else {
-                        result += `${childContent}\n`;
+                        result += `${finalContent}\n\n`;
                     }
                 }
             }
             // Handle spans and other inline elements
             else {
-                // Process children with deduplication
+                // Check if this element contains any interactive elements that need to be processed first
+                const interactiveElements = element.querySelectorAll('button, input, textarea, select, a[href]');
+                let interactiveContent = '';
+                
+                if (interactiveElements.length > 0) {
+                    interactiveElements.forEach(interactive => {
+                        if (processedInteractiveElements.has(interactive)) {
+                            // Process this interactive element now
+                            const content = processNode(interactive, depth, false);
+                            if (content) {
+                                interactiveContent += content;
+                            }
+                            processedInteractiveElements.delete(interactive);
+                        }
+                    });
+                }
+                
+                // Process remaining children with deduplication
                 const childNodes = Array.from(element.childNodes);
                 const processedChildContent = new Set<string>();
                 let childContent = '';
                 
                 for (const child of childNodes) {
+                    // Skip interactive elements that were already processed
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        const childEl = child as Element;
+                        const isInteractive = ['button', 'input', 'textarea', 'select'].includes(childEl.tagName.toLowerCase()) || 
+                                             (childEl.tagName.toLowerCase() === 'a' && childEl.hasAttribute('href'));
+                        
+                        if (isInteractive && !processedInteractiveElements.has(childEl)) {
+                            continue;
+                        }
+                    }
+                    
                     const content = processNode(child, depth, false).trim();
                     // Only add content if it's not a duplicate or empty
                     if (content && content.length > 3 && !processedChildContent.has(content)) {
@@ -1539,8 +1838,11 @@ export class HTMLCleaner {
                 }
                 childContent = childContent.trim();
                 
-                if (childContent && childContent.length > 3) {
-                    result += childContent;
+                // Combine interactive content with regular content
+                let finalContent = interactiveContent + childContent;
+                
+                if (finalContent && finalContent.length > 3) {
+                    result += finalContent;
                 }
             }
             
@@ -1563,7 +1865,6 @@ export class HTMLCleaner {
         
         // Further clean up the content by removing redundant element IDs
         // This helps reduce noise in the final output
-        // const elementIdPattern = /\s*\[\w+_\d+\]\s*/g;
         content = content
             .replace(/\[\w+_\d+\]\s*\[\w+_\d+\]/g, '') // Remove adjacent element IDs
             .replace(/\n\s*\[\w+_\d+\]\s*\n/g, '\n')   // Remove element IDs on their own lines
@@ -1572,11 +1873,4 @@ export class HTMLCleaner {
         
         return { content, elements, references };
     }
-
-    // TODO: Add these methods
-    /*
-    - addCustomCleaningRules()
-    - cleanForSummary()
-    - handleDynamicContent()
-    */
 }
