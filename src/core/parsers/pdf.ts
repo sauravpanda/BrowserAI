@@ -287,48 +287,61 @@ export class PDFParser {
     pdfJsPath: string = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
     workerPath: string = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
   ): Promise<void> {
-    // Check if PDF.js is already loaded
-    if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
-      console.log('PDF.js already loaded, version:', (window as any).pdfjsLib.version);
-      
-      // Set worker source if not already set
-      if (!(window as any).pdfjsLib.GlobalWorkerOptions?.workerSrc) {
-        console.log('Setting PDF.js worker source');
-        (window as any).pdfjsLib.GlobalWorkerOptions = (window as any).pdfjsLib.GlobalWorkerOptions || {};
-        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-      }
+    // Check if PDF.js is already available
+    if ((window as any).pdfjsLib) {
       return;
     }
-    
-    // Load PDF.js from CDN
-    return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined') {
-        reject(new Error('PDF.js can only be loaded in a browser environment'));
-        return;
-      }
 
-      console.log('Loading PDF.js from CDN:', pdfJsPath);
-      const script = document.createElement('script');
-      script.src = pdfJsPath;
-      script.onload = () => {
-        console.log('PDF.js loaded successfully, setting worker source');
-        // Set worker source - only set the workerSrc property, not the entire GlobalWorkerOptions object
-        if ((window as any).pdfjsLib && (window as any).pdfjsLib.GlobalWorkerOptions) {
-          try {
-            (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-          } catch (e) {
-            console.warn('Could not set PDF.js worker source directly:', e);
-            // Alternative approach if direct assignment fails
-            console.log('Using alternative method to set worker source');
+    // Check if we're in a browser extension environment
+    const isExtension = typeof window !== 'undefined' && 
+                       typeof (window as any).chrome !== 'undefined' && 
+                       (window as any).chrome.runtime && 
+                       (window as any).chrome.runtime.id;
+    
+    if (isExtension) {
+      try {
+        // For extensions, use dynamic import with a fallback
+        let pdfjs;
+        try {
+          // Try to use bundled version first
+          pdfjs = await import('pdfjs-dist');
+        } catch (e) {
+          // Fallback to window global if import fails
+          if (!(window as any).pdfjsLib) {
+            throw new Error('PDF.js not available');
+          }
+          pdfjs = (window as any).pdfjsLib;
+        }
+        
+        // Set up worker
+        if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+          const chrome = (window as any).chrome;
+          if (chrome && chrome.runtime && chrome.runtime.getURL) {
+            pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.js');
+          } else {
+            pdfjs.GlobalWorkerOptions.workerSrc = workerPath;
           }
         }
-        resolve();
-      };
-      script.onerror = () => {
-        reject(new Error('Failed to load PDF.js library'));
-      };
-      document.head.appendChild(script);
-    });
+        
+        // Assign to window
+        (window as any).pdfjsLib = pdfjs;
+      } catch (error) {
+        console.error('Error loading PDF.js:', error);
+        throw error;
+      }
+    } else {
+      // For non-extension environments, load from CDN
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = pdfJsPath;
+        script.onload = () => {
+          (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+          resolve();
+        };
+        script.onerror = () => reject(new Error('Failed to load PDF.js'));
+        document.head.appendChild(script);
+      });
+    }
   }
 
   /**

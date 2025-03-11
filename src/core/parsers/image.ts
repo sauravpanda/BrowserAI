@@ -68,71 +68,77 @@ export class ImageParser {
    * Parse text from an image file
    */
   static async parseFromFile(file: File, options: ImageParseOptions = {}): Promise<ImageParseResult> {
-    const debugInfo: string[] = options.debug ? ['Starting image parsing...'] : [];
-    const errors: string[] = [];
+    const debugInfo: string[] = [];
+    if (options.debug) debugInfo.push(`Starting image parsing: ${file.name}`);
     
     try {
-      if (options.debug) {
-        debugInfo.push(`Processing ${file.name} (${file.type}, ${file.size} bytes)`);
+      // Check if we're in a Chrome extension environment
+      const isExtension = typeof window !== 'undefined' && 
+                         typeof (window as any).chrome !== 'undefined' && 
+                         (window as any).chrome.runtime && 
+                         (window as any).chrome.runtime.id;
+      
+      let text = '';
+      let confidence = 0;
+      
+      if (isExtension) {
+        // For extensions, use a simpler approach without OCR
+        // You could implement a basic image description here
+        text = `[Image: ${file.name} (${file.type}, ${Math.round(file.size/1024)} KB)]`;
+        confidence = 100; // Not real OCR confidence
+      } else {
+        // Create a blob URL from the file
+        const imageUrl = URL.createObjectURL(file);
+        
+        try {
+          // Use the simpler scheduler API instead of worker API
+          const result = await Tesseract.recognize(
+            imageUrl,
+            options.language || 'eng',
+            {
+              logger: options.debug ? m => {
+                if (typeof m === 'object') {
+                  debugInfo.push(`Tesseract: status=${m.status}, progress=${m.progress || 0}`);
+                } else {
+                  debugInfo.push(`Tesseract: ${String(m)}`);
+                }
+              } : undefined
+            }
+          );
+          
+          text = result.data.text;
+          confidence = result.data.confidence;
+        } finally {
+          // Always clean up the URL
+          URL.revokeObjectURL(imageUrl);
+        }
       }
       
-      // Create an object URL for the image
-      const imageUrl = URL.createObjectURL(file);
-      
-      if (options.debug) {
-        debugInfo.push('Running OCR with Tesseract.js...');
-      }
-      
-      // Run OCR on the image
-      const result = await Tesseract.recognize(
-        imageUrl,
-        options.language || 'eng',
-        options.debug ? { logger: m => debugInfo.push(`Tesseract: ${m.status} (${Math.floor(m.progress * 100)}%)`) } : {}
-      );
-      
-      // Clean up the object URL
-      URL.revokeObjectURL(imageUrl);
-      
-      // Extract image properties
+      // Get image properties
       const properties = await this.extractImageProperties(file);
       
-      // Clean the extracted text
-      const rawText = result.data.text;
-      const cleanedText = this.cleanOcrText(rawText);
-      const hasText = this.hasActualText(rawText, result.data.confidence);
+      // Clean the text
+      const cleanedText = this.cleanOcrText(text);
       
-      if (options.debug) {
-        debugInfo.push(`OCR completed with confidence: ${result.data.confidence.toFixed(2)}%`);
-        debugInfo.push(`Extracted ${rawText.length} characters of raw text`);
-        debugInfo.push(`After cleaning: ${cleanedText.length} characters`);
-        
-        // Add detailed analysis for debugging
-        const tokens = cleanedText.split(/\s+/);
-        const actualWords = tokens.filter(token => /^[a-zA-Z]{3,}$/.test(token));
-        debugInfo.push(`Found ${actualWords.length} actual words out of ${tokens.length} tokens`);
-        debugInfo.push(`Word ratio: ${(actualWords.length / Math.max(tokens.length, 1)).toFixed(2)}`);
-        debugInfo.push(`Image ${hasText ? 'contains' : 'does not contain'} meaningful text`);
-      }
+      // Determine if the image has meaningful text
+      const hasText = this.hasActualText(cleanedText, confidence);
       
       return {
-        text: hasText ? cleanedText : '',
+        text: cleanedText,
         properties,
-        confidence: result.data.confidence,
-        errors: errors.length > 0 ? errors : undefined,
-        debugInfo: debugInfo.length > 0 ? debugInfo : undefined,
-        hasText
+        confidence,
+        hasText,
+        debugInfo: options.debug ? debugInfo : undefined
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      errors.push(`Error parsing image: ${errorMessage}`);
-      if (options.debug) {
-        debugInfo.push(`Error: ${errorMessage}`);
-      }
+      const errorMessage = (error as Error).message;
+      if (options.debug) debugInfo.push(`Error: ${errorMessage}`);
       
       return {
-        text: '',
-        errors,
-        debugInfo: debugInfo.length > 0 ? debugInfo : undefined
+        text: `[Error processing image: ${errorMessage}]`,
+        hasText: false,
+        errors: [errorMessage],
+        debugInfo: options.debug ? debugInfo : undefined
       };
     }
   }
