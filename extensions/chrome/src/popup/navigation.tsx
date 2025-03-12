@@ -1,4 +1,5 @@
-import { MessageSquare, Workflow, ArrowUpCircle } from "lucide-react"
+// import { MessageSquare, Workflow, ArrowUpCircle, Play } from "lucide-react"
+import { MessageSquare, Workflow, ArrowUpCircle, Play, Code } from "lucide-react"
 import { useState, useEffect } from 'react'
 
 export function Navigation() {
@@ -28,6 +29,28 @@ export function Navigation() {
         <MessageSquare className="h-5 w-5 mb-1" />
         <span>Chat</span>
       </button>
+      <button 
+        className={`nav-button flex flex-col items-center w-24 ${currentView === 'runner-view' ? 'active' : ''}`}
+        onClick={() => window.location.hash = '#runner-view'}
+      >
+        <Play className="h-5 w-5 mb-1" />
+        <span>Runner</span>
+      </button>
+      <button 
+        className={`nav-button flex flex-col items-center w-24 ${currentView === 'content-identifier-test' ? 'active' : ''}`}
+        onClick={() => window.location.hash = '#content-identifier-test'}
+      >
+        <Code className="h-5 w-5 mb-1" />
+        <span>Content Identifier Test</span>
+      </button>
+      <button 
+        className={`nav-button flex flex-col items-center w-24 ${currentView === 'html-cleaner-test' ? 'active' : ''}`}
+        onClick={() => window.location.hash = '#html-cleaner-test'}
+      >
+        <Code className="h-5 w-5 mb-1" />
+        <span>HTML Test</span>
+      </button>
+      
       <button 
         className={`nav-button flex flex-col items-center w-24`}
         onClick={() => window.open('https://browseragent.dev/pricing/', '_blank')}

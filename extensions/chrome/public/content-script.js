@@ -23,4 +23,26 @@ window.addEventListener('workflowData', function(event) {
         action: 'workflowDataReceived',
         data: event.detail
     });
+});
+
+// Listen for action execution messages
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'executeAction') {
+    // Import the executor dynamically
+    import(chrome.runtime.getURL('src/core/browser-actions.js'))
+      .then(module => {
+        return module.executeAction({
+          type: request.type,
+          params: request.params
+        });
+      })
+      .then(result => {
+        sendResponse({ success: true, result });
+      })
+      .catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+    
+    return true; // Required for async sendResponse
+  }
 }); 

@@ -165,6 +165,8 @@ More models will be added soon. Request a model by creating an issue.
 
 ### MLC Models
 - Llama-3.2-1b-Instruct
+- Llama-3.2-3b-Instruct
+- Hermes-Llama-3.2-3b
 - SmolLM2-135M-Instruct
 - SmolLM2-360M-Instruct
 - SmolLM2-1.7B-Instruct

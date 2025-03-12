@@ -20,15 +20,24 @@ export class BrowserAI {
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
   private ttsEngine: TTSEngine | null = null;
+  private customModels: Record<string, ModelConfig> = {};
 
   constructor() {
     this.engine = null;
     this.currentModel = null;
   }
 
+  registerCustomModel(modelIdentifier: string, modelConfig: ModelConfig): void {
+    if (MODEL_CONFIG[modelIdentifier]) {
+      console.warn(`Overriding existing model with identifier "${modelIdentifier}"`);
+    }
+    this.customModels[modelIdentifier] = modelConfig;
+  }
+
   async loadModel(modelIdentifier: string, options: Record<string, unknown> = {}): Promise<void> {
     this.modelIdentifier = modelIdentifier;
-    const modelConfig = MODEL_CONFIG[this.modelIdentifier];
+    // Check custom models first, then fall back to built-in models
+    const modelConfig = this.customModels[this.modelIdentifier] || MODEL_CONFIG[this.modelIdentifier];
     if (!modelConfig) {
       throw new Error(`Model identifier "${this.modelIdentifier}" not recognized.`);
     }
