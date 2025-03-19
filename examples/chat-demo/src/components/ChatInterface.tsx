@@ -873,26 +873,6 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
               >
                 {loading ? 'Loading...' : modelLoaded ? 'Model Loaded' : 'Load Model'}
               </Button>
-              
-              <Button 
-                onClick={async () => {
-                  try {
-                    setInput('Clearing model cache...');
-                    await browserAI.clearModelCache();
-                    setInput('Model cache cleared successfully!');
-                    setModelLoaded(false); // Reset model loaded state since cache is cleared
-                  } catch (error) {
-                    console.error('Failed to clear model cache:', error);
-                    setInput(`Error clearing cache: ${error instanceof Error ? error.message : String(error)}`);
-                  }
-                }}
-                style={{ 
-                  background: '#ef4444', // Red background to indicate destructive action
-                }}
-              >
-                Clear Cache
-              </Button>
-              
               <StatusIndicator isLoaded={modelLoaded}>
                 {modelLoaded ? 'Model Ready' : 'Model Not Loaded'}
               </StatusIndicator>
