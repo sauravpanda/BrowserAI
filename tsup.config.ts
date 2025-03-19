@@ -6,7 +6,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  treeshake: true,
+  treeshake: false,
   splitting: false,
   outDir: 'dist',
   outExtension({ format }) {
