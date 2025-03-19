@@ -91,10 +91,87 @@ interface MLCLoadModelOptions {
   [key: string]: any;
 }
 
+// Add a helper class to manage the model cache with LRU strategy
+class MLCModelCacheManager {
+  private static instance: MLCModelCacheManager;
+  private modelQueue: string[] = [];
+  private readonly maxCacheSize = 3; // Maximum number of models to keep in cache
+
+  private constructor() {}
+
+  public static getInstance(): MLCModelCacheManager {
+    if (!MLCModelCacheManager.instance) {
+      MLCModelCacheManager.instance = new MLCModelCacheManager();
+    }
+    return MLCModelCacheManager.instance;
+  }
+
+  // Mark a model as recently used or add it to the queue
+  public touchModel(modelIdentifier: string): void {
+    // Remove the model if it's already in the queue
+    this.modelQueue = this.modelQueue.filter(id => id !== modelIdentifier);
+    // Add to the end (most recently used position)
+    this.modelQueue.push(modelIdentifier);
+    
+    // If we exceed max cache size, return the LRU model to remove
+    if (this.modelQueue.length > this.maxCacheSize) {
+      const modelToRemove = this.modelQueue.shift()!;
+      this.removeModelFromCache(modelToRemove);
+    }
+  }
+
+  // Delete a specific model from cache
+  public async removeModelFromCache(modelIdentifier: string): Promise<void> {
+    try {
+      const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
+      
+      for (const cacheName of cacheNames) {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        
+        // Special handling for WASM cache since URL format is different
+        if (cacheName === 'webllm/wasm') {
+          // Extract model name without quantization suffix for more flexible matching
+          const baseModelName = modelIdentifier.split('-')[0]; // Get the base model name (e.g., "SmolLM2" from "SmolLM2-135M-Instruct-q0f32")
+          
+          // For wasm files, we need to match more flexibly
+          const modelKeys = keys.filter(request => {
+            const url = request.url;
+            // Check if URL contains the base model name (e.g., "SmolLM2")
+            // AND the specific model variant (e.g., "135M" or "1.7B")
+            const modelVariant = modelIdentifier.match(/(\d+\.?\d*[BM])/)?.[0] || '';
+            return url.includes(baseModelName) && (modelVariant ? url.includes(modelVariant) : true);
+          });
+          
+          // Delete all entries for this model from the wasm cache
+          await Promise.all(modelKeys.map(key => cache.delete(key)));
+        } else {
+          // For config and model caches, use the original approach
+          const modelKeys = keys.filter(request => 
+            request.url.includes(modelIdentifier)
+          );
+          
+          // Delete all entries for this model from the current cache
+          await Promise.all(modelKeys.map(key => cache.delete(key)));
+        }
+      }
+      
+      console.log(`Successfully removed model ${modelIdentifier} from cache`);
+      
+      // Also remove from our tracking queue if it exists
+      this.modelQueue = this.modelQueue.filter(id => id !== modelIdentifier);
+    } catch (error) {
+      console.error(`Error removing model ${modelIdentifier} from cache:`, error);
+      throw error;
+    }
+  }
+}
+
 export class MLCEngineWrapper {
   private mlcEngine: MLCEngineInterface | null = null;
   private appConfig: AppConfig | null = null;
   private worker: Worker | null = null;
+  private cacheManager = MLCModelCacheManager.getInstance();
 
   constructor() {
     this.mlcEngine = null;
@@ -148,11 +225,18 @@ export class MLCEngineWrapper {
             }
           };
 
-          // Get the URL of the local module
-          const moduleURL = new URL('@mlc-ai/web-llm', import.meta.url).href;
-          // console.log('[MLCEngine] Using local module URL:', moduleURL);
-
-          // Send init message with local module URL
+          // Fix for import.meta.url in CJS environment
+          let moduleURL;
+          try {
+            // Try the ESM approach first
+            moduleURL = new URL('@mlc-ai/web-llm', import.meta.url).href;
+          } catch (e) {
+            // Fallback for CJS environment
+            moduleURL = '@mlc-ai/web-llm';
+            console.log('[MLCEngine] Using module name as fallback for CJS environment');
+          }
+          
+          // Send init message with module URL
           this.worker.postMessage({
             type: 'init',
             moduleURL
@@ -164,6 +248,9 @@ export class MLCEngineWrapper {
 
       const quantization = options.quantization || modelConfig.defaultQuantization;
       const modelIdentifier = modelConfig.repo.replace('{quantization}', quantization).split('/')[1];
+      
+      // Mark this model as recently used in our LRU cache
+      this.cacheManager.touchModel(modelIdentifier);
       
       console.log('[MLCEngine] Loading model:', modelIdentifier, 'with worker:', !!this.worker);
 
@@ -304,5 +391,38 @@ export class MLCEngineWrapper {
       this.worker = null;
     }
     this.mlcEngine = null;
+  }
+
+  async clearModelCache(): Promise<void> {
+    return new Promise<void>(async (resolve, reject) => {
+      try {
+        // MLC models are stored in Cache Storage with specific prefixes
+        const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
+        
+        // Get all cache names
+        const existingCacheNames = await caches.keys();
+        
+        // Filter caches that match our MLC prefixes
+        const mlcCaches = existingCacheNames.filter(name => 
+          cacheNames.some(prefix => name.includes(prefix))
+        );
+        
+        // Delete all matching caches
+        await Promise.all(mlcCaches.map(name => caches.delete(name)));
+        
+        console.log('Successfully cleared MLC model cache');
+        resolve();
+      } catch (error) {
+        console.error('Error clearing model cache:', error);
+        reject(error);
+      }
+    });
+  }
+  
+  async clearSpecificModel(modelIdentifier: string): Promise<void> {
+    if (!modelIdentifier) {
+      throw new Error('Model identifier is required');
+    }
+    return this.cacheManager.removeModelFromCache(modelIdentifier);
   }
 }

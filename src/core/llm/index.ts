@@ -234,6 +234,20 @@ export class BrowserAI {
     });
   }
 
+  async clearSpecificModelCache(modelIdentifier: string): Promise<void> {
+    if (!this.engine || !(this.engine instanceof MLCEngineWrapper)) {
+      throw new Error('MLC Engine not initialized.');
+    }
+    
+    try {
+      await this.engine.clearSpecificModel(modelIdentifier);
+      console.log(`Successfully cleared cache for model: ${modelIdentifier}`);
+    } catch (error) {
+      console.error(`Error clearing model cache for ${modelIdentifier}:`, error);
+      throw error;
+    }
+  }
+
   dispose() {
     if (this.engine instanceof MLCEngineWrapper) {
       this.engine.dispose();
