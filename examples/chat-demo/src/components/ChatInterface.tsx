@@ -367,6 +367,14 @@ const WorkerStatus = styled.div<{ active: boolean }>`
   }
 `;
 
+const ClearCacheButton = styled(Button)`
+  background: #dc2626;
+  
+  &:hover {
+    background: #b91c1c;
+  }
+`;
+
 interface ChatInterfaceProps {
   children?: (props: {
     stats: {
@@ -458,6 +466,32 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     estimatedTimeRemaining: null
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Add new state for cache clearing
+  const [clearingCache, setClearingCache] = useState(false);
+  const [cacheCleared, setCacheCleared] = useState(false);
+
+  // Add this function to handle cache clearing
+  const handleClearCache = async () => {
+    if (!browserAI || clearingCache) return;
+    
+    setClearingCache(true);
+    try {
+      await browserAI.clearModelCache();
+      console.log('Model cache cleared successfully');
+      setCacheCleared(true);
+      setModelLoaded(false); // Update model status since cache is cleared
+      
+      // Reset cache cleared message after 3 seconds
+      setTimeout(() => {
+        setCacheCleared(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error clearing model cache:', error);
+    } finally {
+      setClearingCache(false);
+    }
+  };
 
     // Get WebGL information
     const canvas = document.createElement('canvas');
@@ -873,6 +907,14 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
               >
                 {loading ? 'Loading...' : modelLoaded ? 'Model Loaded' : 'Load Model'}
               </Button>
+              
+              <ClearCacheButton
+                onClick={handleClearCache}
+                disabled={clearingCache}
+              >
+                {clearingCache ? 'Clearing...' : cacheCleared ? 'Cache Cleared!' : 'Clear Cache'}
+              </ClearCacheButton>
+              
               <StatusIndicator isLoaded={modelLoaded}>
                 {modelLoaded ? 'Model Ready' : 'Model Not Loaded'}
               </StatusIndicator>
