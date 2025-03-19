@@ -95,9 +95,18 @@ interface MLCLoadModelOptions {
 class MLCModelCacheManager {
   private static instance: MLCModelCacheManager;
   private modelQueue: string[] = [];
-  private readonly maxCacheSize = 3; // Maximum number of models to keep in cache
+  private modelSizes: Map<string, number> = new Map(); // Track size of each model
+  private maxCacheSize = 1024 * 1024 * 1024; // 1GB max cache size (adjust as needed)
+  private readonly cacheThreshold = 0.8; // 80% threshold for cleanup
+  private currentCacheSize = 0;
 
-  private constructor() {}
+  private constructor() {
+    // Calculate the current cache size
+    this.calculateCacheSizeAsync();
+    
+    // Also estimate available storage and adjust max cache size
+    this.estimateAvailableStorageAndSetLimit();
+  }
 
   public static getInstance(): MLCModelCacheManager {
     if (!MLCModelCacheManager.instance) {
@@ -106,17 +115,188 @@ class MLCModelCacheManager {
     return MLCModelCacheManager.instance;
   }
 
+  // Scan all caches to calculate total size
+  private async calculateCacheSizeAsync(): Promise<void> {
+    try {
+      const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
+      this.currentCacheSize = 0;
+      this.modelSizes.clear();
+      
+      // Map to collect all URLs by model ID for debugging
+      const modelUrlMap: Map<string, string[]> = new Map();
+      
+      // Map to track original model IDs to normalized ones
+      const normalizedModelMap: Map<string, string> = new Map();
+      
+      console.log('Beginning cache calculation...');
+      
+      for (const cacheName of cacheNames) {
+        console.log(`Scanning cache: ${cacheName}`);
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        
+        console.log(`Found ${keys.length} entries in ${cacheName}`);
+        
+        for (const key of keys) {
+          const response = await cache.match(key);
+          if (!response) continue;
+          
+          const blob = await response.blob();
+          const size = blob.size;
+          this.currentCacheSize += size;
+          
+          // Try to determine which model this entry belongs to
+          const url = key.url;
+          
+          // Extract the raw model ID from the URL
+          let rawModelId = this.extractRawModelId(url);
+          
+          if (rawModelId) {
+            // Normalize the model ID to avoid duplicates
+            let normalizedModelId = this.normalizeModelId(rawModelId);
+            
+            // Track the normalization for debugging
+            if (!normalizedModelMap.has(rawModelId)) {
+              normalizedModelMap.set(rawModelId, normalizedModelId);
+            }
+            
+            // Track URLs for debugging
+            if (!modelUrlMap.has(normalizedModelId)) {
+              modelUrlMap.set(normalizedModelId, []);
+            }
+            modelUrlMap.get(normalizedModelId)?.push(url);
+            
+            if (!this.modelSizes.has(normalizedModelId)) {
+              this.modelSizes.set(normalizedModelId, 0);
+              if (!this.modelQueue.includes(normalizedModelId)) {
+                this.modelQueue.push(normalizedModelId);
+              }
+            }
+            this.modelSizes.set(normalizedModelId, (this.modelSizes.get(normalizedModelId) || 0) + size);
+          } else {
+            console.log(`Couldn't determine model for URL: ${url}`);
+          }
+        }
+      }
+      
+      // Print detailed debug info
+      console.log('--- MODEL CACHE DEBUG INFO ---');
+      console.log(`Total cache size: ${this.formatBytes(this.currentCacheSize)}`);
+      console.log(`Models in modelQueue: ${this.modelQueue.length}`);
+      console.log(`Models in modelSizes map: ${this.modelSizes.size}`);
+      
+      // Normalize the model queue to ensure consistency
+      this.normalizeModelQueue();
+      
+      console.log('Raw to normalized model mapping:');
+      for (const [raw, normalized] of normalizedModelMap.entries()) {
+        console.log(`- ${raw} → ${normalized}`);
+      }
+      
+      console.log('Detected models:');
+      for (const [modelId, size] of this.modelSizes.entries()) {
+        console.log(`- ${modelId}: ${this.formatBytes(size)} (${modelUrlMap.get(modelId)?.length || 0} files)`);
+      }
+      
+      console.log('LRU Queue order (oldest to newest):');
+      this.modelQueue.forEach((id, index) => {
+        console.log(`${index + 1}. ${id}`);
+      });
+      
+      console.log(`Cache calculated. Total size: ${this.formatBytes(this.currentCacheSize)}, Models: ${this.modelQueue.length}`);
+    } catch (error) {
+      console.error('Error calculating cache size:', error);
+    }
+  }
+  
+  // Extract raw model ID from URL
+  private extractRawModelId(url: string): string | null {
+    // Try various patterns to match model IDs in URLs
+    const patterns = [
+      // SmolLM2-135M-Instruct-q0f32-MLC
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+\-MLC/,
+      // SmolLM2-135M-Instruct-q0f32
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+/,
+      // SmolLM2-1.7B-Instruct-q4f32_1-MLC
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+_\d+\-MLC/,
+      // SmolLM2-1.7B-Instruct-q4f32_1
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+_\d+/,
+      // SmolLM2-135M-Instruct
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct/,
+      // SmolLM2-135M
+      /\/([\w\.-]+)\-(\d+\.?\d*[BM])/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[0].substring(1); // Remove leading slash
+      }
+    }
+    
+    return null;
+  }
+
+  // Normalize model ID to avoid duplicates
+  private normalizeModelId(rawModelId: string): string {
+    // Extract base model name and size
+    const baseModelMatch = rawModelId.match(/([\w\.-]+)\-(\d+\.?\d*[BM])/);
+    if (!baseModelMatch) return rawModelId;
+    
+    const baseModel = baseModelMatch[1]; // e.g., "SmolLM2"
+    const modelSize = baseModelMatch[2]; // e.g., "135M" or "1.7B"
+    
+    // Check if it's an Instruct model
+    const isInstruct = rawModelId.includes('-Instruct');
+    
+    // Create normalized ID: BaseName-Size[-Instruct]
+    return `${baseModel}-${modelSize}${isInstruct ? '-Instruct' : ''}`;
+  }
+
+  // Format bytes to human-readable format
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
   // Mark a model as recently used or add it to the queue
   public touchModel(modelIdentifier: string): void {
-    // Remove the model if it's already in the queue
-    this.modelQueue = this.modelQueue.filter(id => id !== modelIdentifier);
-    // Add to the end (most recently used position)
-    this.modelQueue.push(modelIdentifier);
+    // Normalize the model identifier
+    const normalizedId = this.normalizeModelId(modelIdentifier);
     
-    // If we exceed max cache size, return the LRU model to remove
-    if (this.modelQueue.length > this.maxCacheSize) {
-      const modelToRemove = this.modelQueue.shift()!;
-      this.removeModelFromCache(modelToRemove);
+    // Remove the model if it's already in the queue (using normalized ID)
+    this.modelQueue = this.modelQueue.filter(id => this.normalizeModelId(id) !== normalizedId);
+    
+    // Add to the end (most recently used position)
+    this.modelQueue.push(normalizedId);
+    
+    // Schedule a cache check (but don't await it to avoid blocking)
+    setTimeout(() => {
+      this.checkCacheSizeAndCleanup();
+    }, 0);
+  }
+  
+  // Check if cache exceeds threshold and clean up if needed
+  private async checkCacheSizeAndCleanup(): Promise<void> {
+    await this.calculateCacheSizeAsync();
+    
+    if (this.currentCacheSize > this.maxCacheSize * this.cacheThreshold) {
+      console.log(`Cache size (${this.formatBytes(this.currentCacheSize)}) exceeds ${this.cacheThreshold * 100}% threshold (${this.formatBytes(this.maxCacheSize * this.cacheThreshold)})`);
+      
+      // If we have more than one model, remove oldest until we're under threshold
+      while (this.modelQueue.length > 1 && this.currentCacheSize > this.maxCacheSize * this.cacheThreshold) {
+        const oldestModel = this.modelQueue.shift();
+        if (oldestModel) {
+          // Ensure we're using the normalized ID
+          const normalizedId = this.normalizeModelId(oldestModel);
+          console.log(`Removing least recently used model: ${normalizedId}`);
+          await this.removeModelFromCache(normalizedId);
+          await this.calculateCacheSizeAsync();
+        }
+      }
     }
   }
 
@@ -125,44 +305,129 @@ class MLCModelCacheManager {
     try {
       const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
       
+      // Normalize the input model identifier
+      const normalizedModelId = this.normalizeModelId(modelIdentifier);
+      console.log(`Removing model: ${modelIdentifier} (normalized: ${normalizedModelId})`);
+      
       for (const cacheName of cacheNames) {
         const cache = await caches.open(cacheName);
         const keys = await cache.keys();
         
-        // Special handling for WASM cache since URL format is different
-        if (cacheName === 'webllm/wasm') {
-          // Extract model name without quantization suffix for more flexible matching
-          const baseModelName = modelIdentifier.split('-')[0]; // Get the base model name (e.g., "SmolLM2" from "SmolLM2-135M-Instruct-q0f32")
-          
-          // For wasm files, we need to match more flexibly
-          const modelKeys = keys.filter(request => {
-            const url = request.url;
-            // Check if URL contains the base model name (e.g., "SmolLM2")
-            // AND the specific model variant (e.g., "135M" or "1.7B")
-            const modelVariant = modelIdentifier.match(/(\d+\.?\d*[BM])/)?.[0] || '';
-            return url.includes(baseModelName) && (modelVariant ? url.includes(modelVariant) : true);
-          });
-          
-          // Delete all entries for this model from the wasm cache
-          await Promise.all(modelKeys.map(key => cache.delete(key)));
-        } else {
-          // For config and model caches, use the original approach
-          const modelKeys = keys.filter(request => 
-            request.url.includes(modelIdentifier)
-          );
-          
-          // Delete all entries for this model from the current cache
-          await Promise.all(modelKeys.map(key => cache.delete(key)));
-        }
+        const modelKeys = keys.filter(request => {
+          const url = request.url;
+          const rawModelId = this.extractRawModelId(url);
+          if (rawModelId) {
+            const urlNormalizedId = this.normalizeModelId(rawModelId);
+            return urlNormalizedId === normalizedModelId;
+          }
+          return false;
+        });
+        
+        console.log(`Found ${modelKeys.length} entries to remove from ${cacheName}`);
+        
+        // Delete all entries for this model from the current cache
+        await Promise.all(modelKeys.map(key => cache.delete(key)));
       }
       
-      console.log(`Successfully removed model ${modelIdentifier} from cache`);
+      console.log(`Successfully removed model ${normalizedModelId} from cache`);
       
-      // Also remove from our tracking queue if it exists
-      this.modelQueue = this.modelQueue.filter(id => id !== modelIdentifier);
+      // Also remove from our tracking data structures
+      this.modelSizes.delete(normalizedModelId);
+      this.modelQueue = this.modelQueue.filter(id => id !== normalizedModelId);
     } catch (error) {
       console.error(`Error removing model ${modelIdentifier} from cache:`, error);
       throw error;
+    }
+  }
+  
+  // Get current cache statistics with additional debug info
+  public async getCacheInfo(): Promise<{
+    totalSize: number,
+    maxSize: number,
+    usedPercent: number,
+    models: {id: string, size: number, position: number}[],
+    debug: {
+      modelQueueLength: number,
+      modelSizesLength: number,
+      modelQueue: string[]
+    }
+  }> {
+    await this.calculateCacheSizeAsync();
+    
+    return {
+      totalSize: this.currentCacheSize,
+      maxSize: this.maxCacheSize,
+      usedPercent: (this.currentCacheSize / this.maxCacheSize) * 100,
+      models: Array.from(this.modelSizes.entries()).map(([id, size]) => ({
+        id,
+        size,
+        position: this.modelQueue.indexOf(id) + 1
+      })),
+      debug: {
+        modelQueueLength: this.modelQueue.length,
+        modelSizesLength: this.modelSizes.size,
+        modelQueue: [...this.modelQueue]
+      }
+    };
+  }
+
+  // Normalize the entire model queue to ensure consistency
+  private normalizeModelQueue(): void {
+    // Create a new queue with normalized IDs
+    const normalizedQueue: string[] = [];
+    const seenNormalizedIds = new Set<string>();
+    
+    // Process from oldest to newest to maintain LRU order
+    for (const id of this.modelQueue) {
+      const normalizedId = this.normalizeModelId(id);
+      
+      // Only add each normalized ID once (most recent position)
+      if (!seenNormalizedIds.has(normalizedId)) {
+        normalizedQueue.push(normalizedId);
+        seenNormalizedIds.add(normalizedId);
+      }
+    }
+    
+    // Replace the queue with the normalized version
+    this.modelQueue = normalizedQueue;
+    
+    console.log(`Normalized model queue. New length: ${this.modelQueue.length}`);
+  }
+
+  // Estimate available storage and set the cache limit
+  private async estimateAvailableStorageAndSetLimit(): Promise<void> {
+    try {
+      // Check if the Storage API is available
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        const estimate = await navigator.storage.estimate();
+        const quota = estimate.quota || 0;
+        const usage = estimate.usage || 0;
+        
+        // Available space is quota minus usage
+        const availableBytes = quota - usage;
+        
+        // Log the storage information
+        console.log(`Storage quota: ${this.formatBytes(quota)}`);
+        console.log(`Current storage usage: ${this.formatBytes(usage)}`);
+        console.log(`Available storage: ${this.formatBytes(availableBytes)}`);
+        
+        // Set our max cache size to 60% of available space, but cap it at 5GB
+        const calculatedMax = Math.min(availableBytes * 0.6, 5 * 1024 * 1024 * 1024);
+        
+        // Ensure we have at least 500MB cache size
+        this.maxCacheSize = Math.max(calculatedMax, 500 * 1024 * 1024);
+        
+        console.log(`Set max cache size to ${this.formatBytes(this.maxCacheSize)} (60% of available space)`);
+      } else {
+        // If Storage API isn't available, use a reasonable default
+        this.maxCacheSize = 1024 * 1024 * 1024; // 1GB default
+        console.log(`Storage API not available. Using default max cache size: ${this.formatBytes(this.maxCacheSize)}`);
+      }
+    } catch (error) {
+      // If there's an error, fall back to a default size
+      this.maxCacheSize = 1024 * 1024 * 1024; // 1GB default
+      console.error('Error estimating storage:', error);
+      console.log(`Using default max cache size: ${this.formatBytes(this.maxCacheSize)}`);
     }
   }
 }
@@ -424,5 +689,39 @@ export class MLCEngineWrapper {
       throw new Error('Model identifier is required');
     }
     return this.cacheManager.removeModelFromCache(modelIdentifier);
+  }
+
+  // Add this new method to the MLCEngineWrapper class
+  async getCacheInfo(): Promise<any> {
+    return this.cacheManager.getCacheInfo();
+  }
+
+  async printCacheInfo(): Promise<void> {
+    const info = await this.cacheManager.getCacheInfo();
+    
+    console.log('=== MLC MODEL CACHE INFORMATION ===');
+    console.log(`Total cache size: ${this.formatBytes(info.totalSize)} of ${this.formatBytes(info.maxSize)} (${info.usedPercent.toFixed(2)}%)`);
+    console.log(`Number of models: ${info.models.length}`);
+    
+    console.log('\nModels by LRU order (most recently used last):');
+    const sortedModels = [...info.models].sort((a, b) => a.position - b.position);
+    
+    sortedModels.forEach((model, index) => {
+      console.log(`${index + 1}. ${model.id}: ${this.formatBytes(model.size)}`);
+    });
+    
+    console.log('\nDebug info:');
+    console.log(`Model queue length: ${info.debug.modelQueueLength}`);
+    console.log(`Model sizes map length: ${info.debug.modelSizesLength}`);
+    console.log('LRU Queue order:', info.debug.modelQueue);
+  }
+
+  // Helper method for formatting bytes
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }
