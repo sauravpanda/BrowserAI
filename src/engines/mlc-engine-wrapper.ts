@@ -209,48 +209,173 @@ class MLCModelCacheManager {
     }
   }
   
-  // Extract raw model ID from URL
+  // Extract raw model ID from URL using patterns based on the model config
   private extractRawModelId(url: string): string | null {
-    // Try various patterns to match model IDs in URLs
-    const patterns = [
-      // SmolLM2-135M-Instruct-q0f32-MLC
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+\-MLC/,
-      // SmolLM2-135M-Instruct-q0f32
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+/,
-      // SmolLM2-1.7B-Instruct-q4f32_1-MLC
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+_\d+\-MLC/,
-      // SmolLM2-1.7B-Instruct-q4f32_1
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct\-[qQ]\d[fF]\d+_\d+/,
-      // SmolLM2-135M-Instruct
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])\-Instruct/,
-      // SmolLM2-135M
-      /\/([\w\.-]+)\-(\d+\.?\d*[BM])/
-    ];
+    // Special cases for specific model families to maintain version numbers
     
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[0].substring(1); // Remove leading slash
-      }
+    // Llama models (llama-3.2-1b-instruct, llama-3.2-3b-instruct)
+    const llamaPattern = /\/(Llama-3\.2-\d+[Bb]-Instruct)/i;
+    const llamaMatch = url.match(llamaPattern);
+    if (llamaMatch && llamaMatch[1]) {
+      return llamaMatch[1];
+    }
+    
+    // Hermes models (hermes-llama-3.2-3b)
+    const hermesPattern = /\/(Hermes-\d+-Llama-\d+\.\d+-\d+[Bb])/i;
+    const hermesMatch = url.match(hermesPattern);
+    if (hermesMatch && hermesMatch[1]) {
+      return hermesMatch[1];
+    }
+    
+    // Qwen models (qwen2.5-0.5b-instruct, qwen2.5-1.5b-instruct, qwen2.5-3b-instruct)
+    const qwenPattern = /\/(Qwen2(?:\.5)?-\d+\.?\d*[Bb]-Instruct)/i;
+    const qwenMatch = url.match(qwenPattern);
+    if (qwenMatch && qwenMatch[1]) {
+      return qwenMatch[1];
+    }
+    
+    // SmolLM models (smollm2-135m-instruct, smollm2-360m-instruct, smollm2-1.7b-instruct)
+    const smolLMPattern = /\/(SmolLM2-\d+\.?\d*[BbMG]-Instruct)/i;
+    const smolLMMatch = url.match(smolLMPattern);
+    if (smolLMMatch && smolLMMatch[1]) {
+      return smolLMMatch[1];
+    }
+    
+    // Gemma models (gemma-2b-it)
+    const gemmaPattern = /\/(gemma-\d+[Bb]-it)/i;
+    const gemmaMatch = url.match(gemmaPattern);
+    if (gemmaMatch && gemmaMatch[1]) {
+      return gemmaMatch[1];
+    }
+    
+    // TinyLlama models (tinyllama-1.1b-chat-v0.4)
+    const tinyLlamaPattern = /\/(TinyLlama-\d+\.?\d*[Bb]-Chat-v[\d\.]+)/i;
+    const tinyLlamaMatch = url.match(tinyLlamaPattern);
+    if (tinyLlamaMatch && tinyLlamaMatch[1]) {
+      return tinyLlamaMatch[1];
+    }
+    
+    // Phi models (phi-3.5-mini-instruct)
+    const phiPattern = /\/(Phi-\d+\.?\d+-\w+-\w+)/i;
+    const phiMatch = url.match(phiPattern);
+    if (phiMatch && phiMatch[1]) {
+      return phiMatch[1];
+    }
+    
+    // DeepSeek models (deepseek-r1-distill-qwen-1.5b, deepseek-r1-distill-qwen-7b, deepseek-r1-distill-llama-8b)
+    const deepSeekPattern = /\/(DeepSeek-R1-Distill-(?:Qwen|Llama)-\d+\.?\d*[Bb])/i;
+    const deepSeekMatch = url.match(deepSeekPattern);
+    if (deepSeekMatch && deepSeekMatch[1]) {
+      return deepSeekMatch[1];
+    }
+    
+    // Snowflake arctic embed models (snowflake-arctic-embed-m-b4, snowflake-arctic-embed-s-b4, etc.)
+    const snowflakePattern = /\/(snowflake-arctic-embed-[ms])(?:-b\d+)?/i;
+    const snowflakeMatch = url.match(snowflakePattern);
+    if (snowflakeMatch && snowflakeMatch[1]) {
+      return snowflakeMatch[1];
+    }
+    
+    // Fallback for models with quantization and MLC suffix
+    const mlcPattern = /\/([A-Za-z0-9\.\-]+(?:-\d+\.?\d*[BbMG])(?:-[A-Za-z0-9\.\-]+)?)-[qQ]\d[fF]\d+(?:_\d+)?-MLC/;
+    const mlcMatch = url.match(mlcPattern);
+    if (mlcMatch && mlcMatch[1]) {
+      return mlcMatch[1];
+    }
+    
+    // Fallback for models with just quantization
+    const quantPattern = /\/([A-Za-z0-9\.\-]+(?:-\d+\.?\d*[BbMG])(?:-[A-Za-z0-9\.\-]+)?)-[qQ]\d[fF]\d+(?:_\d+)?/;
+    const quantMatch = url.match(quantPattern);
+    if (quantMatch && quantMatch[1]) {
+      return quantMatch[1];
+    }
+    
+    // Fallback for any other model pattern
+    const genericPattern = /\/([A-Za-z0-9\.\-]+(?:-\d+\.?\d*[BbMG])(?:-[A-Za-z0-9\.\-]+)?)/;
+    const genericMatch = url.match(genericPattern);
+    if (genericMatch && genericMatch[1]) {
+      return genericMatch[1];
     }
     
     return null;
   }
 
-  // Normalize model ID to avoid duplicates
+  // Normalize model ID while preserving all important version information
   private normalizeModelId(rawModelId: string): string {
-    // Extract base model name and size
-    const baseModelMatch = rawModelId.match(/([\w\.-]+)\-(\d+\.?\d*[BM])/);
-    if (!baseModelMatch) return rawModelId;
+    // First, make case-insensitive
+    const lowerCaseId = rawModelId.toLowerCase();
     
-    const baseModel = baseModelMatch[1]; // e.g., "SmolLM2"
-    const modelSize = baseModelMatch[2]; // e.g., "135M" or "1.7B"
+    // Handle specific model families
     
-    // Check if it's an Instruct model
-    const isInstruct = rawModelId.includes('-Instruct');
+    // Llama models
+    if (lowerCaseId.includes('llama-3.2') && lowerCaseId.includes('instruct')) {
+      const match = rawModelId.match(/(Llama-3\.2-\d+[Bb])-Instruct/i);
+      if (match) return match[1] + '-Instruct';
+    }
     
-    // Create normalized ID: BaseName-Size[-Instruct]
-    return `${baseModel}-${modelSize}${isInstruct ? '-Instruct' : ''}`;
+    // Hermes models
+    if (lowerCaseId.includes('hermes') && lowerCaseId.includes('llama')) {
+      const match = rawModelId.match(/(Hermes-\d+-Llama-\d+\.\d+-\d+[Bb])/i);
+      if (match) return match[1];
+    }
+    
+    // Qwen models - CRUCIAL to maintain version differences
+    if (lowerCaseId.includes('qwen')) {
+      // Preserve the full Qwen version
+      if (lowerCaseId.includes('qwen2.5')) {
+        const match = rawModelId.match(/(Qwen2\.5-\d+\.?\d*[Bb])-Instruct/i);
+        if (match) return match[1] + '-Instruct';
+      } else if (lowerCaseId.includes('qwen2')) {
+        const match = rawModelId.match(/(Qwen2-\d+\.?\d*[Bb])-Instruct/i);
+        if (match) return match[1] + '-Instruct';
+      }
+    }
+    
+    // SmolLM models
+    if (lowerCaseId.includes('smollm')) {
+      const match = rawModelId.match(/(SmolLM2-\d+\.?\d*[BbMG])(-Instruct)?/i);
+      if (match) return match[1] + (match[2] || '');
+    }
+    
+    // Gemma models
+    if (lowerCaseId.includes('gemma')) {
+      const match = rawModelId.match(/(gemma-\d+[Bb])-it/i);
+      if (match) return match[1] + '-it';
+    }
+    
+    // TinyLlama models
+    if (lowerCaseId.includes('tinyllama')) {
+      const match = rawModelId.match(/(TinyLlama-\d+\.?\d*[Bb]-Chat-v[\d\.]+)/i);
+      if (match) return match[1];
+    }
+    
+    // Phi models
+    if (lowerCaseId.includes('phi')) {
+      const match = rawModelId.match(/(Phi-\d+\.?\d+-\w+-\w+)/i);
+      if (match) return match[1];
+    }
+    
+    // DeepSeek models
+    if (lowerCaseId.includes('deepseek')) {
+      const match = rawModelId.match(/(DeepSeek-R1-Distill-(?:Qwen|Llama)-\d+\.?\d*[Bb])/i);
+      if (match) return match[1];
+    }
+    
+    // Snowflake models - keep base model but remove batch size
+    if (lowerCaseId.includes('snowflake')) {
+      const match = rawModelId.match(/(snowflake-arctic-embed-[ms])/i);
+      if (match) return match[1];
+    }
+    
+    // Generic fallback: remove quantization and other suffixes
+    let normalizedId = rawModelId
+      .replace(/-q\d+f\d+(_\d+)?(-MLC)?$/i, '')  // Remove quantization
+      .replace(/-MLC$/i, '');                    // Remove MLC suffix
+    
+    // Remove batch size suffixes
+    normalizedId = normalizedId.replace(/-b\d+$/i, '');
+    
+    return normalizedId;
   }
 
   // Format bytes to human-readable format
