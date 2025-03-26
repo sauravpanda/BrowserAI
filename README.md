@@ -79,7 +79,7 @@ await browserAI.loadModel('llama-3.2-1b-instruct', {
 
 // Generate text
 const response = await browserAI.generateText('Hello, how are you?');
-console.log(response);
+console.log(response.choices[0].message.content);
 ```
 
 
