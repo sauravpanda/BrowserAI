@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BrowserAI } from '@browserai/browserai';
 import styled from '@emotion/styled';
 
@@ -108,10 +108,16 @@ const Status = styled.div`
   gap: 8px;
 `;
 
+const StatusDetail = styled.span<{ isHighlight?: boolean }>`
+  color: ${props => props.isHighlight ? '#4CAF50' : '#888'};
+  font-weight: ${props => props.isHighlight ? 'bold' : 'normal'};
+`;
+
 const ButtonGroup = styled.div`
   display: flex;
   gap: 1rem;
   justify-content: center;
+  flex-wrap: wrap;
 `;
 
 const Select = styled.select`
@@ -133,6 +139,10 @@ const InputGroup = styled.div`
   display: flex;
   gap: 1rem;
   margin-bottom: 1rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
 `;
 
 const RangeInput = styled.input`
@@ -159,6 +169,9 @@ const Label = styled.label`
   display: block;
 `;
 
+// These components were removed as they are no longer used
+
+// Voice options
 const VOICE_OPTIONS = [
   { id: 'af_bella', name: 'Bella', language: 'en-us', gender: 'Female' },
   { id: 'af_nicole', name: 'Nicole', language: 'en-us', gender: 'Female' },
@@ -177,6 +190,7 @@ const VOICE_OPTIONS = [
 ];
 
 function App() {
+  // State variables
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -185,7 +199,160 @@ function App() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [selectedVoice, setSelectedVoice] = useState('af_bella');
   const [speed, setSpeed] = useState(1.0);
+  // Standard/streaming tab selection removed - now only streaming is supported
+  const [streamingProgress, setStreamingProgress] = useState(0);
+  const [isStreamPlaying, setIsStreamPlaying] = useState(false);
+  const [streamingStats, setStreamingStats] = useState({
+    chunksReceived: 0,
+    chunksPlayed: 0,
+    totalChunks: 0
+  });
 
+  // Refs for audio handling
+  const audioContext = useRef<AudioContext | null>(null);
+  const audioBufferQueue = useRef<any[]>([]);
+  const nextStartTime = useRef<number>(0);
+  const isAudioPlaying = useRef<boolean>(false);
+  const streamController = useRef<AbortController | null>(null);
+  const allChunksBuffer = useRef<ArrayBuffer[]>([]);
+  
+  // Initialize AudioContext when needed
+  // AudioContext is created on demand when needed
+  
+  // Cleanup AudioContext when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioContext.current) {
+        audioContext.current.close();
+        audioContext.current = null;
+      }
+      if (streamController.current) {
+        streamController.current.abort();
+        streamController.current = null;
+      }
+    };
+  }, []);
+
+  // Play queued audio buffers
+  const playQueuedAudio = () => {
+    if (!audioContext.current || audioBufferQueue.current.length === 0 || isAudioPlaying.current) {
+      return;
+    }
+
+    console.log(`[STREAM-TEST] Starting audio playback from queue, queue size: ${audioBufferQueue.current.length}`);
+    isAudioPlaying.current = true;
+    
+    const playNextBuffer = () => {
+      if (audioBufferQueue.current.length === 0) {
+        console.log(`[STREAM-TEST] Queue empty, playback complete`);
+        isAudioPlaying.current = false;
+        setIsStreamPlaying(false);
+        setStatus('Playback complete');
+        setIsLoading(false);
+        return;
+      }
+
+      const bufferWithMeta = audioBufferQueue.current.shift();
+      if (!bufferWithMeta || !audioContext.current) return;
+      
+      const buffer = bufferWithMeta.buffer;
+      const chunkIndex = bufferWithMeta.metadata?.chunkIndex || 0;
+
+      const source = audioContext.current.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.current.destination);
+      
+      // Schedule this buffer to play at the correct time
+      const startTime = Math.max(audioContext.current.currentTime, nextStartTime.current);
+      source.start(startTime);
+      
+      // Calculate delay before playback
+      const delay = startTime - audioContext.current.currentTime;
+      
+      // Update next start time to be after this buffer
+      nextStartTime.current = startTime + buffer.duration;
+      
+      // Update stats - use the actual chunk index plus 1 for display
+      const chunkNumber = chunkIndex + 1;
+      setStreamingStats(prev => ({
+        ...prev,
+        chunksPlayed: chunkNumber
+      }));
+      
+      console.log(`[STREAM-TEST] Playing buffer #${chunkNumber}: duration=${buffer.duration.toFixed(2)}s, scheduled delay=${delay.toFixed(3)}s`);
+      
+      // When this buffer ends, check if we need to play the next one
+      source.onended = () => {
+        console.log(`[STREAM-TEST] Buffer #${chunkNumber} finished playing`);
+        setStreamingProgress(Math.min(
+          ((chunkNumber) / Math.max(streamingStats.totalChunks, 1)) * 100,
+          99.9
+        ));
+        setTimeout(playNextBuffer, 0);
+      };
+    };
+
+    playNextBuffer();
+  };
+
+  // Process audio chunk into a buffer and add to queue
+  const processAudioChunk = async (chunk: ArrayBuffer, isFirstChunk: boolean, metadata?: any) => {
+    if (!audioContext.current) {
+      audioContext.current = new AudioContext({ sampleRate: 24000 });
+    }
+    
+    try {
+      // Debug log for streaming verification
+      console.log(`[STREAM-TEST] Processing chunk: ${isFirstChunk ? 'FIRST' : 'subsequent'}, size: ${chunk.byteLength} bytes`);
+      
+      // Store buffer for potential download
+      allChunksBuffer.current.push(chunk);
+      
+      // For first chunk with WAV header, we need to decode it as a WAV file
+      // For subsequent chunks (raw PCM), we need to manually create an AudioBuffer
+      let audioBuffer: AudioBuffer;
+      
+      if (isFirstChunk) {
+        // Decode WAV data (includes header)
+        audioBuffer = await audioContext.current.decodeAudioData(chunk.slice(0));
+        console.log(`[STREAM-TEST] First chunk decoded: duration=${audioBuffer.duration.toFixed(2)}s`);
+      } else {
+        // Convert Int16 PCM data to Float32
+        const int16Data = new Int16Array(chunk);
+        const float32Data = new Float32Array(int16Data.length);
+        
+        for (let i = 0; i < int16Data.length; i++) {
+          // Convert Int16 to normalized Float32
+          float32Data[i] = int16Data[i] / 32768.0;
+        }
+        
+        // Create AudioBuffer (mono)
+        audioBuffer = audioContext.current.createBuffer(1, float32Data.length, audioContext.current.sampleRate);
+        audioBuffer.getChannelData(0).set(float32Data);
+        console.log(`[STREAM-TEST] Subsequent chunk processed: samples=${int16Data.length}, duration=${audioBuffer.duration.toFixed(2)}s`);
+      }
+      
+      // Add to the queue with metadata
+      audioBufferQueue.current.push({
+        buffer: audioBuffer,
+        metadata: {
+          chunkIndex: metadata?.chunkIndex || 0,
+          isFirstChunk
+        }
+      });
+      console.log(`[STREAM-TEST] Queue size: ${audioBufferQueue.current.length} chunks`);
+      
+      // Start playback if not already playing
+      if (!isAudioPlaying.current) {
+        console.log(`[STREAM-TEST] Starting playback`);
+        playQueuedAudio();
+      }
+    } catch (error) {
+      console.error("Error processing audio chunk:", error);
+    }
+  };
+
+  // Load the TTS model
   const loadModel = async () => {
     try {
       setIsLoading(true);
@@ -199,52 +366,140 @@ function App() {
     }
   };
 
-  const speak = async () => {
+  // Non-streaming TTS implementation removed, only streaming is now supported
+
+  // Streaming TTS implementation
+  const speakStreaming = async () => {
     if (!text.trim()) {
       setStatus('Please enter some text first');
       return;
     }
 
     try {
+      console.log(`[STREAM-TEST] ====== STARTING STREAMING TTS TEST ======`);
+      console.log(`[STREAM-TEST] Text length: ${text.length} characters`);
+      
+      // Reset state for new streaming session
       setIsLoading(true);
-      setStatus('Generating speech...');
-      const audioData = await ttsAI.textToSpeech(text, {
+      setIsStreamPlaying(true);
+      setStatus('Initializing streaming speech...');
+      setStreamingProgress(0);
+      
+      // Reset audio context and queue
+      if (audioContext.current) {
+        await audioContext.current.close();
+      }
+      audioContext.current = new AudioContext({ sampleRate: 24000 });
+      console.log(`[STREAM-TEST] Created new AudioContext with sample rate: ${audioContext.current.sampleRate}Hz`);
+      
+      audioBufferQueue.current = [];
+      nextStartTime.current = 0;
+      isAudioPlaying.current = false;
+      allChunksBuffer.current = [];
+      
+      // Reset streaming stats
+      setStreamingStats({
+        chunksReceived: 0,
+        chunksPlayed: 0,
+        totalChunks: 0
+      });
+      
+      // Create abort controller for cancellation
+      if (streamController.current) {
+        streamController.current.abort();
+      }
+      streamController.current = new AbortController();
+      console.log(`[STREAM-TEST] Calling BrowserAI.textToSpeechStream()`);
+      
+      // Start streaming TTS - use type assertion as a temporary workaround
+      // This is needed because the TypeScript definitions in the built library 
+      // haven't been updated to include the new textToSpeechStream method
+      const streamGenerator = (ttsAI as any).textToSpeechStream(text, {
         voice: selectedVoice,
         speed: speed
       });
       
-      if (audioData) {
-        // Create a blob with WAV MIME type
-        const blob = new Blob([audioData], { type: 'audio/wav' });
-        setAudioBlob(blob); // Store the blob for download
-        const audioUrl = URL.createObjectURL(blob);
+      let firstChunkProcessed = false;
+      let startTime = performance.now();
+      let chunkNumber = 0;
+      
+      for await (const chunk of streamGenerator) {
+        chunkNumber++;
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+        console.log(`[STREAM-TEST] Received chunk #${chunkNumber} after ${elapsed}s`);
         
-        // Create and play audio element
-        const audio = new Audio(audioUrl);
+        if (streamController.current?.signal.aborted) {
+          console.log(`[STREAM-TEST] Streaming aborted`);
+          break;
+        }
         
-        audio.onended = () => {
-          setStatus('Finished playing');
-          setIsLoading(false);
-          URL.revokeObjectURL(audioUrl); // Clean up
-        };
+        // Update status after first chunk arrives
+        if (!firstChunkProcessed) {
+          console.log(`[STREAM-TEST] First chunk received, time to first chunk: ${elapsed}s`);
+          setStatus('Started streaming playback...');
+          firstChunkProcessed = true;
+        }
         
-        audio.onerror = (e) => {
-          console.error('Audio playback error:', e);
-          setStatus('Error playing audio');
-          setIsLoading(false);
-          URL.revokeObjectURL(audioUrl);
-        };
+        // Log chunk metadata
+        console.log(`[STREAM-TEST] Chunk metadata:`, {
+          isFirstChunk: chunk.isFirstChunk,
+          chunkIndex: chunk.metadata?.chunkIndex,
+          totalChunks: chunk.metadata?.totalChunks
+        });
         
+        // Update streaming stats
+        setStreamingStats(prev => ({
+          ...prev,
+          chunksReceived: prev.chunksReceived + 1,
+          totalChunks: chunk.metadata?.totalChunks || prev.totalChunks
+        }));
+        
+        // Process this chunk
+        await processAudioChunk(chunk.buffer, chunk.isFirstChunk, chunk.metadata);
+      }
+      
+      const totalTime = ((performance.now() - startTime) / 1000).toFixed(2);
+      console.log(`[STREAM-TEST] All chunks received. Total time: ${totalTime}s, Total chunks: ${chunkNumber}`);
+      
+      // Create combined blob for download after all chunks are received
+      if (allChunksBuffer.current.length > 0) {
+        const combinedBlob = new Blob(allChunksBuffer.current, { type: 'audio/wav' });
+        setAudioBlob(combinedBlob);
+        console.log(`[STREAM-TEST] Created combined audio blob, size: ${(combinedBlob.size / 1024).toFixed(2)}KB`);
+      }
+      
+      setStreamingProgress(100);
+      if (!streamController.current?.signal.aborted) {
         setStatus('Playing audio...');
-        await audio.play();
+        console.log(`[STREAM-TEST] ====== STREAMING TEST COMPLETED SUCCESSFULLY ======`);
       }
     } catch (error) {
-      console.error('Error in speak:', error);
-      setStatus('Error generating speech: ' + (error as Error).message);
+      console.error('[STREAM-TEST] Error in streaming speech:', error);
+      setStatus('Error generating streaming speech: ' + (error as Error).message);
       setIsLoading(false);
+      setIsStreamPlaying(false);
     }
   };
 
+  // Stop streaming playback
+  const stopStreamingPlayback = () => {
+    if (streamController.current) {
+      streamController.current.abort();
+    }
+    
+    if (audioContext.current) {
+      audioContext.current.close().then(() => {
+        audioContext.current = null;
+        audioBufferQueue.current = [];
+        isAudioPlaying.current = false;
+        setIsStreamPlaying(false);
+        setIsLoading(false);
+        setStatus('Playback stopped');
+      });
+    }
+  };
+
+  // Download generated audio
   const downloadAudio = () => {
     if (audioBlob) {
       const url = URL.createObjectURL(audioBlob);
@@ -282,6 +537,8 @@ function App() {
           </ButtonContent>
         </Button>
 
+        {/* TabBar removed - now only streaming is supported */}
+
         <InputGroup>
           <div style={{ flex: 1 }}>
             <Label>Voice</Label>
@@ -318,17 +575,32 @@ function App() {
           disabled={!isModelLoaded || isLoading}
         />
 
+        {/* Progress bar removed for cleaner UI */}
+
+        {/* Test paragraph button removed */}
+
         <ButtonGroup>
-          <Button
-            onClick={speak}
-            disabled={!isModelLoaded || isLoading || !text.trim()}
-            isLoading={isLoading && isModelLoaded}
-          >
-            <ButtonContent>
-              {(isLoading && isModelLoaded) && <Spinner />}
-              {isLoading ? 'Processing...' : 'Speak'}
-            </ButtonContent>
-          </Button>
+          {!isStreamPlaying ? (
+            <Button
+              onClick={speakStreaming}
+              disabled={!isModelLoaded || isLoading || !text.trim()}
+              isLoading={isLoading && !isStreamPlaying}
+            >
+              <ButtonContent>
+                {(isLoading && !isStreamPlaying) && <Spinner />}
+                Speak
+              </ButtonContent>
+            </Button>
+          ) : (
+            <Button
+              onClick={stopStreamingPlayback}
+              isLoading={false}
+            >
+              <ButtonContent>
+                Stop
+              </ButtonContent>
+            </Button>
+          )}
 
           {audioBlob && (
             <Button onClick={downloadAudio}>
@@ -339,10 +611,12 @@ function App() {
           )}
         </ButtonGroup>
 
-        {(status || isLoading) && (
+        {(status || isLoading || isStreamPlaying) && (
           <Status>
-            {isLoading && <Spinner />}
+            {(isLoading || isStreamPlaying) && <Spinner />}
             {status}
+            
+            {/* Chunk count removed from UI */}
           </Status>
         )}
       </Container>
