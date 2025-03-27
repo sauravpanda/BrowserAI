@@ -604,13 +604,13 @@ export default function ChatInterface() {
 
             captureAnalytics('chat_response_generated', {
               inputLength: transcribedText?.length,
-              responseLength: response?.toString().length,
+              responseLength: (response as { choices: { message: { content: string } }[] }).choices[0]?.message?.content?.length,
               processingTimeMs: chatProcessingTime,
               memoryUsage: stats.memoryUsage,
               peakMemoryUsage: stats.peakMemoryUsage,
             });
 
-            const responseText = response?.toString() || 'No response';
+            const responseText = (response as { choices: { message: { content: string } }[] }).choices[0]?.message?.content || 'No response';
             setMessages(prev => [...prev, { text: responseText, isUser: false }]);
           } catch (error) {
             console.error('Error generating response:', error);

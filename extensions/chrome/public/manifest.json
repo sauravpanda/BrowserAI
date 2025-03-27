@@ -59,7 +59,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["src/core/browser-actions.js"],
+      "resources": ["src/core/browser-actions.js", "src/core/agent/html-cleaner.js"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client'
 import { ChatInterface } from "./chat-interface"
 import { WorkflowRunner } from "../sidepanel/workflow-runner"
 import { ContentIdentifierTest } from "../sidepanel/content-identifier-test"
+import { HTMLCleanerTest } from "../components/HTMLCleanerTest"
 
 interface Workflow {
   id: string
@@ -52,6 +53,8 @@ export default function Popup() {
         return <WorkflowRunner />
       case 'content-identifier-test':
         return <ContentIdentifierTest />
+      case 'html-cleaner-test':
+        return <HTMLCleanerTest />
       case 'workflow-view':
       default:
         return (

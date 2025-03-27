@@ -90,13 +90,13 @@ function App() {
       }
 
       // Generate speech before showing the response
-      const audioBuffer = await ttsAI.textToSpeech(response as string, {
+      const audioBuffer = await ttsAI.textToSpeech((response as { choices: { message: { content: string } }[] }).choices[0]?.message?.content as string, {
         voice: voices[language as keyof typeof voices]
       });
 
       // Update message with response but keep it hidden until speaking starts
       setMessages(prev => prev.map((msg, idx) =>
-        idx === prev.length - 1 ? { ...msg, text: response as string, status: 'speaking' } : msg
+        idx === prev.length - 1 ? { ...msg, text: (response as { choices: { message: { content: string } }[] }).choices[0]?.message?.content as string, status: 'speaking' } : msg
       ));
 
       // Play the audio
@@ -110,7 +110,7 @@ function App() {
         // Reset status when audio ends
         source.onended = () => {
           setMessages(prev => prev.map((msg, idx) =>
-            idx === prev.length - 1 ? { ...msg, status: null } : msg
+            idx === prev.length - 1 ? { ...msg, status: undefined } : msg
           ));
         };
       });

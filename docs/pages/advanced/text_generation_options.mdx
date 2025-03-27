@@ -53,7 +53,7 @@ const response = await browserAI.generateText('Write a story about AI', {
   system_prompt: "You are a creative storyteller specialized in science fiction.",
 });
 
-console.log('Generated Story:', response); // "In the year 2045..."
+console.log('Generated Story:', response.choices[0].message.content); // "In the year 2045..."
 ```
 
 ## Structured Output Generation
