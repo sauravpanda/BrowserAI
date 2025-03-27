@@ -160,11 +160,9 @@ export class TransformersEngineWrapper {
       
       // Use streaming implementation internally
       const chunks: ArrayBuffer[] = [];
-      let isFirstChunk = true;
       
       for await (const chunk of this.textToSpeechStream(text, options)) {
         chunks.push(chunk.buffer);
-        isFirstChunk = false;
       }
       
       // Combine all chunks
