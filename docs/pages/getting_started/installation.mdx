@@ -42,7 +42,7 @@ async function quickStart() {
     
     // Generate your first AI response!
     const response = await browserAI.generateText('Hello, BrowserAI!');
-    console.log(response);
+    console.log(response.choices[0].message.content);
 }
 
 quickStart();

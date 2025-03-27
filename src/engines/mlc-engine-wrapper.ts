@@ -764,7 +764,7 @@ export class MLCEngineWrapper {
     }
 
     const result = await this.mlcEngine.chat.completions.create(finalOptions);
-    return result.choices[0].message.content;
+    return result;
   }
 
   async embed(input: string, options: any = {}) {

@@ -22,7 +22,7 @@ async function generateText() {
     
     // Generate a response
     const response = await browserAI.generateText('What is machine learning?');
-    console.log(response); // "Machine learning is a branch of AI..."
+    console.log(response.choices[0].message.content); // "Machine learning is a branch of AI..."
 }
 ```
 

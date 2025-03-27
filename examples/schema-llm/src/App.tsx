@@ -44,10 +44,10 @@ function App() {
 
       // Format and display the output
       try {
-        const jsonResult = JSON.parse(result as string)
+        const jsonResult = JSON.parse((result as { choices: { message: { content: string } }[] }).choices[0]?.message?.content as string)
         setOutput(JSON.stringify(jsonResult, null, 2))
       } catch (e) {
-        setOutput(result as string)
+        setOutput((result as { choices: { message: { content: string } }[] }).choices[0]?.message?.content as string)
       }
     } catch (error) {
       setOutput(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`)

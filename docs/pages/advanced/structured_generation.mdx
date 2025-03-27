@@ -34,12 +34,17 @@ const response = await browserAI.generateText('List 3 popular colors', {
 });
 
 // Returns:
-// {
-//   "colors": [
-//     { "name": "blue", "hex": "#0000FF" },
-//     { "name": "red", "hex": "#FF0000" },
-//     { "name": "green", "hex": "#00FF00" }
-//   ]
+// { "choices": [
+//   { "message": { 
+//     "content": {
+//       "colors": [ 
+//         { "name": "blue", "hex": "#0000FF" },
+//         { "name": "red", "hex": "#FF0000" },
+//         { "name": "green", "hex": "#00FF00" }
+//       ]
+//     } 
+//   } 
+//  ]
 // }
 ```
 
