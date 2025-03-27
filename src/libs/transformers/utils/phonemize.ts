@@ -598,27 +598,147 @@ function processHinglishText(text: string): string {
     return result.trim();
   }
     // Simple function to split text into processable chunks
+  // Simple function to split text into processable chunks (Keep as is)
   function splitIntoChunks(text: string): string[] {
-    // Split on sentence boundaries
+    // Split on sentence boundaries or significant pauses
+    // Added comma to split shorter phrases for potentially better streaming flow
     return text
-      .split(/(?<=[.!?])\s+/)
+      .split(/(?<=[.!?])\s+|,\s*/) // Split on sentence ends AND commas
       .map(s => s.trim())
       .filter(s => s.length > 0);
   }
 
   export async function* phonemizeStream(text: string, language = "a", norm = true): AsyncGenerator<string> {
-    // Normalize if needed (reusing existing function)
+    // 1. Normalize text (if requested) - Done once for the whole input
     const normalizedText = norm ? normalize_text(text) : text;
-    
-    // Split into chunks for streaming
+
+    // 2. Determine Target Language - Done once based on input param and full text
+    const languageMap: { [key: string]: string } = {
+      'a': 'en-us',  // American English
+      'b': 'en',     // British English
+      'h': 'hindi',  // Hindi
+      'e': 'spanish', // Spanish
+      'f': 'french', // French
+      'z': 'chinese' // Chinese
+    };
+
+    let targetLanguage = languageMap[language] || 'en-us'; // Default to en-us
+
+    // Special handling for Hindi - check Devanagari characters in the *entire* text
+    const containsDevanagari = /[\u0900-\u097F]/.test(normalizedText);
+    if (language === 'h' || containsDevanagari) {
+      targetLanguage = 'hindi';
+    }
+
+    // Auto-detect Hinglish only if not explicitly Hindi/Devanagari and looks like English
+    // Use the original full normalized text for better detection context
+    if (targetLanguage !== 'hindi' && (targetLanguage === 'en-us' || targetLanguage === 'en')) {
+      if (isHinglish(normalizedText)) { // Check the whole normalized text
+        targetLanguage = 'hinglish';
+      }
+    }
+    // Optionally log the determined language for debugging
+    // console.log("PhonemizeStream determined language:", targetLanguage);
+
+    // 3. Split into Chunks for Streaming
     const chunks = splitIntoChunks(normalizedText);
-    
-    // Process each chunk using existing logic
+
+    // 4. Process each chunk
     for (const chunk of chunks) {
-      // Use the existing phonemize function for each chunk
-      // This ensures consistent results between streaming and non-streaming
-      const result = await phonemize(chunk, language, false); // false because we already normalized
+      // 4a. Split chunk by punctuation to preserve it during phonemization
+      const sections = split(chunk, PUNCTUATION_PATTERN);
+
+      // 4b. Convert each section within the chunk to phonemes based on targetLanguage
+      const phonemeSections = await Promise.all(
+        sections.map(async ({ match, text: sectionText }) => {
+          if (match) return sectionText; // Keep punctuation as is
+
+          // --- Apply language-specific processing ---
+          switch (targetLanguage) {
+            case 'hindi':
+               // Check if this specific section contains Devanagari
+              if (/[\u0900-\u097F]/.test(sectionText)) {
+                // Process Devanagari script
+                let devanagariProcessed = Array.from(sectionText)
+                  .map(char => HINDI_PHONEME_MAP[char] || char) // Basic char map
+                  .join('');
+                devanagariProcessed = processHindiSyllable(devanagariProcessed); // Apply syllable rules
+                devanagariProcessed = addHindiProsody(devanagariProcessed); // Apply prosody
+                return devanagariProcessed;
+              } else {
+                // Process Hindi written in Latin script (Treat as Hinglish for processing)
+                let hinglishProcessed = processHinglishText(sectionText);
+                hinglishProcessed = addHindiProsody(hinglishProcessed); // Apply prosody
+                return hinglishProcessed;
+              }
+
+            case 'hinglish':
+              let hinglishProcessed = processHinglishText(sectionText);
+              hinglishProcessed = addHindiProsody(hinglishProcessed); // Apply prosody
+              return hinglishProcessed;
+
+            case 'spanish':
+              let spanishResult = sectionText.toLowerCase();
+              spanishResult = spanishResult
+                .replace(/ch/g, 'tʃ')
+                .replace(/ll/g, 'j')
+                .replace(/rr/g, 'r')
+                .replace(/c([ie])/g, 's$1'); // Basic rules, adapt as needed
+
+              return Array.from(spanishResult)
+                .map(char => SPANISH_PHONEME_MAP[char] || char)
+                .join('');
+
+            default: // en-us or en (or any other lang relying on espeakng)
+              try {
+                // Use espeakng for English and other defaults
+                // Map 'en-us' and 'en' explicitly if espeakng needs them
+                const espeakLang = (targetLanguage === 'en-us' || targetLanguage === 'en') ? targetLanguage : 'en-us';
+                return (await espeakng(sectionText, espeakLang)).join(" ");
+              } catch (error) {
+                console.error(`Error phonemizing chunk section "${sectionText}" with espeakng:`, error);
+                return sectionText; // Fallback to original text section on error
+              }
+          }
+        })
+      );
+
+      // 4c. Join the processed sections back together for the chunk
+      let processedChunk = phonemeSections.join("");
+
+      // 5. Apply Post-processing Rules (similar to the ones in "Hindi one")
+      // Note: Apply these carefully, they might interact differently when applied per chunk
+      processedChunk = processedChunk
+        // Generic post-processing
+        .replace(/kəkˈoːɹoʊ/g, "kˈoʊkəɹoʊ") // Example rule
+        .replace(/kəkˈɔːɹəʊ/g, "kˈəʊkəɹəʊ") // Example rule
+        .replace(/ʲ/g, "j")
+        .replace(/r/g, "ɹ") // Common IPA adjustment
+        .replace(/x/g, "k") // Common IPA adjustment
+        .replace(/ɬ/g, "l") // Common IPA adjustment
+        .replace(/(?<=[a-zɹː])(?=hˈʌndɹɪd)/g, " ") // Example rule
+        .replace(/ z(?=[;:,.!?¡¿—…"«»""(){}[] ]|$)/g, "z"); // Example rule
+
+      // Language-specific post-processing for the chunk
+      if (language === "a") { // US English specific
+          processedChunk = processedChunk.replace(/(?<=nˈaɪn)ti(?!ː)/g, "di");
+      } else if (targetLanguage === 'hinglish' || targetLanguage === 'hindi') {
+          // Hinglish/Hindi specific post-processing
+          processedChunk = processedChunk
+              // Basic pronunciation fixes (adapt/expand as needed)
+              .replace(/kəʊn/g, "kɔːn")
+              .replace(/həʊ/g, "hoː")
+              // Schwa deletion/handling might be complex per-chunk, test carefully
+              // .replace(/([kKgGtTdDpPbB])ə([ɾr])/g, "$1$2")
+              // .replace(/([aeiouy])([ɾr])([aeiouy])/g, "$1$2$3")
+              // Aspirated spacing might add too many spaces if chunks are small
+              // .replace(/([kKgGtTdDpPbB][ɦh])/g, "$1 ")
+              // Final vowel lengthening (might be okay per chunk)
+              .replace(/([aeiou])([^aeiou\s]+)$/g, "$1ː$2");
+      }
       
-      yield result;
+      // 6. Yield the fully processed chunk
+      // Add a space after each chunk for separation, trim later if needed downstream
+      yield processedChunk.trim() + " "; 
     }
   }
