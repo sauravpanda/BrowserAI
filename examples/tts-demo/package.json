@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@browserai/browserai": "^1.0.29",
+    "@browserai/browserai": "file:../../",
     "@emotion/styled": "^11.14.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
