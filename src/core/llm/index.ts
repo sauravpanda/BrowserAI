@@ -170,7 +170,14 @@ export class BrowserAI {
     return response as string;
   }
 
+  /**
+   * Legacy non-streaming text-to-speech method
+   * @deprecated Use textToSpeechStream instead for more efficient streaming TTS
+   */
   async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<ArrayBuffer> {
+    console.warn('textToSpeech is deprecated - use textToSpeechStream instead');
+    
+    // Ensure TTS engine is initialized (shared with streaming method)
     if (!this.ttsEngine) {
       this.ttsEngine = new TTSEngine();
       await this.ttsEngine.loadModel(MODEL_CONFIG['kokoro-tts'], {
@@ -181,10 +188,70 @@ export class BrowserAI {
     }
 
     try {
-      const audioData = await this.ttsEngine.generateSpeech(text, options);
-      return audioData;
+      // Use streaming implementation internally for efficiency
+      const chunks: ArrayBuffer[] = [];
+      let isFirstChunk = true;
+      
+      for await (const chunk of this.textToSpeechStream(text, options)) {
+        if (isFirstChunk) {
+          chunks.push(chunk.buffer);
+          isFirstChunk = false;
+        } else {
+          chunks.push(chunk.buffer);
+        }
+      }
+      
+      // Combine all chunks into a single ArrayBuffer
+      const totalLength = chunks.reduce((acc, curr) => acc + curr.byteLength, 0);
+      const combinedBuffer = new ArrayBuffer(totalLength);
+      const view = new Uint8Array(combinedBuffer);
+      
+      let offset = 0;
+      for (const chunk of chunks) {
+        view.set(new Uint8Array(chunk), offset);
+        offset += chunk.byteLength;
+      }
+      
+      return combinedBuffer;
     } catch (error) {
       console.error('Error generating speech:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Streaming version of text-to-speech that generates and yields audio chunks
+   * progressively for immediate playback before the entire text is processed.
+   * 
+   * @param text The text to convert to speech
+   * @param options Configuration options including voice and speed
+   * @returns An async generator that yields audio chunk objects
+   */
+  async *textToSpeechStream(text: string, options: Record<string, unknown> = {}): AsyncGenerator<{
+    buffer: ArrayBuffer;
+    isFirstChunk: boolean;
+    metadata?: {
+      totalChunks?: number;
+      chunkIndex?: number;
+    };
+  }> {
+    // Initialize TTS engine if it hasn't been initialized yet
+    if (!this.ttsEngine) {
+      this.ttsEngine = new TTSEngine();
+      await this.ttsEngine.loadModel(MODEL_CONFIG['kokoro-tts'], {
+        quantized: true,
+        device: 'webgpu',
+        ...options,
+      });
+    }
+
+    try {
+      // Delegate to the TTSEngine's streaming method
+      for await (const chunk of this.ttsEngine.generateSpeechStream(text, options)) {
+        yield chunk;
+      }
+    } catch (error) {
+      console.error('Error in streaming text-to-speech:', error);
       throw error;
     }
   }

@@ -43,6 +43,8 @@ export {
   type DOCXParseResult
 } from './core/parsers/docx';
 
+// Add this near other related exports
+export { phonemize, phonemizeStream } from './libs/transformers/utils/phonemize';
 // Export image parser
 export {
   ImageParser,

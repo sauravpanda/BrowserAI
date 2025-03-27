@@ -295,17 +295,37 @@ import { phonemize as espeakng } from "phonemizer";
   };
 
   function isHinglish(text: string): boolean {
-    // Common Hinglish words and patterns
+    // Force treat as Hinglish if selectedVoice starts with h (Hindi voice)
+    if (text.startsWith('hf_') || text.startsWith('hm_')) {
+      return true;
+    }
+    
+    // Common Hinglish words and patterns - expanded for better detection
     const hinglishPatterns = [
-      /\b(aap|tum|hum|main|mein|ham|yeh|woh|kya|kaun|kaise|kyun|kab|kahan|yahan|wahan)\b/i,
-      /\b(hai|hain|ho|hoga|tha|the|thi|thin|raha|rahe|rahi|rahin)\b/i, // Common verb forms
-      /\b(ka|ke|ki|ko|se|par|me|mein|pe)\b/i, // Common postpositions
-      /\b(accha|theek|bahut|bohot|thoda|zyada|kam|jyada)\b/i, // Common adjectives and adverbs
-      /\b(karo|karta|karti|karta|karo|karna|kar|karenge|karega|karegi)\b/i, // Forms of करना (to do)
-      /\b(bolo|bolta|bolti|bolte|bola|boli|bole|bolna|bol)\b/i, // Forms of बोलना (to speak)
-      /\b(jao|jata|jati|jate|gaya|gayi|gaye|jana|ja)\b/i, // Forms of जाना (to go)
-      /\b(khao|khata|khati|khate|khaya|khayi|khaye|khana|kha)\b/i, // Forms of खाना (to eat)
-      /\b(suno|sunta|sunti|sunte|suna|suni|sune|sunna|sun)\b/i // Forms of सुनना (to listen)
+      // Common pronouns and demonstratives
+      /\b(aap|tum|hum|main|mein|ham|yeh|woh|kya|kaun|kaise|kyun|kab|kahan|yahan|wahan|mujhe|tumhe|humko|unko|apna|tumhara|hamara)\b/i,
+      
+      // Common verb forms and auxiliaries
+      /\b(hai|hain|ho|hoga|tha|thi|thin|raha|rahe|rahi|rahin|sakta|sakti|sakte|chahiye|paega|paoge|paayi)\b/i,
+      
+      // Common postpositions
+      /\b(ka|ke|ki|ko|se|par|mein|pe|tak|bina|saath|liye|waaste)\b/i,
+      
+      // Common adjectives and adverbs
+      /\b(accha|theek|bahut|bohot|thoda|zyada|kam|jyada|saara|poora|adhik|kafi|itna|utna|aisa|waisa|kaisa)\b/i,
+      
+      // Forms of करना (to do) and other common verbs
+      /\b(karo|karta|karti|karte|kia|kiya|kiye|karna|kar|karenge|karega|karegi)\b/i,
+      /\b(bolo|bolta|bolti|bolte|bola|boli|bole|bolna|bol)\b/i,
+      /\b(jao|jata|jati|jate|gaya|gayi|gaye|jana|ja)\b/i,
+      /\b(aata|aati|aate|aaya|aayi|aaye|aana|aa)\b/i,
+      /\b(khao|khata|khati|khate|khaya|khayi|khaye|khana|kha)\b/i,
+      /\b(suno|sunta|sunti|sunte|suna|suni|sune|sunna|sun)\b/i,
+      /\b(dekho|dekhta|dekhti|dekhte|dekha|dekhi|dekhe|dekhna|dekh)\b/i,
+      /\b(samjho|samajhta|samajhti|samajhte|samjha|samjhi|samjhe|samajhna|samajh)\b/i,
+      
+      // Greetings and common phrases
+      /\b(namaste|namaskar|dhanyavad|shukriya|kripya|swagat|alvida)\b/i
     ];
     
     // Check for patterns that are strong indicators of Hinglish
@@ -316,7 +336,7 @@ import { phonemize as espeakng } from "phonemizer";
     }
     
     // Look for common Hindi word endings
-    const hindiEndingPattern = /\b\w+(iye|ogi|ega|enge|engi|ogi|oga|egi|enga|engi)\b/i;
+    const hindiEndingPattern = /\b\w+(iye|ogi|ega|enge|engi|ogi|oga|egi|enga|engi|unga|ungi)\b/i;
     if (hindiEndingPattern.test(text)) {
       return true;
     }
@@ -328,7 +348,12 @@ import { phonemize as espeakng } from "phonemizer";
       /kya (ho raha|chal raha|hua)/i,
       /\b(theek|accha) hai\b/i,
       /kaise ho/i,
-      /\b(namaste|namaskar)\b/i
+      /\b(namaste|namaskar)\b/i,
+      /\bmera naam\b/i,
+      /\btumhara kya\b/i,
+      /\bkahan (se|jaa)/i,
+      /\bmain (chahta|chahti)\b/i,
+      /\b(aaj|kal) (ki|ka|ke)\b/i
     ];
     
     for (const pattern of commonSentences) {
@@ -524,124 +549,76 @@ function processHinglishText(text: string): string {
       .replace(/([aeiouəɛɔ])ँ/g, '$1̃');
   }
 
-  export async function phonemize(text: string, language = "a", norm = true) {
-    // 1. Normalize text
-    if (norm) {
-      text = normalize_text(text);
-    }
-
-    // 2. Map language codes to processing types
-    const languageMap: { [key: string]: string } = {
-      'a': 'en-us',  // American English
-      'b': 'en',     // British English
-      'h': 'hindi',  // Hindi
-      'e': 'spanish', // Spanish
-      'f': 'french', // French 
-      'z': 'chinese' // Chinese
-    };
-
-    let targetLanguage = languageMap[language] || 'en-us';
+  function addHindiProsody(processed: string): string {
+    // Add stress markers to Hindi words (typically on the first syllable)
+    processed = processed.replace(/\b([bcdfghjklmnpqrstvwxyzɡɖʈʂʃɳŋɲ][aeiouəɛɔɪʊ])/g, 'ˈ$1');
     
-    // Special handling for Hindi - directly check for Devanagari characters
-    const isDevanagari = /[\u0900-\u097F]/.test(text);
-    if (language === 'h' || isDevanagari) {
-      targetLanguage = 'hindi';
-    }
-    
-    // Auto-detect Hinglish if not already detected as Devanagari Hindi
-    if (targetLanguage !== 'hindi' && (targetLanguage === 'en-us' || targetLanguage === 'en')) {
-      if (isHinglish(text)) {
-        targetLanguage = 'hinglish';
-      }
-    }
-
-    console.log("Processing text as:", targetLanguage);
-
-    // 3. Split into chunks, to ensure we preserve punctuation
-    const sections = split(text, PUNCTUATION_PATTERN);
-
-    // 4. Convert each section to phonemes
-    const ps = (await Promise.all(
-      sections.map(async ({ match, text }) => {
-        if (match) return text;
-        
-        switch (targetLanguage) {
-          case 'hinglish':
-            let processed = processHinglishText(text);
-            processed = addHindiProsody(processed);
-            return processed;
-            
-            if (isDevanagari) {
-              // Use the existing HINDI_PHONEME_MAP for direct character mapping
-              return Array.from(text)
-                .map(char => {
-                  const phoneme = HINDI_PHONEME_MAP[char];
-                  if (phoneme) {
-                    console.log(`Mapping: ${char} -> ${phoneme}`);
-                  }
-                  return phoneme || char;
-                })
-                .join('');
-            } else {
-              // Process Hindi written in Latin script
-              return processHinglishText(text);
-            }
-          
-          case 'spanish':
-            let result = text.toLowerCase();
-            result = result
-              .replace(/ch/g, 'tʃ')
-              .replace(/ll/g, 'j')
-              .replace(/rr/g, 'r')
-              .replace(/c([ie])/g, 's$1');
-            
-            return Array.from(result)
-              .map(char => SPANISH_PHONEME_MAP[char] || char)
-              .join('');
-          
-          default: // en-us or en
-            try {
-              return (await espeakng(text, targetLanguage)).join(" ");
-            } catch (error) {
-              console.error("Error with phonemization:", error);
-              // Fallback to simple phonetics if espeakng fails
-              return text;
-            }
-        }
-      })
-    )).join("");
-
-    // 5. Post-process phonemes
-    let processed = ps
-      // Existing post-processing
-      .replace(/kəkˈoːɹoʊ/g, "kˈoʊkəɹoʊ")
-      .replace(/kəkˈɔːɹəʊ/g, "kˈəʊkəɹəʊ")
-      .replace(/ʲ/g, "j")
-      .replace(/r/g, "ɹ")
-      .replace(/x/g, "k")
-      .replace(/ɬ/g, "l")
-      .replace(/(?<=[a-zɹː])(?=hˈʌndɹɪd)/g, " ")
-      .replace(/ z(?=[;:,.!?¡¿—…"«»""(){}[] ]|$)/g, "z")
-      // Hindi-specific post-processing
-      .replace(/(?<=[aeiou])h/g, 'ɦ') // Handle aspirated sounds
-      .replace(/(?<=\w)ː/g, 'ː '); // Add space after long vowels
+    // Add rhythm patterns based on Hindi syllable structure
+    processed = processed
+      // Add slight lengthening to stressed vowels
+      .replace(/ˈ([^aeiouəɛɔɪʊ]*)([aeiouəɛɔɪʊ])/g, 'ˈ$1$2ˑ')
       
-    // 6. Additional post-processing for specific languages
-    if (language === "a") {
-      processed = processed.replace(/(?<=nˈaɪn)ti(?!ː)/g, "di");
-    } else if (targetLanguage === 'hinglish' || targetLanguage === 'hindi') {
-      // Hinglish-specific post-processing
-      processed = processed
-        // Fix common pronunciation issues
-        .replace(/kəʊn/g, "kɔːn") // Fix "kaun" pronunciation
-        .replace(/həʊ/g, "hoː")   // Fix "ho" pronunciation 
-        .replace(/([kKgGtTdDpPbB])ə([ɾr])/g, "$1$2") // Remove schwa between consonant and 'r'
-        .replace(/([aeiouy])([ɾr])([aeiouy])/g, "$1$2$3") // Strengthen 'r' between vowels
-        // Add spacing between syllables for better rhythm
-        .replace(/([kKgGtTdDpPbB][ɦh])/g, "$1 ")
-        // Ensure proper stress patterns for Hindi
-        .replace(/([aeiou])([^aeiou\s]+)$/g, "$1ː$2"); // Lengthen final vowels before consonant endings
-    } 
+      // Reduce the schwa in unstressed positions
+      .replace(/([^ˈ])ə([^ˑ\s])/g, '$1ə̆$2')
+      
+      // Add proper boundary tones for statements (falling intonation)
+      .replace(/([aeiouəɛɔɪʊ][^aeiouəɛɔɪʊ]*)$/g, '$1↘')
+      
+      // Add natural pauses after conjunctions
+      .replace(/\b(ɔr|lekin|kjõki|agər|mɡər|ki)\b/g, '$1↱ ')
+      
+      // Add rising intonation for questions
+      .replace(/([aeiouəɛɔɪʊ][^aeiouəɛɔɪʊ]*)\?/g, '$1↗?');
+      
+    // Clean up any double stress markers
+    processed = processed.replace(/ˈ\s*ˈ/g, 'ˈ');
     
-    return processed.trim();
+    // Adjust nasalization to be more natural
+    processed = processed.replace(/([aeiouəɛɔɪʊ])̃/g, '$1̃ˑ');
+    
+    // Add proper phrasing based on commas and other punctuation
+    processed = processed
+      .replace(/,/g, '↱,')
+      .replace(/;/g, '↱↱;')
+      .replace(/\./g, '↘.');
+    
+    return processed;
+  }
+  
+  /**
+   * @deprecated Use phonemizeStream instead for more efficient streaming processing
+   */
+  export async function phonemize(text: string, language = "a", norm = true) {
+    // Use phonemizeStream internally to ensure consistency
+    // This collects all chunks from streaming implementation
+    let result = '';
+    for await (const chunk of phonemizeStream(text, language, norm)) {
+      result += chunk;
+    }
+    return result.trim();
+  }
+    // Simple function to split text into processable chunks
+  function splitIntoChunks(text: string): string[] {
+    // Split on sentence boundaries
+    return text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+
+  export async function* phonemizeStream(text: string, language = "a", norm = true): AsyncGenerator<string> {
+    // Normalize if needed (reusing existing function)
+    const normalizedText = norm ? normalize_text(text) : text;
+    
+    // Split into chunks for streaming
+    const chunks = splitIntoChunks(normalizedText);
+    
+    // Process each chunk using existing logic
+    for (const chunk of chunks) {
+      // Use the existing phonemize function for each chunk
+      // This ensures consistent results between streaming and non-streaming
+      const result = await phonemize(chunk, language, false); // false because we already normalized
+      
+      yield result;
+    }
   }

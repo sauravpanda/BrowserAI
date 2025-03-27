@@ -146,16 +146,60 @@ export class TransformersEngineWrapper {
     return result;
   }
 
-  // Add text-to-speech method
+  /**
+   * Legacy non-streaming text-to-speech method
+   * @deprecated Use textToSpeechStream instead
+   */
   async textToSpeech(text: string, options: any = {}) {
     if (!this.ttsEngine) {
       throw new Error('Text-to-speech engine not initialized.');
     }
 
     try {
-      return await this.ttsEngine.generateSpeech(text, options);
+      console.warn('textToSpeech is deprecated - use textToSpeechStream instead');
+      
+      // Use streaming implementation internally
+      const chunks: ArrayBuffer[] = [];
+      let isFirstChunk = true;
+      
+      for await (const chunk of this.textToSpeechStream(text, options)) {
+        chunks.push(chunk.buffer);
+        isFirstChunk = false;
+      }
+      
+      // Combine all chunks
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.byteLength, 0);
+      const combined = new ArrayBuffer(totalLength);
+      const view = new Uint8Array(combined);
+      
+      let offset = 0;
+      for (const chunk of chunks) {
+        view.set(new Uint8Array(chunk), offset);
+        offset += chunk.byteLength;
+      }
+      
+      return combined;
     } catch (error) {
       console.error('Error in text-to-speech:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Streaming version of text-to-speech that yields audio chunks as they're generated
+   */
+  async *textToSpeechStream(text: string, options: any = {}) {
+    if (!this.ttsEngine) {
+      throw new Error('Text-to-speech engine not initialized.');
+    }
+
+    try {
+      // Delegate to the TTSEngine's streaming method
+      for await (const chunk of this.ttsEngine.generateSpeechStream(text, options)) {
+        yield chunk;
+      }
+    } catch (error) {
+      console.error('Error in streaming text-to-speech:', error);
       throw error;
     }
   }
