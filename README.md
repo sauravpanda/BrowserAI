@@ -16,6 +16,8 @@
 
 </div>
 
+> 🎉 **Featured Project**: Check out [Browseragent.dev](https://browseragent.dev) - A no-code AI Agent builder powered by BrowserAI with unlimited executions! Build your own AI agents in minutes.
+
 ## 🌟 Live Demos
 
 | Demo | Description | Try It |
@@ -23,6 +25,7 @@
 | **Chat** | Multi-model chat interface | [chat.browserai.dev](https://chat.browserai.dev) |
 | **Voice Chat** | Full-featured with speech recognition & TTS | [voice-demo.browserai.dev](https://voice-demo.browserai.dev) |
 | **Text-to-Speech** | Powered by Kokoro 82M | [tts-demo.browserai.dev](https://tts-demo.browserai.dev) |
+
 
 ## ⚡ Key Features
 
@@ -39,6 +42,7 @@
 - Companies needing privacy-conscious AI solutions
 - Researchers experimenting with browser-based AI
 - Hobbyists exploring AI without infrastructure overhead
+- No-code platform builders creating AI-powered tools
 
 ## ✨ Features
 
