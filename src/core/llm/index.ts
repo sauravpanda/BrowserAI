@@ -5,7 +5,6 @@ import { TransformersEngineWrapper } from '../../engines/transformer-engine-wrap
 import { ModelConfig, MLCConfig, TransformersConfig } from '../../config/models/types';
 import mlcModels from '../../config/models/mlc-models.json';
 import transformersModels from '../../config/models/transformers-models.json';
-import { TTSEngine } from '@/engines/tts-engine';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
@@ -19,7 +18,6 @@ export class BrowserAI {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
-  private ttsEngine: TTSEngine | null = null;
   private customModels: Record<string, ModelConfig> = {};
 
   constructor() {
@@ -170,10 +168,12 @@ export class BrowserAI {
     return response as string;
   }
 
-  async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<ArrayBuffer> {
-    if (!this.ttsEngine) {
-      this.ttsEngine = new TTSEngine();
-      await this.ttsEngine.loadModel(MODEL_CONFIG['kokoro-tts'], {
+  async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<any> {
+    // Check if engine is already loaded
+    if (!this.engine) {
+      // Load the transformers engine if not already loaded
+      this.engine = new TransformersEngineWrapper();
+      await this.engine.loadModel(MODEL_CONFIG['kokoro-tts'], {
         quantized: true,
         device: 'webgpu',
         ...options,
@@ -181,10 +181,14 @@ export class BrowserAI {
     }
 
     try {
-      const audioData = await this.ttsEngine.generateSpeech(text, options);
-      return audioData;
+      if (this.engine instanceof TransformersEngineWrapper) {
+        // Use the streaming method
+        return await this.engine.textToSpeechStream(text, options);
+      } else {
+        throw new Error('Current engine does not support text-to-speech streaming');
+      }
     } catch (error) {
-      console.error('Error generating speech:', error);
+      console.error('Error generating speech stream:', error);
       throw error;
     }
   }
