@@ -34,12 +34,14 @@ export class TTSEngine {
     }
   }
 
-  async generateSpeech(text: string, options: any = {}): Promise<ArrayBuffer> {
+  async *generateSpeechStream(text: string, options: any = {}): AsyncGenerator<Float32Array> {
+    console.log("Streaming flow triggered"); // Log to confirm streaming is used
+    
     if (!this.model || !this.tokenizer) {
       throw new Error('TTS model not initialized');
     }
 
-    const { voice = "af", speed = 1 } = options;
+    const { voice = "af_bella", speed = 1, language = "en-us" } = options;
 
     if (!VOICES.hasOwnProperty(voice)) {
       console.error(`Voice "${voice}" not found. Available voices:`);
@@ -48,126 +50,154 @@ export class TTSEngine {
     }
 
     try {
-      const language = (voice.at(0)); // "a" or "b"
-      const phonemes = await phonemize(text, language);
-      // console.log('Phonemes:', phonemes); // Debug log
+      // Split long text into manageable chunks
+      // Maximum character limit per chunk (based on testing)
+      const MAX_CHUNK_LENGTH = 250;
+      const textChunks = this.splitTextIntoChunks(text, MAX_CHUNK_LENGTH);
+      console.log(`Text split into ${textChunks.length} chunks for processing`);
 
-      const { input_ids } = this.tokenizer(phonemes, {
-        truncation: true,
-      });
+      // Process each chunk and collect audio data
+      for (const chunk of textChunks) {
+        // Pass explicit language code directly to phonemize
+        const phonemes = await phonemize(chunk, language);
+        console.log(`Phonemized chunk: ${chunk.length} chars into ${phonemes.length} phoneme chars`);
 
-      // Select voice style based on number of input tokens
-      const num_tokens = Math.min(Math.max(
-        input_ids.dims.at(-1) - 2, // Without padding
-        0,
-      ), 509);
+        const { input_ids } = this.tokenizer(phonemes, {
+          truncation: true,
+        });
 
-      // Load voice style
-      const data = await getVoiceData(voice);
-      const offset = num_tokens * STYLE_DIM;
-      const voiceData = data.slice(offset, offset + STYLE_DIM);
-    //   console.log('Voice data length:', voiceData.length); // Debug log
+        // Select voice style based on number of input tokens
+        const num_tokens = Math.min(Math.max(
+          input_ids.dims.at(-1) - 2, // Without padding
+          0,
+        ), 509);
 
-      // Prepare model inputs
-      const inputs = {
-        input_ids: input_ids,
-        style: new Tensor("float32", voiceData, [1, STYLE_DIM]),
-        speed: new Tensor("float32", [speed], [1]),
-      };
-    //   console.log('Model inputs prepared'); // Debug log
+        // Load voice style
+        const data = await getVoiceData(voice);
+        const offset = num_tokens * STYLE_DIM;
+        const voiceData = data.slice(offset, offset + STYLE_DIM);
 
-      // Generate audio
-      const output = await this.model._call(inputs);
-    //   console.log('Raw audio received:', output);
-      
-      if (!output || !output.waveform) {
-        throw new Error('Model returned null or undefined waveform');
-      }
-      
-      // Convert Tensor to Float32Array and normalize the audio data
-      const audioData = new Float32Array(output.waveform.data);
-      
-      if (audioData.length === 0) {
-        throw new Error('Generated audio data is empty');
-      }
+        // Prepare model inputs
+        const inputs = {
+          input_ids: input_ids,
+          style: new Tensor("float32", voiceData, [1, STYLE_DIM]),
+          speed: new Tensor("float32", [speed], [1]),
+        };
 
-      // Normalize audio data using a more efficient approach
-      const maxValue = audioData.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
-      const normalizedData = maxValue > 0 ? 
-        new Float32Array(audioData.length) : 
-        audioData;
-      
-      if (maxValue > 0) {
-        for (let i = 0; i < audioData.length; i++) {
-          normalizedData[i] = audioData[i] / maxValue;
+        // Generate audio for this chunk
+        const output = await this.model._call(inputs);
+        
+        if (!output || !output.waveform) {
+          console.warn('Model returned null or undefined waveform for a chunk, skipping');
+          continue;
         }
+        
+        // Convert Tensor to Float32Array
+        const chunkAudioData = new Float32Array(output.waveform.data);
+        
+        if (chunkAudioData.length === 0) {
+          console.warn('Generated audio data is empty for a chunk, skipping');
+          continue;
+        }
+
+        // Normalize audio data
+        const maxValue = chunkAudioData.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
+        const normalizedData = maxValue > 0 ? 
+          new Float32Array(chunkAudioData.length) : 
+          chunkAudioData;
+        
+        if (maxValue > 0) {
+          for (let i = 0; i < chunkAudioData.length; i++) {
+            normalizedData[i] = chunkAudioData[i] / maxValue;
+          }
+        }
+
+        // Yield smaller chunks of the normalized audio data for streaming
+        const streamChunkSize = 4096; // Can be adjusted for performance
+        for (let i = 0; i < normalizedData.length; i += streamChunkSize) {
+          const streamChunk = normalizedData.slice(i, i + streamChunkSize);
+          if (streamChunk.length > 0) {
+            yield streamChunk;
+          }
+        }
+        
+        // Small pause between chunks for natural-sounding speech
+        const pauseSamples = Math.floor(0.2 * SAMPLE_RATE); // 200ms pause
+        const pauseChunk = new Float32Array(pauseSamples).fill(0);
+        yield pauseChunk;
       }
-
-      // Convert Float32Array to Int16Array for WAV format more efficiently
-      const int16Array = new Int16Array(normalizedData.length);
-      const int16Factor = 0x7FFF;
-      for (let i = 0; i < normalizedData.length; i++) {
-        const s = normalizedData[i];
-        int16Array[i] = s < 0 ? Math.max(-0x8000, s * 0x8000) : Math.min(0x7FFF, s * int16Factor);
-      }
-
-      // Create WAV header
-      const wavHeader = createWAVHeader({
-        numChannels: 1,
-        sampleRate: SAMPLE_RATE,
-        numSamples: int16Array.length
-      });
-
-      // Combine header with audio data
-      const wavBytes = new Uint8Array(44 + int16Array.byteLength);
-      wavBytes.set(new Uint8Array(wavHeader), 0);
-      wavBytes.set(new Uint8Array(int16Array.buffer), 44);
-
-    //   console.log('WAV file size:', wavBytes.length);
-    //   console.log('Header size:', wavHeader);
-    //   console.log('Audio data size:', int16Array.byteLength);
-
-      return wavBytes.buffer;
     } catch (error) {
-      console.error('Detailed error in generateSpeech:', error);
+      console.error('Detailed error in generateSpeechStream:', error);
       throw error;
     }
   }
-}
-
-function createWAVHeader({ numChannels, sampleRate, numSamples }: { 
-  numChannels: number, 
-  sampleRate: number, 
-  numSamples: number 
-}): ArrayBuffer {
-  const buffer = new ArrayBuffer(44);
-  const view = new DataView(buffer);
-
-  // "RIFF" chunk descriptor
-  writeString(view, 0, 'RIFF');
-  // File size (data size + 36 bytes of header)
-  view.setUint32(4, 36 + numSamples * 2, true);
-  writeString(view, 8, 'WAVE');
-
-  // "fmt " sub-chunk
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true); // fmt chunk size
-  view.setUint16(20, 1, true); // audio format (1 for PCM)
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * numChannels * 2, true); // byte rate
-  view.setUint16(32, numChannels * 2, true); // block align
-  view.setUint16(34, 16, true); // bits per sample
-
-  // "data" sub-chunk
-  writeString(view, 36, 'data');
-  view.setUint32(40, numSamples * 2, true); // data size
-
-  return buffer;
-}
-
-function writeString(view: DataView, offset: number, string: string) {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
+  
+  // Helper method to split text into manageable chunks
+  private splitTextIntoChunks(text: string, maxChunkLength: number): string[] {
+    // Find natural break points (sentences, clauses) to split text
+    const chunks: string[] = [];
+    
+    // Use regex to split by sentence boundaries but keep punctuation
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    
+    let currentChunk = '';
+    for (const sentence of sentences) {
+      // If adding this sentence would exceed max length and we already have content
+      if (currentChunk.length + sentence.length > maxChunkLength && currentChunk.length > 0) {
+        chunks.push(currentChunk);
+        currentChunk = sentence;
+      } else {
+        // Otherwise add to current chunk
+        currentChunk += sentence;
+      }
+      
+      // If current chunk is already too long, split it at clause boundaries
+      if (currentChunk.length > maxChunkLength) {
+        const clauses = currentChunk.split(/[,;:]/);
+        currentChunk = '';
+        
+        for (const clause of clauses) {
+          if (currentChunk.length + clause.length > maxChunkLength && currentChunk.length > 0) {
+            chunks.push(currentChunk);
+            currentChunk = clause;
+          } else {
+            currentChunk += clause;
+          }
+        }
+      }
+    }
+    
+    // Add any remaining text
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+    
+    // If any chunk is still too long, use hard splitting as a fallback
+    return chunks.flatMap(chunk => {
+      if (chunk.length <= maxChunkLength) {
+        return [chunk];
+      } else {
+        // Hard split by character count, trying to break at word boundaries
+        const words = chunk.split(' ');
+        const hardChunks: string[] = [];
+        let currentHardChunk = '';
+        
+        for (const word of words) {
+          if (currentHardChunk.length + word.length + 1 > maxChunkLength) {
+            hardChunks.push(currentHardChunk);
+            currentHardChunk = word;
+          } else {
+            currentHardChunk += (currentHardChunk ? ' ' : '') + word;
+          }
+        }
+        
+        if (currentHardChunk) {
+          hardChunks.push(currentHardChunk);
+        }
+        
+        return hardChunks;
+      }
+    });
   }
-} 
+}
+

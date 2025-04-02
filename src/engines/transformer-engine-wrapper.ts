@@ -146,16 +146,23 @@ export class TransformersEngineWrapper {
     return result;
   }
 
-  // Add text-to-speech method
-  async textToSpeech(text: string, options: any = {}) {
+  // Streaming text-to-speech method
+  async textToSpeechStream(text: string, options: any = {}) {
     if (!this.ttsEngine) {
       throw new Error('Text-to-speech engine not initialized.');
     }
-
+    
     try {
-      return await this.ttsEngine.generateSpeech(text, options);
+      // Find the selected voice's language from options or fallback
+      const stream = this.ttsEngine.generateSpeechStream(text, options);
+      
+      // Return both the stream and the sample rate needed for playback
+      return {
+        stream: stream,
+        sampleRate: 24000 // Hardcoded based on kokoro-tts's known sample rate
+      };
     } catch (error) {
-      console.error('Error in text-to-speech:', error);
+      console.error('Error in text-to-speech stream:', error);
       throw error;
     }
   }
@@ -170,7 +177,7 @@ export class TransformersEngineWrapper {
       case 'automatic-speech-recognition':
         return this.transcribe(prompt, options);
       case 'text-to-speech':
-        return this.textToSpeech(prompt);
+        throw new Error('Direct text-to-speech is no longer supported. Use textToSpeechStream instead.');
       default:
         throw new Error(`Unsupported model type: ${this.modelType}`);
     }

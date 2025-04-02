@@ -524,38 +524,38 @@ function processHinglishText(text: string): string {
       .replace(/([aeiouəɛɔ])ँ/g, '$1̃');
   }
 
-  export async function phonemize(text: string, language = "a", norm = true) {
+  // Define supported language codes explicitly
+  type SupportedLanguage = 'en-us' | 'en-gb' | 'hi' | 'es' | 'fr' | 'zh';
+  
+  export async function phonemize(text: string, language: SupportedLanguage = "en-us", norm = true) {
     // 1. Normalize text
     if (norm) {
       text = normalize_text(text);
     }
 
-    // 2. Map language codes to processing types
-    const languageMap: { [key: string]: string } = {
-      'a': 'en-us',  // American English
-      'b': 'en',     // British English
-      'h': 'hindi',  // Hindi
-      'e': 'spanish', // Spanish
-      'f': 'french', // French 
-      'z': 'chinese' // Chinese
-    };
-
-    let targetLanguage = languageMap[language] || 'en-us';
+    // Directly use the provided language code
+    let targetLanguage = language;
     
-    // Special handling for Hindi - directly check for Devanagari characters
-    const isDevanagari = /[\u0900-\u097F]/.test(text);
-    if (language === 'h' || isDevanagari) {
-      targetLanguage = 'hindi';
-    }
+    // For backward compatibility - map any legacy single-letter codes
+    if (language === 'a' as any) targetLanguage = 'en-us';
+    if (language === 'b' as any) targetLanguage = 'en-gb';
+    if (language === 'h' as any) targetLanguage = 'hi';
+    if (language === 'e' as any) targetLanguage = 'es';
+    if (language === 'f' as any) targetLanguage = 'fr';
+    if (language === 'z' as any) targetLanguage = 'zh';
     
-    // Auto-detect Hinglish if not already detected as Devanagari Hindi
-    if (targetLanguage !== 'hindi' && (targetLanguage === 'en-us' || targetLanguage === 'en')) {
-      if (isHinglish(text)) {
-        targetLanguage = 'hinglish';
-      }
-    }
+    console.log(`Processing text (${text.length} chars) as: ${targetLanguage}`);
 
-    console.log("Processing text as:", targetLanguage);
+    // Check if text is too long - handle with max char limits
+    const MAX_PHONEME_INPUT_LENGTH = 300; // Safe maximum for phonemization
+    
+    if (text.length > MAX_PHONEME_INPUT_LENGTH) {
+      console.warn(`Text too long (${text.length} chars), processing only the first ${MAX_PHONEME_INPUT_LENGTH} characters`);
+      // Truncate at word boundary closest to the limit
+      const truncatedText = text.substring(0, MAX_PHONEME_INPUT_LENGTH).split(' ').slice(0, -1).join(' ');
+      console.log(`Truncated to: "${truncatedText}"`);
+      text = truncatedText;
+    }
 
     // 3. Split into chunks, to ensure we preserve punctuation
     const sections = split(text, PUNCTUATION_PATTERN);
@@ -566,28 +566,22 @@ function processHinglishText(text: string): string {
         if (match) return text;
         
         switch (targetLanguage) {
-          case 'hinglish':
-            let processed = processHinglishText(text);
-            processed = addHindiProsody(processed);
-            return processed;
+          case 'hi': // Handles both Devanagari and Romanized Hindi (Hinglish)
+            // Check for Devanagari script
+            const isDevanagari = /[\u0900-\u097F]/.test(text);
             
             if (isDevanagari) {
-              // Use the existing HINDI_PHONEME_MAP for direct character mapping
+              // For Devanagari script
               return Array.from(text)
-                .map(char => {
-                  const phoneme = HINDI_PHONEME_MAP[char];
-                  if (phoneme) {
-                    console.log(`Mapping: ${char} -> ${phoneme}`);
-                  }
-                  return phoneme || char;
-                })
+                .map(char => HINDI_PHONEME_MAP[char] || char)
                 .join('');
             } else {
-              // Process Hindi written in Latin script
-              return processHinglishText(text);
+              // For Hinglish (Romanized Hindi)
+              let processed = processHinglishText(text);
+              return processed;
             }
           
-          case 'spanish':
+          case 'es':
             let result = text.toLowerCase();
             result = result
               .replace(/ch/g, 'tʃ')
@@ -599,13 +593,26 @@ function processHinglishText(text: string): string {
               .map(char => SPANISH_PHONEME_MAP[char] || char)
               .join('');
           
-          default: // en-us or en
+          case 'en-us':
+          case 'en-gb':
+          default: // Default to English using espeakng
             try {
-              return (await espeakng(text, targetLanguage)).join(" ");
+              // Pass the correct language code directly to espeakng
+              // Handle potential errors in espeakng more gracefully
+              try {
+                return (await espeakng(text, targetLanguage)).join(" ");
+              } catch (espeakError) {
+                console.error(`Error with espeakng phonemization for ${targetLanguage}:`, espeakError);
+                // Fallback to character-by-character phoneme mapping for English
+                return text
+                  .replace(/ch/g, 'tʃ')
+                  .replace(/th/g, 'θ')
+                  .replace(/sh/g, 'ʃ')
+                  .replace(/ph/g, 'f');
+              }
             } catch (error) {
-              console.error("Error with phonemization:", error);
-              // Fallback to simple phonetics if espeakng fails
-              return text;
+              console.error(`Unexpected error in phonemization for ${targetLanguage}:`, error);
+              return text; // Ultimate fallback
             }
         }
       })
@@ -613,7 +620,7 @@ function processHinglishText(text: string): string {
 
     // 5. Post-process phonemes
     let processed = ps
-      // Existing post-processing
+      // General post-processing
       .replace(/kəkˈoːɹoʊ/g, "kˈoʊkəɹoʊ")
       .replace(/kəkˈɔːɹəʊ/g, "kˈəʊkəɹəʊ")
       .replace(/ʲ/g, "j")
@@ -621,17 +628,18 @@ function processHinglishText(text: string): string {
       .replace(/x/g, "k")
       .replace(/ɬ/g, "l")
       .replace(/(?<=[a-zɹː])(?=hˈʌndɹɪd)/g, " ")
-      .replace(/ z(?=[;:,.!?¡¿—…"«»""(){}[] ]|$)/g, "z")
-      // Hindi-specific post-processing
-      .replace(/(?<=[aeiou])h/g, 'ɦ') // Handle aspirated sounds
-      .replace(/(?<=\w)ː/g, 'ː '); // Add space after long vowels
+      .replace(/ z(?=[;:,.!?¡¿—…"«»""(){}[] ]|$)/g, "z");
       
-    // 6. Additional post-processing for specific languages
-    if (language === "a") {
+    // 6. Language-specific post-processing
+    if (targetLanguage === 'en-us') {
       processed = processed.replace(/(?<=nˈaɪn)ti(?!ː)/g, "di");
-    } else if (targetLanguage === 'hinglish' || targetLanguage === 'hindi') {
-      // Hinglish-specific post-processing
+    } else if (targetLanguage === 'hi') {
+      // Hindi-specific post-processing
       processed = processed
+        // Handle aspirated sounds
+        .replace(/(?<=[aeiou])h/g, 'ɦ')
+        // Add space after long vowels for better rhythm
+        .replace(/(?<=\w)ː/g, 'ː ')
         // Fix common pronunciation issues
         .replace(/kəʊn/g, "kɔːn") // Fix "kaun" pronunciation
         .replace(/həʊ/g, "hoː")   // Fix "ho" pronunciation 
@@ -643,5 +651,11 @@ function processHinglishText(text: string): string {
         .replace(/([aeiou])([^aeiou\s]+)$/g, "$1ː$2"); // Lengthen final vowels before consonant endings
     } 
     
-    return processed.trim();
+    // Ensure the output isn't too long
+    const trimmedResult = processed.trim();
+    
+    // Debug log the phonemization result
+    console.log(`Phonemized ${text.length} chars into ${trimmedResult.length} phoneme chars`);
+    
+    return trimmedResult;
   }
