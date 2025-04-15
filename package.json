@@ -1,6 +1,6 @@
 {
   "name": "@browserai/browserai",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": false,
   "description": "A library for running AI models directly in the browser",
   "main": "dist/index.js",
