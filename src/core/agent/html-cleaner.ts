@@ -403,7 +403,7 @@ export class HTMLCleaner {
 
             // 3. Skip elements completely if they are not meant for LLM context
             // (This check might be redundant if tagsToRemove already handled it, but good safety)
-            const skipElements = ['script', 'style', 'noscript', 'svg', 'canvas', 'iframe', 'footer', 'nav']; // Ensure consistency
+            const skipElements = ['script', 'style', 'noscript', 'svg', 'canvas', 'iframe']; // Ensure consistency
              if (skipElements.includes(tagName) && !(tagName === 'script' && includeScripts)) {
                  return '';
              }
