@@ -846,6 +846,10 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
                 <option value="qwen2.5-0.5b-instruct">Qwen2.5 0.5B Instruct (278MB)</option>
                 <option value="qwen2.5-1.5b-instruct">Qwen2.5 1.5B Instruct (868MB)</option>
                 <option value="qwen2.5-3b-instruct">Qwen2.5 3B Instruct (1.7GB)</option>
+                <option value="qwen3-0.6b">Qwen3 0.6B (1.4GB)</option>
+                <option value="qwen3-1.7b">Qwen3 1.7B (2.0GB)</option>
+                <option value="qwen3-4b">Qwen3 4B (3.4GB)</option>
+                <option value="qwen3-8b">Qwen3 8B (5.7GB)</option>
                 <option value="gemma-2b-it">Gemma 2B Instruct (1.44GB)</option>
                 <option value="phi-3.5-mini-instruct">Phi 3.5 Mini Instruct (2.1GB)</option>
                 <option value="tinyllama-1.1b-chat-v0.4">TinyLlama 1.1B Chat (800MB)</option>
