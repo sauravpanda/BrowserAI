@@ -1,7 +1,7 @@
 {
     "llama-3.2-1b-instruct": {
         "engine": "mlc",
-        "modelName": "Llama-3.2-1b-Instruct",
+        "modelName": "Llama-3.2-1B-Instruct",
         "modelType": "text-generation",
         "repo": "mlc-ai/Llama-3.2-1B-Instruct-{quantization}-MLC",
         "quantizations": [
@@ -321,6 +321,102 @@
             },
             "estimated_vram_in_mb": {
                 "q0f32": 66.4
+            }
+        }
+    },
+    "qwen3-0.6b": {
+        "engine": "mlc",
+        "modelName": "Qwen3-0.6B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/Qwen3-0.6B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1",
+            "q0f16",
+            "q0f32"
+        ],
+        "defaultQuantization": "q4f32_1",
+        "defaultParams": {
+            "temperature": 0.7,
+            "maxTokens": 4096
+        },
+        "pipeline": "text-generation",
+        "metadata": {
+            "context_window_size": 4096,
+            "estimated_vram_in_mb": {
+                "q4f16_1": 1403.34,
+                "q4f32_1": 1924.98,
+                "q0f16": 2220.38,
+                "q0f32": 3843.25
+            }
+        }
+    },
+    "qwen3-1.7b": {
+        "engine": "mlc",
+        "modelName": "Qwen3-1.7B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/Qwen3-1.7B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f32_1",
+        "defaultParams": {
+            "temperature": 0.7,
+            "maxTokens": 4096
+        },
+        "pipeline": "text-generation",
+        "metadata": {
+            "context_window_size": 4096,
+            "estimated_vram_in_mb": {
+                "q4f16_1": 2036.66,
+                "q4f32_1": 2635.44
+            }
+        }
+    },
+    "qwen3-4b": {
+        "engine": "mlc",
+        "modelName": "Qwen3-4B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/Qwen3-4B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f32_1",
+        "defaultParams": {
+            "temperature": 0.7,
+            "maxTokens": 4096
+        },
+        "pipeline": "text-generation",
+        "metadata": {
+            "context_window_size": 4096,
+            "estimated_vram_in_mb": {
+                "q4f16_1": 3431.59,
+                "q4f32_1": 4327.71
+            }
+        }
+    },
+    "qwen3-8b": {
+        "engine": "mlc",
+        "modelName": "Qwen3-8B",
+        "modelType": "text-generation",
+        "repo": "mlc-ai/Qwen3-8B-{quantization}-MLC",
+        "quantizations": [
+            "q4f16_1",
+            "q4f32_1"
+        ],
+        "defaultQuantization": "q4f32_1",
+        "defaultParams": {
+            "temperature": 0.7,
+            "maxTokens": 4096
+        },
+        "pipeline": "text-generation",
+        "metadata": {
+            "context_window_size": 4096,
+            "estimated_vram_in_mb": {
+                "q4f16_1": 5695.78,
+                "q4f32_1": 6852.55
             }
         }
     }

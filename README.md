@@ -178,6 +178,10 @@ More models will be added soon. Request a model by creating an issue.
 - Gemma-2B-IT
 - TinyLlama-1.1B-Chat-v0.4
 - Phi-3.5-mini-instruct
+- Qwen3-0.6B
+- Qwen3-1.7B
+- Qwen3-4B
+- Qwen3-8B
 - Qwen2.5-1.5B-Instruct
 - DeepSeek-R1-Distill-Qwen-7B
 - DeepSeek-R1-Distill-Llama-8B
