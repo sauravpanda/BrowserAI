@@ -7,7 +7,7 @@ import {
   ImageToTextPipeline,
   ImageToImagePipeline,
   ImageFeatureExtractionPipeline,
-  PipelineType
+  PipelineType,
 } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
 import { TTSEngine } from './tts-engine';
@@ -44,13 +44,13 @@ export class TransformersEngineWrapper {
       }
 
       this.modelType = modelConfig.modelType;
-      
+
       options.device = 'webgpu';
 
       // Configure pipeline options with proper worker settings
       const pipelineOptions = {
         progress_callback: options.onProgress || (() => {}),
-        ...options
+        ...options,
       };
 
       // Handle TTS models first, before attempting to create other pipelines
@@ -64,7 +64,7 @@ export class TransformersEngineWrapper {
 
       // Initialize image processor for multimodal models
       if (modelConfig.modelType === 'multimodal') {
-        options.device = "webgpu";
+        options.device = 'webgpu';
         // console.log('Loading multimodal model...');
         this.imageProcessor = await AutoProcessor.from_pretrained(modelConfig.repo, pipelineOptions);
         // console.log('Image processor loaded');
@@ -76,7 +76,6 @@ export class TransformersEngineWrapper {
       // For non-TTS models, create the appropriate pipeline
       const pipelineType = modelConfig.pipeline as PipelineType;
       this.transformersPipeline = await pipeline(pipelineType, modelConfig.repo, pipelineOptions);
-
     } catch (error) {
       console.error('Error loading Transformers model:', error);
       const message = error instanceof Error ? error.message : String(error);
@@ -151,15 +150,15 @@ export class TransformersEngineWrapper {
     if (!this.ttsEngine) {
       throw new Error('Text-to-speech engine not initialized.');
     }
-    
+
     try {
       // Find the selected voice's language from options or fallback
       const stream = this.ttsEngine.generateSpeechStream(text, options);
-      
+
       // Return both the stream and the sample rate needed for playback
       return {
         stream: stream,
-        sampleRate: 24000 // Hardcoded based on kokoro-tts's known sample rate
+        sampleRate: 24000, // Hardcoded based on kokoro-tts's known sample rate
       };
     } catch (error) {
       console.error('Error in text-to-speech stream:', error);
@@ -205,12 +204,12 @@ export class TransformersEngineWrapper {
     }
 
     try {
-      const conversation = [{ 'role': 'user', 'content': input.text }];
-      
+      const conversation = [{ role: 'user', content: input.text }];
+
       // Process the input text with the image processor
       const inputs = await this.imageProcessor(conversation, {
-        chat_template: "text_to_image",
-        ...options
+        chat_template: 'text_to_image',
+        ...options,
       });
 
       // Generate the image

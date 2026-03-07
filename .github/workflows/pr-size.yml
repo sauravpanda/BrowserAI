@@ -1,0 +1,102 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  size-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check PR size
+      run: |
+        STATS=$(git diff --shortstat origin/${{ github.base_ref }}...HEAD)
+        FILES_CHANGED=$(echo "$STATS" | grep -oP '\d+ file' | grep -oP '\d+' || echo "0")
+        INSERTIONS=$(echo "$STATS" | grep -oP '\d+ insertion' | grep -oP '\d+' || echo "0")
+        DELETIONS=$(echo "$STATS" | grep -oP '\d+ deletion' | grep -oP '\d+' || echo "0")
+
+        echo "## PR Size Report" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Files changed | $FILES_CHANGED |" >> $GITHUB_STEP_SUMMARY
+        echo "| Lines added | $INSERTIONS |" >> $GITHUB_STEP_SUMMARY
+        echo "| Lines removed | $DELETIONS |" >> $GITHUB_STEP_SUMMARY
+
+        TOTAL=$((INSERTIONS + DELETIONS))
+
+        if [ "$TOTAL" -gt 1000 ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**WARNING:** Large PR ($TOTAL lines changed). Consider splitting into smaller PRs for easier review." >> $GITHUB_STEP_SUMMARY
+          echo "::warning::Large PR with $TOTAL lines changed. Consider splitting for easier review."
+        elif [ "$TOTAL" -gt 500 ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**NOTE:** Medium PR ($TOTAL lines changed)." >> $GITHUB_STEP_SUMMARY
+          echo "::notice::Medium PR with $TOTAL lines changed."
+        else
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**OK:** Small PR ($TOTAL lines changed)." >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Label PR by size
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: files } = await github.rest.pulls.listFiles({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+          });
+
+          const changes = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+
+          let label;
+          if (changes <= 50) label = 'size/XS';
+          else if (changes <= 200) label = 'size/S';
+          else if (changes <= 500) label = 'size/M';
+          else if (changes <= 1000) label = 'size/L';
+          else label = 'size/XL';
+
+          // Remove existing size labels
+          const existingLabels = (await github.rest.issues.listLabelsOnIssue({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          })).data.map(l => l.name).filter(n => n.startsWith('size/'));
+
+          for (const old of existingLabels) {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: old,
+            }).catch(() => {});
+          }
+
+          // Add new label (create if needed)
+          try {
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });
+          } catch {
+            await github.rest.issues.createLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: label,
+              color: changes > 1000 ? 'e11d48' : changes > 500 ? 'f97316' : changes > 200 ? 'eab308' : '22c55e',
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });
+          }

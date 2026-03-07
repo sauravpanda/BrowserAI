@@ -12,14 +12,14 @@ export { DatabaseImpl } from './core/database';
 export * from './core/agent';
 
 // Export PDF parser
-export { 
-  PDFParser, 
-  extractTextFromPdf, 
+export {
+  PDFParser,
+  extractTextFromPdf,
   extractStructuredTextFromPdf,
   processPdfFile,
   pdfToText,
   type PDFParseOptions,
-  type PDFParseResult
+  type PDFParseResult,
 } from './core/parsers/pdf';
 
 // Export CSV parser
@@ -30,7 +30,7 @@ export {
   processCSVFile,
   csvToText,
   type CSVParseOptions,
-  type CSVParseResult
+  type CSVParseResult,
 } from './core/parsers/csv';
 
 // Export DOCX parser
@@ -40,14 +40,9 @@ export {
   processDOCXFile,
   docxToText,
   type DOCXParseOptions,
-  type DOCXParseResult
+  type DOCXParseResult,
 } from './core/parsers/docx';
 
 // Export image parser
-export {
-  ImageParser,
-  extractTextFromImage,
-  processImageFile,
-  imageToText
-} from './core/parsers/image';
+export { ImageParser, extractTextFromImage, processImageFile, imageToText } from './core/parsers/image';
 export type { ImageParseOptions, ImageParseResult } from './core/parsers/image';

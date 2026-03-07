@@ -1,8 +1,7 @@
-import { StyleTextToSpeech2Model, AutoTokenizer, Tensor } from "../libs/transformers/transformers";
+import { StyleTextToSpeech2Model, AutoTokenizer, Tensor } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
-import { phonemize } from "../libs/transformers/utils/phonemize";
-import { getVoiceData, VOICES } from "../libs/transformers/utils/voices";
-
+import { phonemize } from '../libs/transformers/utils/phonemize';
+import { getVoiceData, VOICES } from '../libs/transformers/utils/voices';
 
 const STYLE_DIM = 256;
 const SAMPLE_RATE = 24000;
@@ -21,12 +20,12 @@ export class TTSEngine {
     try {
       this.model = await StyleTextToSpeech2Model.from_pretrained(modelConfig.repo, {
         progress_callback: options.onProgress,
-        dtype: options.dtype || "fp32",
-        device:  "webgpu",
+        dtype: options.dtype || 'fp32',
+        device: 'webgpu',
       });
-      
+
       this.tokenizer = await AutoTokenizer.from_pretrained(modelConfig.repo, {
-        progress_callback: options.onProgress
+        progress_callback: options.onProgress,
       });
     } catch (error) {
       console.error('Error loading TTS model:', error);
@@ -35,18 +34,18 @@ export class TTSEngine {
   }
 
   async *generateSpeechStream(text: string, options: any = {}): AsyncGenerator<Float32Array> {
-    console.log("Streaming flow triggered"); // Log to confirm streaming is used
-    
+    console.log('Streaming flow triggered'); // Log to confirm streaming is used
+
     if (!this.model || !this.tokenizer) {
       throw new Error('TTS model not initialized');
     }
 
-    const { voice = "af_bella", speed = 1, language = "en-us" } = options;
+    const { voice = 'af_bella', speed = 1, language = 'en-us' } = options;
 
     if (!VOICES.hasOwnProperty(voice)) {
       console.error(`Voice "${voice}" not found. Available voices:`);
       console.table(VOICES);
-      throw new Error(`Voice "${voice}" not found. Should be one of: ${Object.keys(VOICES).join(", ")}.`);
+      throw new Error(`Voice "${voice}" not found. Should be one of: ${Object.keys(VOICES).join(', ')}.`);
     }
 
     try {
@@ -67,10 +66,13 @@ export class TTSEngine {
         });
 
         // Select voice style based on number of input tokens
-        const num_tokens = Math.min(Math.max(
-          input_ids.dims.at(-1) - 2, // Without padding
-          0,
-        ), 509);
+        const num_tokens = Math.min(
+          Math.max(
+            input_ids.dims.at(-1) - 2, // Without padding
+            0,
+          ),
+          509,
+        );
 
         // Load voice style
         const data = await getVoiceData(voice);
@@ -80,21 +82,21 @@ export class TTSEngine {
         // Prepare model inputs
         const inputs = {
           input_ids: input_ids,
-          style: new Tensor("float32", voiceData, [1, STYLE_DIM]),
-          speed: new Tensor("float32", [speed], [1]),
+          style: new Tensor('float32', voiceData, [1, STYLE_DIM]),
+          speed: new Tensor('float32', [speed], [1]),
         };
 
         // Generate audio for this chunk
         const output = await this.model._call(inputs);
-        
+
         if (!output || !output.waveform) {
           console.warn('Model returned null or undefined waveform for a chunk, skipping');
           continue;
         }
-        
+
         // Convert Tensor to Float32Array
         const chunkAudioData = new Float32Array(output.waveform.data);
-        
+
         if (chunkAudioData.length === 0) {
           console.warn('Generated audio data is empty for a chunk, skipping');
           continue;
@@ -102,10 +104,8 @@ export class TTSEngine {
 
         // Normalize audio data
         const maxValue = chunkAudioData.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
-        const normalizedData = maxValue > 0 ? 
-          new Float32Array(chunkAudioData.length) : 
-          chunkAudioData;
-        
+        const normalizedData = maxValue > 0 ? new Float32Array(chunkAudioData.length) : chunkAudioData;
+
         if (maxValue > 0) {
           for (let i = 0; i < chunkAudioData.length; i++) {
             normalizedData[i] = chunkAudioData[i] / maxValue;
@@ -120,7 +120,7 @@ export class TTSEngine {
             yield streamChunk;
           }
         }
-        
+
         // Small pause between chunks for natural-sounding speech
         const pauseSamples = Math.floor(0.2 * SAMPLE_RATE); // 200ms pause
         const pauseChunk = new Float32Array(pauseSamples).fill(0);
@@ -131,15 +131,15 @@ export class TTSEngine {
       throw error;
     }
   }
-  
+
   // Helper method to split text into manageable chunks
   private splitTextIntoChunks(text: string, maxChunkLength: number): string[] {
     // Find natural break points (sentences, clauses) to split text
     const chunks: string[] = [];
-    
+
     // Use regex to split by sentence boundaries but keep punctuation
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    
+
     let currentChunk = '';
     for (const sentence of sentences) {
       // If adding this sentence would exceed max length and we already have content
@@ -150,12 +150,12 @@ export class TTSEngine {
         // Otherwise add to current chunk
         currentChunk += sentence;
       }
-      
+
       // If current chunk is already too long, split it at clause boundaries
       if (currentChunk.length > maxChunkLength) {
         const clauses = currentChunk.split(/[,;:]/);
         currentChunk = '';
-        
+
         for (const clause of clauses) {
           if (currentChunk.length + clause.length > maxChunkLength && currentChunk.length > 0) {
             chunks.push(currentChunk);
@@ -166,14 +166,14 @@ export class TTSEngine {
         }
       }
     }
-    
+
     // Add any remaining text
     if (currentChunk.length > 0) {
       chunks.push(currentChunk);
     }
-    
+
     // If any chunk is still too long, use hard splitting as a fallback
-    return chunks.flatMap(chunk => {
+    return chunks.flatMap((chunk) => {
       if (chunk.length <= maxChunkLength) {
         return [chunk];
       } else {
@@ -181,7 +181,7 @@ export class TTSEngine {
         const words = chunk.split(' ');
         const hardChunks: string[] = [];
         let currentHardChunk = '';
-        
+
         for (const word of words) {
           if (currentHardChunk.length + word.length + 1 > maxChunkLength) {
             hardChunks.push(currentHardChunk);
@@ -190,14 +190,13 @@ export class TTSEngine {
             currentHardChunk += (currentHardChunk ? ' ' : '') + word;
           }
         }
-        
+
         if (currentHardChunk) {
           hardChunks.push(currentHardChunk);
         }
-        
+
         return hardChunks;
       }
     });
   }
 }
-

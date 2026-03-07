@@ -3,7 +3,17 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'examples/**',
+      'extensions/**',
+      'docs/**',
+      'src/libs/**',
+    ],
+  },
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -19,12 +29,12 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-unused-vars': 'warn',
-      
+
       // General ESLint rules
       'no-console': 'warn',
       'no-unused-vars': 'off', // turned off in favor of @typescript-eslint/no-unused-vars
-      'quotes': ['error', 'single'],
-      'semi': ['error', 'always'],
+      'quotes': ['warn', 'single'],
+      'semi': ['warn', 'always'],
     },
   },
-]; 
+];

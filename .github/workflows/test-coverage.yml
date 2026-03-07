@@ -1,0 +1,56 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run tests with coverage
+      run: npx jest --coverage --coverageReporters=text --coverageReporters=json-summary
+
+    - name: Check coverage threshold
+      run: |
+        if [ ! -f coverage/coverage-summary.json ]; then
+          echo "::warning::No coverage report generated"
+          exit 0
+        fi
+
+        LINE_PCT=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+        BRANCH_PCT=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.branches.pct)")
+        FUNC_PCT=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.functions.pct)")
+        STMT_PCT=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.statements.pct)")
+
+        echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Lines | ${LINE_PCT}% |" >> $GITHUB_STEP_SUMMARY
+        echo "| Branches | ${BRANCH_PCT}% |" >> $GITHUB_STEP_SUMMARY
+        echo "| Functions | ${FUNC_PCT}% |" >> $GITHUB_STEP_SUMMARY
+        echo "| Statements | ${STMT_PCT}% |" >> $GITHUB_STEP_SUMMARY
+
+        # Fail if line coverage drops below threshold
+        MIN_COVERAGE=30
+        BELOW=$(node -e "console.log($LINE_PCT < $MIN_COVERAGE ? 'yes' : 'no')")
+        if [ "$BELOW" = "yes" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**FAIL:** Line coverage ${LINE_PCT}% is below ${MIN_COVERAGE}% threshold" >> $GITHUB_STEP_SUMMARY
+          echo "::error::Line coverage ${LINE_PCT}% is below ${MIN_COVERAGE}% threshold"
+          exit 1
+        else
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**PASS:** Line coverage ${LINE_PCT}% meets ${MIN_COVERAGE}% threshold" >> $GITHUB_STEP_SUMMARY
+        fi

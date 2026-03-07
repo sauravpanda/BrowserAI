@@ -153,7 +153,7 @@ export class BrowserAI {
         this.audioChunks = [];
         this.mediaRecorder = null;
         if (this.mediaStream) {
-          this.mediaStream.getTracks().forEach(track => track.stop());
+          this.mediaStream.getTracks().forEach((track) => track.stop());
           this.mediaStream = null;
         }
         resolve(audioBlob);
@@ -209,9 +209,12 @@ export class BrowserAI {
     }
 
     if (this.engine instanceof TransformersEngineWrapper) {
-      const response = await this.engine.generateImage({
-        text: text as string,
-      }, options);
+      const response = await this.engine.generateImage(
+        {
+          text: text as string,
+        },
+        options,
+      );
       return response;
     }
 
@@ -222,10 +225,8 @@ export class BrowserAI {
     try {
       const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
       const existingCacheNames = await caches.keys();
-      const mlcCaches = existingCacheNames.filter(name =>
-        cacheNames.some(prefix => name.includes(prefix))
-      );
-      await Promise.all(mlcCaches.map(name => caches.delete(name)));
+      const mlcCaches = existingCacheNames.filter((name) => cacheNames.some((prefix) => name.includes(prefix)));
+      await Promise.all(mlcCaches.map((name) => caches.delete(name)));
       console.log('Successfully cleared MLC model cache');
     } catch (error) {
       console.error('Error clearing model cache:', error);
@@ -237,7 +238,7 @@ export class BrowserAI {
     if (!this.engine || !(this.engine instanceof MLCEngineWrapper)) {
       throw new Error('MLC Engine not initialized.');
     }
-    
+
     try {
       await this.engine.clearSpecificModel(modelIdentifier);
       console.log(`Successfully cleared cache for model: ${modelIdentifier}`);
@@ -249,7 +250,7 @@ export class BrowserAI {
 
   dispose() {
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream.getTracks().forEach((track) => track.stop());
       this.mediaStream = null;
     }
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {

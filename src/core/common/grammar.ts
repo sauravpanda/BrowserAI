@@ -21,7 +21,7 @@ export class GrammarParser {
 
   static fromJsonSchema(schema: string | object): GrammarParser {
     let parsedSchema: SchemaConfig;
-    
+
     if (typeof schema === 'string') {
       try {
         // Handle Type.Object format
@@ -33,7 +33,8 @@ export class GrammarParser {
             .replace(/Type\.Number\(\)/g, '{"type":"number"}')
             .replace(/Type\.Boolean\(\)/g, '{"type":"boolean"}')
             .replace(/Type\.Enum\({([\s\S]*?)}\)/g, (match, p1) => {
-              const enumValues = p1.split(',')
+              const enumValues = p1
+                .split(',')
                 .map((line: string) => line.trim())
                 .filter((line: string) => line)
                 .map((line: string) => {
@@ -58,28 +59,28 @@ export class GrammarParser {
 
     return new GrammarParser({
       rules,
-      startSymbol: 'main'
+      startSymbol: 'main',
     });
   }
 
   private static convertSchemaToRules(
-    schema: SchemaConfig, 
-    rules: Record<string, string[]>, 
-    prefix: string = 'main'
+    schema: SchemaConfig,
+    rules: Record<string, string[]>,
+    prefix: string = 'main',
   ): void {
     // Handle Type.Object format
     if (typeof schema === 'object' && schema.constructor?.name === 'Object') {
       const properties = schema.properties || {};
       const propEntries = Object.entries(properties);
-      
+
       // Start with opening brace
       rules[prefix] = ['{', 'ws'];
-      
+
       // Add each property
       propEntries.forEach(([key, value], index) => {
         // Add the property key
         rules[prefix].push(`"${key}"`, 'ws', ':', 'ws');
-        
+
         // Handle different types including enums
         if (value.enum) {
           // Create a specific rule for this enum
@@ -110,13 +111,13 @@ export class GrammarParser {
               rules[prefix].push('basic_any');
           }
         }
-        
+
         // Add comma if not last property
         if (index < propEntries.length - 1) {
           rules[prefix].push('ws', ',', 'ws');
         }
       });
-      
+
       // Close with ending brace
       rules[prefix].push('ws', '}');
     }
@@ -124,9 +125,7 @@ export class GrammarParser {
 
   toGrammarString(): string {
     // Generate all the rules
-    const ruleStrings = Object.entries(this.rules).map(([name, parts]) => 
-      `${name} ::= ${parts.join(' ')}`
-    );
+    const ruleStrings = Object.entries(this.rules).map(([name, parts]) => `${name} ::= ${parts.join(' ')}`);
 
     // Add the basic grammar rules
     return `
@@ -152,4 +151,4 @@ ws ::= [ \\t\\n]*`.trim();
       throw error;
     }
   }
-} 
+}

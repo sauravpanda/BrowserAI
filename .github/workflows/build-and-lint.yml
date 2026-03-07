@@ -2,9 +2,9 @@ name: Build and Lint
 
 on:
   push:
-    branches: [ '**' ]  # Runs on all branches
+    branches: [ '**' ]
   pull_request:
-    branches: [ '**' ]  # Runs on PRs targeting any branch
+    branches: [ '**' ]
 
 jobs:
   build-and-lint:
@@ -22,16 +22,20 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    # Main project build and lint
-    - name: Install main dependencies
+    - name: Install dependencies
       run: npm install
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Check formatting
+      run: npx prettier --check "src/**/*.ts"
+
+    - name: Type check
+      run: npx tsc --noEmit --skipLibCheck
 
     - name: Run tests
       run: npm run test
 
-    - name: Build main project
+    - name: Build
       run: npm run build
-
-    # Need to fix linting issues first
-    # - name: Lint main project
-    #   run: npm run lint
