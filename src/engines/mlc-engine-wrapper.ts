@@ -74,6 +74,7 @@ const workerCode = `
 
 interface MLCLoadModelOptions {
   useWorker?: boolean;
+  workerTimeout?: number;
   onProgress?: (progress: any) => void;
   quantization?: string;
   [key: string]: any;
@@ -505,7 +506,7 @@ export class MLCEngineWrapper {
 
           const timeout = setTimeout(() => {
             reject(new Error('Worker initialization timeout'));
-          }, 10000);
+          }, options.workerTimeout || 10000);
 
           this.worker.onmessage = (msg) => {
             if (msg.data.type === 'ready') {
