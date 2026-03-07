@@ -20,6 +20,7 @@ export class BrowserAI {
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
   private customModels: Record<string, ModelConfig> = {};
+  private modelLoadingPromise: Promise<void> | null = null;
 
   constructor() {
     this.engine = null;
@@ -167,8 +168,17 @@ export class BrowserAI {
     if (!this.modelIdentifier) {
       throw new Error('No model loaded. Please call loadModel first.');
     }
-    if (this.currentModel?.modelName !== this.modelIdentifier) {
-      await this.loadModel(this.modelIdentifier);
+    if (!this.currentModel || this.currentModel.modelName !== this.modelIdentifier) {
+      if (this.modelLoadingPromise) {
+        await this.modelLoadingPromise;
+      } else {
+        this.modelLoadingPromise = this.loadModel(this.modelIdentifier);
+        try {
+          await this.modelLoadingPromise;
+        } finally {
+          this.modelLoadingPromise = null;
+        }
+      }
     }
     const response = await this.generateText(text);
     return response as string;
