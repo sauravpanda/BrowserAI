@@ -2,7 +2,6 @@ import { Storable, Database, DatabaseOptions, VectorStore } from './types';
 import { Storage, StorageFactory } from './storage';
 import { VectorStoreFactory } from './vectorstore';
 import { IndexedDBStorageFactory } from './implementation/indexeddb';
-import { SqliteStorageFactory } from './implementation/sqlite';
 
 // placeholder for vectorstore factories
 const vectorStoreFactories: Record<string, VectorStoreFactory> = {};
@@ -10,7 +9,6 @@ const vectorStoreFactories: Record<string, VectorStoreFactory> = {};
 // register storage factories here
 const storageFactories: Record<string, StorageFactory<any>> = {
   indexeddb: new IndexedDBStorageFactory(),
-  sqlite: new SqliteStorageFactory(),
 };
 
 export class DatabaseImpl<T extends Storable> implements Database<T> {

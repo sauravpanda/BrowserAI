@@ -27,7 +27,7 @@ export interface DatabaseFactory<T extends Storable> {
   create(config: DatabaseConfig): Database<T>;
 }
 
-export type DatabaseType = 'indexeddb' | 'sqlite';
+export type DatabaseType = 'indexeddb';
 
 export interface DatabaseOptions {
   type: DatabaseType;
