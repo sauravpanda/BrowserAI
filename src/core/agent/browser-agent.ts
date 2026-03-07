@@ -10,8 +10,9 @@ import {
 } from '@/core/agent/types';
 import { BrowserAI } from '@/core/llm';
 
-// CURRENTLY WIP
-
+/**
+ * @experimental This class is a work in progress and its API may change.
+ */
 export class BrowserAgent {
   private currentUrl: string;
   private htmlCleaner: HTMLCleaner;
@@ -150,6 +151,17 @@ export class BrowserAgent {
   }
 
   private async navigate(url: string): Promise<void> {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`Unsafe protocol: ${parsed.protocol}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('Unsafe protocol')) {
+        throw e;
+      }
+      throw new Error(`Invalid URL: ${url}`);
+    }
     window.location.href = url;
   }
 
@@ -191,8 +203,13 @@ export class BrowserAgent {
   }
 
   private getMetaContent(name: string): string {
-    const meta = document.querySelector(`meta[name="${name}"]`);
-    return meta ? meta.getAttribute('content') || '' : '';
+    const metas = document.querySelectorAll('meta[name]');
+    for (const meta of metas) {
+      if (meta.getAttribute('name') === name) {
+        return meta.getAttribute('content') || '';
+      }
+    }
+    return '';
   }
 
   private async makeDecision(context: string): Promise<{
@@ -204,8 +221,8 @@ export class BrowserAgent {
     const prompt = `
         Context: ${context}
         Current URL: ${this.currentUrl}
-        
-        Analyze the context and decide the next action. 
+
+        Analyze the context and decide the next action.
         Respond in JSON format with:
         {
             "nextAction": {
@@ -218,7 +235,7 @@ export class BrowserAgent {
         `;
 
     const response = await this.browserAI.generateText(prompt);
-    return JSON.parse(response as string);
+    return this.parseJSONResponse(response as string);
   }
 
   private async analyzeContent(content: string): Promise<{
@@ -232,13 +249,13 @@ export class BrowserAgent {
     const prompt = `
         Analyze this content:
         ${content}
-        
+
         Provide a detailed analysis including summary, entities, sentiment, and topics.
         Respond in JSON format.
         `;
 
     const response = await this.browserAI.generateText(prompt);
-    return JSON.parse(response as string);
+    return this.parseJSONResponse(response as string);
   }
 
   private async classifyContent(content: string): Promise<{
@@ -251,7 +268,7 @@ export class BrowserAgent {
             Classify this content: ${content}
             Respond in JSON format with type, confidence, and categories.
         `);
-    return JSON.parse(response as string);
+    return this.parseJSONResponse(response as string);
   }
 
   private async summarizeContent(content: string): Promise<{
@@ -263,7 +280,15 @@ export class BrowserAgent {
             Summarize this content: ${content}
             Respond in JSON format with summary and key points.
         `);
-    return JSON.parse(response as string);
+    return this.parseJSONResponse(response as string);
+  }
+
+  private parseJSONResponse<T>(response: string): T {
+    try {
+      return JSON.parse(response);
+    } catch {
+      throw new Error(`Failed to parse AI response as JSON: ${response.substring(0, 200)}`);
+    }
   }
 
   // Example usage with different models
