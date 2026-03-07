@@ -1,0 +1,59 @@
+name: Security Audit
+
+on:
+  pull_request:
+    branches: [ '**' ]
+  schedule:
+    - cron: '0 9 * * 1' # Weekly on Monday at 9am UTC
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Audit dependencies
+      run: |
+        echo "## Security Audit Report" >> $GITHUB_STEP_SUMMARY
+
+        # Run audit and capture output
+        set +e
+        AUDIT_OUTPUT=$(npm audit --audit-level=high 2>&1)
+        AUDIT_EXIT=$?
+        set -e
+
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "$AUDIT_OUTPUT" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+        if [ "$AUDIT_EXIT" -ne 0 ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**FAIL:** High or critical vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          echo "::error::npm audit found high/critical vulnerabilities"
+          exit 1
+        else
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**PASS:** No high or critical vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Check for secrets in diff
+      if: github.event_name == 'pull_request'
+      run: |
+        # Check for common secret patterns in changed files
+        PATTERNS='(PRIVATE.KEY|SECRET|PASSWORD|API_KEY|ACCESS_TOKEN|aws_secret|ghp_[a-zA-Z0-9]{36}|sk-[a-zA-Z0-9]{48})'
+
+        git fetch origin ${{ github.base_ref }} --depth=1
+        DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- ':(exclude)*.lock' ':(exclude)*.yml' ':(exclude)*.yaml' || true)
+
+        if echo "$DIFF" | grep -iP "$PATTERNS" | grep "^+" | grep -v "^+++" > /dev/null 2>&1; then
+          echo "::warning::Potential secrets detected in PR diff. Please review added lines carefully."
+        fi

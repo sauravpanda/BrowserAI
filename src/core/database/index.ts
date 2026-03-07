@@ -5,25 +5,19 @@ import { IndexedDBStorageFactory } from './implementation/indexeddb';
 import { SqliteStorageFactory } from './implementation/sqlite';
 
 // placeholder for vectorstore factories
-const vectorStoreFactories: Record<string, VectorStoreFactory> = {
-
-}
+const vectorStoreFactories: Record<string, VectorStoreFactory> = {};
 
 // register storage factories here
 const storageFactories: Record<string, StorageFactory<any>> = {
-    'indexeddb': new IndexedDBStorageFactory(),
-    'sqlite': new SqliteStorageFactory()
+  indexeddb: new IndexedDBStorageFactory(),
+  sqlite: new SqliteStorageFactory(),
 };
 
-
-
 export class DatabaseImpl<T extends Storable> implements Database<T> {
-
   private storage!: Storage<T>;
   private vectorStore?: VectorStore;
 
-  constructor() {
-  }
+  constructor() {}
 
   async initialize(options: DatabaseOptions) {
     if (!storageFactories[options.type]) {
@@ -62,26 +56,25 @@ export class DatabaseImpl<T extends Storable> implements Database<T> {
     }
   }
 
-  setVectorStore(type: string) : void {
-    if(!vectorStoreFactories[type]){
-        throw new Error(`Vector store type not supported ${type}`);
+  setVectorStore(type: string): void {
+    if (!vectorStoreFactories[type]) {
+      throw new Error(`Vector store type not supported ${type}`);
     }
 
     this.vectorStore = vectorStoreFactories[type].createVectorStore(type);
   }
 
-  async addVector(id: string, vector: number[]) : Promise<void> {
-    if(!this.vectorStore){
-       throw new Error("Vector store not initialized")
+  async addVector(id: string, vector: number[]): Promise<void> {
+    if (!this.vectorStore) {
+      throw new Error('Vector store not initialized');
     }
     await this.vectorStore.add(id, vector);
   }
 
-
- async searchVector(vector: number[], topK: number): Promise<string[]> {
-     if(!this.vectorStore){
-        throw new Error("Vector store not initialized")
-     }
+  async searchVector(vector: number[], topK: number): Promise<string[]> {
+    if (!this.vectorStore) {
+      throw new Error('Vector store not initialized');
+    }
     return await this.vectorStore.search(vector, topK);
   }
 }

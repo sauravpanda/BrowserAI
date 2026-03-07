@@ -1,0 +1,50 @@
+name: Bundle Size Check
+
+on:
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  bundle-size:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build
+      run: npm run build
+
+    - name: Check bundle size
+      run: |
+        MAX_KB=900
+        ESM_SIZE=$(stat --format=%s dist/index.mjs)
+        ESM_KB=$((ESM_SIZE / 1024))
+        CJS_SIZE=$(stat --format=%s dist/index.js)
+        CJS_KB=$((CJS_SIZE / 1024))
+        DTS_SIZE=$(stat --format=%s dist/index.d.ts)
+        DTS_KB=$((DTS_SIZE / 1024))
+
+        echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+        echo "| Output | Size |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| ESM (index.mjs) | ${ESM_KB} KB |" >> $GITHUB_STEP_SUMMARY
+        echo "| CJS (index.js) | ${CJS_KB} KB |" >> $GITHUB_STEP_SUMMARY
+        echo "| DTS (index.d.ts) | ${DTS_KB} KB |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "$ESM_KB" -gt "$MAX_KB" ]; then
+          echo "::error::ESM bundle size ${ESM_KB}KB exceeds ${MAX_KB}KB limit"
+          echo "**FAIL:** ESM bundle exceeds ${MAX_KB}KB limit" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "ESM bundle size ${ESM_KB}KB is within ${MAX_KB}KB limit"
+          echo "**PASS:** ESM bundle within ${MAX_KB}KB limit" >> $GITHUB_STEP_SUMMARY
+        fi

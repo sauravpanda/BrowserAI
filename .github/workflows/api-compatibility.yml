@@ -1,0 +1,69 @@
+name: API Compatibility
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  api-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout base branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.base_ref }}
+        path: base
+
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        path: pr
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Build base branch
+      working-directory: base
+      run: npm install && npm run build
+
+    - name: Build PR branch
+      working-directory: pr
+      run: npm install && npm run build
+
+    - name: Extract exports from DTS files
+      run: |
+        # Extract exported symbols from .d.ts files
+        grep -oP '(?<=export\s+(declare\s+)?(class|function|const|type|interface|enum)\s+)\w+' base/dist/index.d.ts | sort -u > /tmp/api-base.txt
+        grep -oP '(?<=export\s+(declare\s+)?(class|function|const|type|interface|enum)\s+)\w+' pr/dist/index.d.ts | sort -u > /tmp/api-pr.txt
+
+    - name: Compare API surface
+      run: |
+        echo "## API Compatibility Report" >> $GITHUB_STEP_SUMMARY
+
+        REMOVED=$(comm -23 /tmp/api-base.txt /tmp/api-pr.txt || true)
+        ADDED=$(comm -13 /tmp/api-base.txt /tmp/api-pr.txt || true)
+
+        if [ -n "$REMOVED" ]; then
+          echo "### Removed Exports (Breaking Change)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$REMOVED" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "::error::Removed exports detected (breaking change): $(echo $REMOVED | tr '\n' ', ')"
+          exit 1
+        else
+          echo "No exports were removed." >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -n "$ADDED" ]; then
+          echo "### New Exports" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$ADDED" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "::notice::New exports added: $(echo $ADDED | tr '\n' ', ')"
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**PASS:** No breaking API changes detected" >> $GITHUB_STEP_SUMMARY

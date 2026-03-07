@@ -33,7 +33,7 @@ export async function fillInput(selector: string, value: string): Promise<boolea
     const element = document.querySelector(selector);
     if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
       element.value = value;
-      
+
       // Trigger input and change events to simulate user typing
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -72,15 +72,15 @@ export async function selectOption(selector: string, value: string): Promise<boo
  * @param options Scroll options including direction and amount
  * @returns Promise resolving to void
  */
-export async function scrollPage(options: { direction: 'up' | 'down', amount: number }): Promise<void> {
+export async function scrollPage(options: { direction: 'up' | 'down'; amount: number }): Promise<void> {
   try {
     window.scrollBy({
       top: options.direction === 'down' ? options.amount : -options.amount,
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
-    
+
     // Wait for scroll to complete
-    return new Promise(resolve => setTimeout(resolve, 300));
+    return new Promise((resolve) => setTimeout(resolve, 300));
   } catch (error) {
     console.error('Error scrolling page:', error);
   }
@@ -106,7 +106,7 @@ export async function navigateTo(url: string): Promise<void> {
  * @returns Promise resolving to the element if found, null if timeout
  */
 export async function waitForElement(selector: string, timeout = 5000): Promise<Element | null> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const element = document.querySelector(selector);
     if (element) {
       resolve(element);
@@ -164,7 +164,7 @@ export async function elementExists(selector: string): Promise<boolean> {
 export async function findAllElements(selector: string): Promise<string[]> {
   try {
     const elements = document.querySelectorAll(selector);
-    return Array.from(elements).map(el => el.textContent?.trim() || '');
+    return Array.from(elements).map((el) => el.textContent?.trim() || '');
   } catch (error) {
     console.error(`Error finding elements ${selector}:`, error);
     return [];
@@ -216,24 +216,24 @@ export async function focusElement(selector: string): Promise<boolean> {
  * @returns Promise resolving to object with attribute name-value pairs
  */
 export async function getElementAttributes(
-  selector: string, 
-  attributeNames: string[]
+  selector: string,
+  attributeNames: string[],
 ): Promise<Record<string, string>> {
   try {
     const element = document.querySelector(selector);
     if (!element) return {};
-    
+
     const attributes: Record<string, string> = {};
-    attributeNames.forEach(attr => {
+    attributeNames.forEach((attr) => {
       const value = element.getAttribute(attr);
       if (value !== null) {
         attributes[attr] = value;
       }
     });
-    
+
     return attributes;
   } catch (error) {
     console.error(`Error getting attributes from ${selector}:`, error);
     return {};
   }
-} 
+}
