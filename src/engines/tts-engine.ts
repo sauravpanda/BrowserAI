@@ -8,6 +8,7 @@ export const SAMPLE_RATE = 24000;
 
 export class TTSEngine {
   private model: StyleTextToSpeech2Model | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private tokenizer: any = null;
 
   constructor() {
@@ -15,6 +16,7 @@ export class TTSEngine {
     this.tokenizer = null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     // console.log('Loading TTS model... ', modelConfig.repo, options);
     try {
@@ -33,6 +35,7 @@ export class TTSEngine {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async *generateSpeechStream(text: string, options: any = {}): AsyncGenerator<Float32Array> {
     console.log('Streaming flow triggered'); // Log to confirm streaming is used
 

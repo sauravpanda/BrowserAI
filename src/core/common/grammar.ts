@@ -140,7 +140,7 @@ value ::= basic_string | basic_number | basic_object | basic_array | basic_boole
 ws ::= [ \\t\\n]*`.trim();
   }
 
-  static convertTypeObjectToGrammar(schema: any): string {
+  static convertTypeObjectToGrammar(schema: Record<string, unknown>): string {
     try {
       const parser = GrammarParser.fromJsonSchema(schema);
       const grammar = parser.toGrammarString();

@@ -107,7 +107,7 @@ export class DOCXParser {
       }
 
       // Configure mammoth options
-      const mammothOptions: any = {
+      const mammothOptions: Record<string, unknown> = {
         includeDefaultStyleMap: options.preserveStyles !== false,
         includeEmbeddedStyleMap: options.preserveStyles !== false,
         convertImage: options.extractImages ? mammoth.images.imgElement : undefined,

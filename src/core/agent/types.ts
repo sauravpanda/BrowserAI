@@ -1,6 +1,7 @@
 export interface BrowserAgentAction {
   type: 'click' | 'scroll' | 'navigate' | 'extract' | 'read' | 'wait' | 'think' | 'analyze' | 'classify' | 'summarize';
   target?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value?: any;
   taskType?: AgentModelConfig['taskType'];
 }

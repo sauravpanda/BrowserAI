@@ -184,7 +184,7 @@ export class BrowserAI {
     return response as string;
   }
 
-  async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<any> {
+  async textToSpeech(text: string, options: Record<string, unknown> = {}): Promise<{ stream: AsyncGenerator<Float32Array>; sampleRate: number }> {
     // Check if engine is already loaded
     if (!this.engine) {
       // Load the transformers engine if not already loaded

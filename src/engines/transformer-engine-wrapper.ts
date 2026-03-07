@@ -25,14 +25,17 @@ export class TransformersEngineWrapper {
     | null = null;
   private modelType: string | null = null;
   private ttsEngine: TTSEngine | null = null;
-  private imageProcessor: any | null = null;
-  private multimodalModel: any | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private imageProcessor: any = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private multimodalModel: any = null;
 
   constructor() {
     this.transformersPipeline = null;
     this.modelType = null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async loadModel(modelConfig: ModelConfig, options: any = {}) {
     try {
       // Validate required model config properties
@@ -84,6 +87,7 @@ export class TransformersEngineWrapper {
   }
 
   // Text generation specific method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async generateText(input: string | Array<{ role: string; content: string }>, options: any = {}) {
     if (!this.transformersPipeline || this.modelType !== 'text-generation') {
       throw new Error('Text generation pipeline not initialized.');
@@ -115,6 +119,7 @@ export class TransformersEngineWrapper {
   }
 
   // Feature extraction specific method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async extractFeatures(text: string, options: any = {}) {
     if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
       throw new Error('Feature extraction pipeline not initialized.');
@@ -127,6 +132,7 @@ export class TransformersEngineWrapper {
   }
 
   // Speech recognition specific method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async transcribe(audioInput: Float32Array | Float64Array | string | Blob, options: any = {}) {
     if (!this.transformersPipeline || this.modelType !== 'automatic-speech-recognition') {
       throw new Error('Speech recognition pipeline not initialized.');
@@ -146,6 +152,7 @@ export class TransformersEngineWrapper {
   }
 
   // Streaming text-to-speech method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async textToSpeechStream(text: string, options: any = {}) {
     if (!this.ttsEngine) {
       throw new Error('Text-to-speech engine not initialized.');
@@ -167,6 +174,7 @@ export class TransformersEngineWrapper {
   }
 
   // Generic method for backward compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async generate(prompt: string, options: any = {}) {
     switch (this.modelType) {
       case 'text-generation':
@@ -182,6 +190,7 @@ export class TransformersEngineWrapper {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async embed(input: string, options: any = {}) {
     if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
       throw new Error('Feature extraction pipeline not initialized. Load a feature-extraction model first.');
@@ -194,6 +203,7 @@ export class TransformersEngineWrapper {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async generateImage(input: { text: string }, options: any = {}) {
     if (this.modelType !== 'multimodal') {
       throw new Error('Multimodal model not initialized.');
