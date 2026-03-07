@@ -4,7 +4,7 @@ import { phonemize } from '../libs/transformers/utils/phonemize';
 import { getVoiceData, VOICES } from '../libs/transformers/utils/voices';
 
 const STYLE_DIM = 256;
-const SAMPLE_RATE = 24000;
+export const SAMPLE_RATE = 24000;
 
 export class TTSEngine {
   private model: StyleTextToSpeech2Model | null = null;
