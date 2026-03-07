@@ -12,29 +12,20 @@ import { ModelConfig } from '../config/models/types';
 
 // Add this worker code as a string at the top of the file
 const workerCode = `
-  // Ensure we're in a worker context
   if (typeof self === 'undefined') {
     throw new Error('This script must be run in a Web Worker');
   }
 
-  console.log('[Worker] Starting initialization...');
-
-  // Wrap the entire worker code in a try-catch
   try {
-    // Wait for the main thread to send us the module URL
     self.onmessage = async (msg) => {
       if (msg.data.type === 'init') {
-        console.log('[Worker] Received init message');
         const moduleURL = msg.data.moduleURL;
-        
+
         try {
           const module = await import(moduleURL);
-          console.log('[Worker] Module loaded successfully');
           const handler = new module.WebWorkerMLCEngineHandler();
-          
-          // Replace onmessage handler with the actual handler
+
           self.onmessage = (msg) => {
-            console.log('[Worker] Received message:', msg.data);
             try {
               handler.onmessage(msg);
             } catch (error) {
@@ -45,9 +36,8 @@ const workerCode = `
               });
             }
           };
-          
+
           self.postMessage({ type: 'ready' });
-          console.log('[Worker] Handler initialized successfully');
         } catch (error) {
           console.error('[Worker] Failed to load module:', error);
           self.postMessage({
@@ -80,8 +70,6 @@ const workerCode = `
       error: 'Message error: ' + (error instanceof Error ? error.message : String(error))
     });
   };
-
-  console.log('[Worker] Basic initialization complete');
 `;
 
 interface MLCLoadModelOptions {
@@ -122,20 +110,9 @@ class MLCModelCacheManager {
       this.currentCacheSize = 0;
       this.modelSizes.clear();
 
-      // Map to collect all URLs by model ID for debugging
-      const modelUrlMap: Map<string, string[]> = new Map();
-
-      // Map to track original model IDs to normalized ones
-      const normalizedModelMap: Map<string, string> = new Map();
-
-      console.log('Beginning cache calculation...');
-
       for (const cacheName of cacheNames) {
-        console.log(`Scanning cache: ${cacheName}`);
         const cache = await caches.open(cacheName);
         const keys = await cache.keys();
-
-        console.log(`Found ${keys.length} entries in ${cacheName}`);
 
         for (const key of keys) {
           const response = await cache.match(key);
@@ -152,19 +129,7 @@ class MLCModelCacheManager {
           let rawModelId = this.extractRawModelId(url);
 
           if (rawModelId) {
-            // Normalize the model ID to avoid duplicates
             let normalizedModelId = this.normalizeModelId(rawModelId);
-
-            // Track the normalization for debugging
-            if (!normalizedModelMap.has(rawModelId)) {
-              normalizedModelMap.set(rawModelId, normalizedModelId);
-            }
-
-            // Track URLs for debugging
-            if (!modelUrlMap.has(normalizedModelId)) {
-              modelUrlMap.set(normalizedModelId, []);
-            }
-            modelUrlMap.get(normalizedModelId)?.push(url);
 
             if (!this.modelSizes.has(normalizedModelId)) {
               this.modelSizes.set(normalizedModelId, 0);
@@ -173,39 +138,11 @@ class MLCModelCacheManager {
               }
             }
             this.modelSizes.set(normalizedModelId, (this.modelSizes.get(normalizedModelId) || 0) + size);
-          } else {
-            console.log(`Couldn't determine model for URL: ${url}`);
           }
         }
       }
 
-      // Print detailed debug info
-      console.log('--- MODEL CACHE DEBUG INFO ---');
-      console.log(`Total cache size: ${this.formatBytes(this.currentCacheSize)}`);
-      console.log(`Models in modelQueue: ${this.modelQueue.length}`);
-      console.log(`Models in modelSizes map: ${this.modelSizes.size}`);
-
-      // Normalize the model queue to ensure consistency
       this.normalizeModelQueue();
-
-      console.log('Raw to normalized model mapping:');
-      for (const [raw, normalized] of normalizedModelMap.entries()) {
-        console.log(`- ${raw} → ${normalized}`);
-      }
-
-      console.log('Detected models:');
-      for (const [modelId, size] of this.modelSizes.entries()) {
-        console.log(`- ${modelId}: ${this.formatBytes(size)} (${modelUrlMap.get(modelId)?.length || 0} files)`);
-      }
-
-      console.log('LRU Queue order (oldest to newest):');
-      this.modelQueue.forEach((id, index) => {
-        console.log(`${index + 1}. ${id}`);
-      });
-
-      console.log(
-        `Cache calculated. Total size: ${this.formatBytes(this.currentCacheSize)}, Models: ${this.modelQueue.length}`,
-      );
     } catch (error) {
       console.error('Error calculating cache size:', error);
     }
@@ -380,15 +317,6 @@ class MLCModelCacheManager {
     return normalizedId;
   }
 
-  // Format bytes to human-readable format
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
   // Mark a model as recently used or add it to the queue
   public touchModel(modelIdentifier: string): void {
     // Normalize the model identifier
@@ -411,17 +339,10 @@ class MLCModelCacheManager {
     await this.calculateCacheSizeAsync();
 
     if (this.currentCacheSize > this.maxCacheSize * this.cacheThreshold) {
-      console.log(
-        `Cache size (${this.formatBytes(this.currentCacheSize)}) exceeds ${this.cacheThreshold * 100}% threshold (${this.formatBytes(this.maxCacheSize * this.cacheThreshold)})`,
-      );
-
-      // If we have more than one model, remove oldest until we're under threshold
       while (this.modelQueue.length > 1 && this.currentCacheSize > this.maxCacheSize * this.cacheThreshold) {
         const oldestModel = this.modelQueue.shift();
         if (oldestModel) {
-          // Ensure we're using the normalized ID
           const normalizedId = this.normalizeModelId(oldestModel);
-          console.log(`Removing least recently used model: ${normalizedId}`);
           await this.removeModelFromCache(normalizedId);
           await this.calculateCacheSizeAsync();
         }
@@ -434,9 +355,7 @@ class MLCModelCacheManager {
     try {
       const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
 
-      // Normalize the input model identifier
       const normalizedModelId = this.normalizeModelId(modelIdentifier);
-      console.log(`Removing model: ${modelIdentifier} (normalized: ${normalizedModelId})`);
 
       for (const cacheName of cacheNames) {
         const cache = await caches.open(cacheName);
@@ -452,13 +371,8 @@ class MLCModelCacheManager {
           return false;
         });
 
-        console.log(`Found ${modelKeys.length} entries to remove from ${cacheName}`);
-
-        // Delete all entries for this model from the current cache
         await Promise.all(modelKeys.map((key) => cache.delete(key)));
       }
-
-      console.log(`Successfully removed model ${normalizedModelId} from cache`);
 
       // Also remove from our tracking data structures
       this.modelSizes.delete(normalizedModelId);
@@ -519,8 +433,6 @@ class MLCModelCacheManager {
 
     // Replace the queue with the normalized version
     this.modelQueue = normalizedQueue;
-
-    console.log(`Normalized model queue. New length: ${this.modelQueue.length}`);
   }
 
   // Estimate available storage and set the cache limit
@@ -535,28 +447,17 @@ class MLCModelCacheManager {
         // Available space is quota minus usage
         const availableBytes = quota - usage;
 
-        // Log the storage information
-        console.log(`Storage quota: ${this.formatBytes(quota)}`);
-        console.log(`Current storage usage: ${this.formatBytes(usage)}`);
-        console.log(`Available storage: ${this.formatBytes(availableBytes)}`);
-
         // Set our max cache size to 60% of available space, but cap it at 5GB
         const calculatedMax = Math.min(availableBytes * 0.6, 5 * 1024 * 1024 * 1024);
 
         // Ensure we have at least 500MB cache size
         this.maxCacheSize = Math.max(calculatedMax, 500 * 1024 * 1024);
-
-        console.log(`Set max cache size to ${this.formatBytes(this.maxCacheSize)} (60% of available space)`);
       } else {
-        // If Storage API isn't available, use a reasonable default
         this.maxCacheSize = 1024 * 1024 * 1024; // 1GB default
-        console.log(`Storage API not available. Using default max cache size: ${this.formatBytes(this.maxCacheSize)}`);
       }
     } catch (error) {
-      // If there's an error, fall back to a default size
       this.maxCacheSize = 1024 * 1024 * 1024; // 1GB default
       console.error('Error estimating storage:', error);
-      console.log(`Using default max cache size: ${this.formatBytes(this.maxCacheSize)}`);
     }
   }
 }
@@ -579,8 +480,6 @@ export class MLCEngineWrapper {
       }
 
       if (options.useWorker) {
-        // console.log('[MLCEngine] Creating new worker');
-
         const blob = new Blob([workerCode], { type: 'text/javascript' });
         const workerUrl = URL.createObjectURL(blob);
 
@@ -609,7 +508,6 @@ export class MLCEngineWrapper {
           }, 10000);
 
           this.worker.onmessage = (msg) => {
-            // console.log('[MLCEngine] Received worker message:', msg.data);
             if (msg.data.type === 'ready') {
               clearTimeout(timeout);
               resolve();
@@ -625,9 +523,7 @@ export class MLCEngineWrapper {
             // Try the ESM approach first
             moduleURL = new URL('@mlc-ai/web-llm', import.meta.url).href;
           } catch (e) {
-            // Fallback for CJS environment
             moduleURL = '@mlc-ai/web-llm';
-            console.log('[MLCEngine] Using module name as fallback for CJS environment');
           }
 
           // Send init message with module URL
@@ -637,7 +533,6 @@ export class MLCEngineWrapper {
           });
         });
 
-        // console.log('[MLCEngine] Worker initialized successfully');
       }
 
       const quantization = options.quantization || modelConfig.defaultQuantization;
@@ -645,8 +540,6 @@ export class MLCEngineWrapper {
 
       // Mark this model as recently used in our LRU cache
       this.cacheManager.touchModel(modelIdentifier);
-
-      console.log('[MLCEngine] Loading model:', modelIdentifier, 'with worker:', !!this.worker);
 
       if (modelConfig.modelLibrary) {
         this.appConfig = {
@@ -665,16 +558,13 @@ export class MLCEngineWrapper {
       }
 
       if (this.worker) {
-        // console.log('[MLCEngine] Creating web worker engine');
         this.mlcEngine = await CreateWebWorkerMLCEngine(this.worker, modelIdentifier, {
           initProgressCallback: (progress: any) => {
-            // console.log('[MLCEngine] Loading progress:', progress);
             options.onProgress?.(progress);
           },
           appConfig: this.appConfig,
           ...options,
         });
-        // console.log('[MLCEngine] Web worker engine created successfully');
       } else {
         this.mlcEngine = await CreateMLCEngine(modelIdentifier, {
           initProgressCallback: options.onProgress,
@@ -685,11 +575,9 @@ export class MLCEngineWrapper {
     } catch (error) {
       // Clean up worker if initialization failed
       if (this.worker) {
-        // console.error('[MLCEngine] Error with worker, cleaning up');
         this.worker.terminate();
         this.worker = null;
       }
-      // console.error('[MLCEngine] Error loading model:', error);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to load MLC model "${modelConfig}": ${message}`);
     }
@@ -788,7 +676,6 @@ export class MLCEngineWrapper {
       const existingCacheNames = await caches.keys();
       const mlcCaches = existingCacheNames.filter((name) => cacheNames.some((prefix) => name.includes(prefix)));
       await Promise.all(mlcCaches.map((name) => caches.delete(name)));
-      console.log('Successfully cleared MLC model cache');
     } catch (error) {
       console.error('Error clearing model cache:', error);
       throw error;
