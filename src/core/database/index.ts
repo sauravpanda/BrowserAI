@@ -56,7 +56,12 @@ export class DatabaseImpl<T extends Storable> implements Database<T> {
 
   setVectorStore(type: string): void {
     if (!vectorStoreFactories[type]) {
-      throw new Error(`Vector store type not supported ${type}`);
+      const available = Object.keys(vectorStoreFactories);
+      throw new Error(
+        available.length === 0
+          ? `Vector store support is not yet implemented. No vector store backends are available.`
+          : `Vector store type "${type}" not supported. Available types: ${available.join(', ')}`,
+      );
     }
 
     this.vectorStore = vectorStoreFactories[type].createVectorStore(type);
@@ -64,14 +69,14 @@ export class DatabaseImpl<T extends Storable> implements Database<T> {
 
   async addVector(id: string, vector: number[]): Promise<void> {
     if (!this.vectorStore) {
-      throw new Error('Vector store not initialized');
+      throw new Error('Vector store not initialized. Call setVectorStore() first.');
     }
     await this.vectorStore.add(id, vector);
   }
 
   async searchVector(vector: number[], topK: number): Promise<string[]> {
     if (!this.vectorStore) {
-      throw new Error('Vector store not initialized');
+      throw new Error('Vector store not initialized. Call setVectorStore() first.');
     }
     return await this.vectorStore.search(vector, topK);
   }
