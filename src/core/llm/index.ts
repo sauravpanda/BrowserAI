@@ -16,6 +16,7 @@ export class BrowserAI {
   private engine: MLCEngineWrapper | TransformersEngineWrapper | null;
   public currentModel: ModelConfig | null;
   private mediaRecorder: MediaRecorder | null = null;
+  private mediaStream: MediaStream | null = null;
   private audioChunks: Blob[] = [];
   private modelIdentifier: string | null = null;
   private customModels: Record<string, ModelConfig> = {};
@@ -127,6 +128,7 @@ export class BrowserAI {
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.mediaStream = stream;
     this.mediaRecorder = new MediaRecorder(stream);
     this.audioChunks = [];
 
@@ -150,6 +152,10 @@ export class BrowserAI {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         this.audioChunks = [];
         this.mediaRecorder = null;
+        if (this.mediaStream) {
+          this.mediaStream.getTracks().forEach(track => track.stop());
+          this.mediaStream = null;
+        }
         resolve(audioBlob);
       };
 
@@ -213,29 +219,18 @@ export class BrowserAI {
   }
 
   async clearModelCache(): Promise<void> {
-    return new Promise<void>(async (resolve, reject) => {
-      try {
-        // MLC models are stored in Cache Storage with specific prefixes
-        const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
-        
-        // Get all cache names
-        const existingCacheNames = await caches.keys();
-        
-        // Filter caches that match our MLC prefixes
-        const mlcCaches = existingCacheNames.filter(name => 
-          cacheNames.some(prefix => name.includes(prefix))
-        );
-        
-        // Delete all matching caches
-        await Promise.all(mlcCaches.map(name => caches.delete(name)));
-        
-        console.log('Successfully cleared MLC model cache');
-        resolve();
-      } catch (error) {
-        console.error('Error clearing model cache:', error);
-        reject(error);
-      }
-    });
+    try {
+      const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
+      const existingCacheNames = await caches.keys();
+      const mlcCaches = existingCacheNames.filter(name =>
+        cacheNames.some(prefix => name.includes(prefix))
+      );
+      await Promise.all(mlcCaches.map(name => caches.delete(name)));
+      console.log('Successfully cleared MLC model cache');
+    } catch (error) {
+      console.error('Error clearing model cache:', error);
+      throw error;
+    }
   }
 
   async clearSpecificModelCache(modelIdentifier: string): Promise<void> {
@@ -253,6 +248,14 @@ export class BrowserAI {
   }
 
   dispose() {
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+    this.mediaRecorder = null;
     if (this.engine instanceof MLCEngineWrapper) {
       this.engine.dispose();
     }
