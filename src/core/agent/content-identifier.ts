@@ -546,8 +546,8 @@ export class ContentSectionAnalyzer {
 
         if (matchesPatterns) return true;
 
-        // Fallback to existing semantic relationship checks
-        return this.areElementsSemanticallyRelated(el1, el2);
+        // No semantic relationship found
+        return false;
     }
 
     private isElementInSections(element: Element, sections: ContentSection[]): boolean {
