@@ -137,7 +137,7 @@ export class ImageParser {
         debugInfo: options.debug ? debugInfo : undefined,
       };
     } catch (error) {
-      const errorMessage = (error as Error).message;
+      const errorMessage = (error instanceof Error ? error.message : String(error));
       if (options.debug) debugInfo.push(`Error: ${errorMessage}`);
 
       return {

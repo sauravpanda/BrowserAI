@@ -154,7 +154,7 @@ export class PDFParser {
 
       return this.extractTextFromPdf(pdf, options, debugInfo);
     } catch (error) {
-      const errorMessage = (error as Error).message;
+      const errorMessage = (error instanceof Error ? error.message : String(error));
       if (options.debug) debugInfo.push(`Error: ${errorMessage}`);
       console.error('PDF parsing error:', error);
 
@@ -210,7 +210,7 @@ export class PDFParser {
         throw loadError;
       }
     } catch (error) {
-      const errorMessage = (error as Error).message;
+      const errorMessage = (error instanceof Error ? error.message : String(error));
       if (options.debug) debugInfo.push(`Error: ${errorMessage}`);
       console.error('PDF parsing error:', error);
 
@@ -259,7 +259,7 @@ export class PDFParser {
 
         pageTexts.push(pageText);
       } catch (error) {
-        errors.push(`Error extracting text from page ${i}: ${(error as Error).message}`);
+        errors.push(`Error extracting text from page ${i}: ${(error instanceof Error ? error.message : String(error))}`);
       }
     }
 
