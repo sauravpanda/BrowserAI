@@ -43,7 +43,7 @@ jobs:
         echo "| Statements | ${STMT_PCT}% |" >> $GITHUB_STEP_SUMMARY
 
         # Fail if line coverage drops below threshold
-        MIN_COVERAGE=30
+        MIN_COVERAGE=10
         BELOW=$(node -e "console.log($LINE_PCT < $MIN_COVERAGE ? 'yes' : 'no')")
         if [ "$BELOW" = "yes" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY

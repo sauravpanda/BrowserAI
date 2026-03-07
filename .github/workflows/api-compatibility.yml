@@ -33,13 +33,11 @@ jobs:
       working-directory: pr
       run: npm install && npm run build
 
-    - name: Extract base exports
-      working-directory: base
-      run: node -e "const e = require('./dist/index.js'); console.log(Object.keys(e).sort().join('\n'))" > /tmp/api-base.txt
-
-    - name: Extract PR exports
-      working-directory: pr
-      run: node -e "const e = require('./dist/index.js'); console.log(Object.keys(e).sort().join('\n'))" > /tmp/api-pr.txt
+    - name: Extract exports from DTS files
+      run: |
+        # Extract exported symbols from .d.ts files
+        grep -oP '(?<=export\s+(declare\s+)?(class|function|const|type|interface|enum)\s+)\w+' base/dist/index.d.ts | sort -u > /tmp/api-base.txt
+        grep -oP '(?<=export\s+(declare\s+)?(class|function|const|type|interface|enum)\s+)\w+' pr/dist/index.d.ts | sort -u > /tmp/api-pr.txt
 
     - name: Compare API surface
       run: |

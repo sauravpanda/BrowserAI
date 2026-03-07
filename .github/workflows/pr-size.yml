@@ -4,6 +4,11 @@ on:
   pull_request:
     branches: [ '**' ]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   size-check:
     runs-on: ubuntu-latest
@@ -43,8 +48,8 @@ jobs:
         fi
 
     - name: Label PR by size
-      if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
+      continue-on-error: true
       with:
         script: |
           const { data: files } = await github.rest.pulls.listFiles({
@@ -55,12 +60,28 @@ jobs:
 
           const changes = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
 
-          let label;
-          if (changes <= 50) label = 'size/XS';
-          else if (changes <= 200) label = 'size/S';
-          else if (changes <= 500) label = 'size/M';
-          else if (changes <= 1000) label = 'size/L';
-          else label = 'size/XL';
+          let label, color;
+          if (changes <= 50) { label = 'size/XS'; color = '22c55e'; }
+          else if (changes <= 200) { label = 'size/S'; color = '22c55e'; }
+          else if (changes <= 500) { label = 'size/M'; color = 'eab308'; }
+          else if (changes <= 1000) { label = 'size/L'; color = 'f97316'; }
+          else { label = 'size/XL'; color = 'e11d48'; }
+
+          // Ensure label exists
+          try {
+            await github.rest.issues.getLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: label,
+            });
+          } catch {
+            await github.rest.issues.createLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: label,
+              color: color,
+            });
+          }
 
           // Remove existing size labels
           const existingLabels = (await github.rest.issues.listLabelsOnIssue({
@@ -70,33 +91,22 @@ jobs:
           })).data.map(l => l.name).filter(n => n.startsWith('size/'));
 
           for (const old of existingLabels) {
-            await github.rest.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              name: old,
-            }).catch(() => {});
+            if (old !== label) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: old,
+              }).catch(() => {});
+            }
           }
 
-          // Add new label (create if needed)
-          try {
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: [label],
-            });
-          } catch {
-            await github.rest.issues.createLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: label,
-              color: changes > 1000 ? 'e11d48' : changes > 500 ? 'f97316' : changes > 200 ? 'eab308' : '22c55e',
-            });
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: [label],
-            });
-          }
+          // Add label
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            labels: [label],
+          });
+
+          console.log(`Labeled PR as ${label} (${changes} lines changed)`);
