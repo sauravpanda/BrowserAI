@@ -6,7 +6,7 @@ import { MessageContent } from './MessageContent';
 import React from 'react';
 import { BarChart2, Send, AlertCircle, X } from 'lucide-react';
 
-//added my manmohan
+
 
 const MessageContainer = styled.div<{ isUser: boolean }>`
   background: ${props => props.isUser ? '#3b82f6' : '#404040'};
@@ -26,7 +26,7 @@ const Message: React.FC<{ text: string; isUser: boolean }> = ({ text, isUser }) 
     </MessageContainer>
   );
 };
-//added my manmohan
+
 const Description = styled.div`
   text-align: center;
   margin-bottom: 32px;
