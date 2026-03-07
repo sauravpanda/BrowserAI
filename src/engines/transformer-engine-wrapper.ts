@@ -185,9 +185,14 @@ export class TransformersEngineWrapper {
 
   async embed(input: string, options: any = {}) {
     if (!this.transformersPipeline || this.modelType !== 'feature-extraction') {
-      console.debug(`Feature extraction pipeline not initialized. ${input}, ${options}`);
-      throw new Error('Feature extraction pipeline not initialized.');
+      throw new Error('Feature extraction pipeline not initialized. Load a feature-extraction model first.');
     }
+    const result = await (this.transformersPipeline as any)(input, {
+      pooling: options.pooling ?? 'mean',
+      normalize: options.normalize ?? true,
+      ...options,
+    });
+    return result;
   }
 
   async generateImage(input: { text: string }, options: any = {}) {
