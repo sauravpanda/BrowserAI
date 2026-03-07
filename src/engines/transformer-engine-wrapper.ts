@@ -228,4 +228,12 @@ export class TransformersEngineWrapper {
       throw error;
     }
   }
+
+  dispose() {
+    this.transformersPipeline = null;
+    this.ttsEngine = null;
+    this.imageProcessor = null;
+    this.multimodalModel = null;
+    this.modelType = null;
+  }
 }
