@@ -61,12 +61,12 @@ async function synthesizeSpeech() {
     await browserAI.loadModel('kokoro-tts');
     
     // Generate and play audio
-    const audioBuffer = await browserAI.textToSpeech('Hello, how are you today?');
-    
+    const ttsResult = await browserAI.textToSpeech('Hello, how are you today?');
+
     // Play the audio
     const audioContext = new AudioContext();
     const source = audioContext.createBufferSource();
-    const audioBuffer = await audioContext.decodeAudioData(audioBuffer);
+    const audioBuffer = await audioContext.decodeAudioData(ttsResult);
     source.buffer = audioBuffer;
     source.connect(audioContext.destination);
     source.start();
