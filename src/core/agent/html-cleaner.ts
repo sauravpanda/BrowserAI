@@ -261,36 +261,33 @@ export class HTMLCleaner {
     const len1 = str1.length;
     const len2 = str2.length;
 
-    // Create a matrix of size (len1+1) x (len2+1)
-    const matrix: number[][] = Array(len1 + 1)
-      .fill(null)
-      .map(() => Array(len2 + 1).fill(0));
+    if (len1 === 0) return len2 === 0 ? 1 : 0;
+    if (len2 === 0) return 0;
 
-    // Initialize the first row and column
-    for (let i = 0; i <= len1; i++) {
-      matrix[i][0] = i;
-    }
+    // Use two-row approach for O(min(n,m)) space
+    let prev = new Array(len2 + 1);
+    let curr = new Array(len2 + 1);
 
     for (let j = 0; j <= len2; j++) {
-      matrix[0][j] = j;
+      prev[j] = j;
     }
 
-    // Fill the matrix
     for (let i = 1; i <= len1; i++) {
+      curr[0] = i;
       for (let j = 1; j <= len2; j++) {
         const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1, // deletion
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j - 1] + cost, // substitution
+        curr[j] = Math.min(
+          prev[j] + 1,
+          curr[j - 1] + 1,
+          prev[j - 1] + cost,
         );
       }
+      [prev, curr] = [curr, prev];
     }
 
-    // Calculate similarity as 1 - (distance / max length)
-    const distance = matrix[len1][len2];
+    const distance = prev[len2];
     const maxLength = Math.max(len1, len2);
-    return 1 - distance / maxLength;
+    return 1 - (distance / maxLength);
   }
 
   /**
