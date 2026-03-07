@@ -784,29 +784,18 @@ export class MLCEngineWrapper {
   }
 
   async clearModelCache(): Promise<void> {
-    return new Promise<void>(async (resolve, reject) => {
-      try {
-        // MLC models are stored in Cache Storage with specific prefixes
-        const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
-        
-        // Get all cache names
-        const existingCacheNames = await caches.keys();
-        
-        // Filter caches that match our MLC prefixes
-        const mlcCaches = existingCacheNames.filter(name => 
-          cacheNames.some(prefix => name.includes(prefix))
-        );
-        
-        // Delete all matching caches
-        await Promise.all(mlcCaches.map(name => caches.delete(name)));
-        
-        console.log('Successfully cleared MLC model cache');
-        resolve();
-      } catch (error) {
-        console.error('Error clearing model cache:', error);
-        reject(error);
-      }
-    });
+    try {
+      const cacheNames = ['webllm/config', 'webllm/wasm', 'webllm/model'];
+      const existingCacheNames = await caches.keys();
+      const mlcCaches = existingCacheNames.filter(name =>
+        cacheNames.some(prefix => name.includes(prefix))
+      );
+      await Promise.all(mlcCaches.map(name => caches.delete(name)));
+      console.log('Successfully cleared MLC model cache');
+    } catch (error) {
+      console.error('Error clearing model cache:', error);
+      throw error;
+    }
   }
   
   async clearSpecificModel(modelIdentifier: string): Promise<void> {
