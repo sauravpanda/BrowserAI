@@ -450,8 +450,10 @@ const initPostHog = () => {
     if (typeof posthog !== 'undefined') {
       // Wait for next tick to ensure document is ready
       setTimeout(() => {
-        posthog.init('phc_zZuhhgvhx49iRC6ftmFcnVKZrlraLCyPeFbs5mWzmxp', {
-          api_host: 'https://us.i.posthog.com',
+        const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+        if (!posthogKey) return;
+        posthog.init(posthogKey, {
+          api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
           person_profiles: 'identified_only',
           loaded: (posthog) => {
             posthog.debug(false);
