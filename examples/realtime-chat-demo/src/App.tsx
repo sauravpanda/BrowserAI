@@ -198,6 +198,7 @@ function App() {
                   whileTap={{ scale: 0.95 }}
                   onClick={loadModels}
                   disabled={isLoading}
+                  aria-label={isLoading ? "Loading models" : messages.length === 0 ? "Load AI models" : "Models ready"}
                   className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20"
                 >
                   {isLoading ? (
@@ -239,8 +240,8 @@ function App() {
 
             {/* Loading State */}
             {isLoading && (
-              <div className="text-center py-20">
-                <Loader2 className="h-16 w-16 mx-auto animate-spin text-blue-400 mb-4" />
+              <div className="text-center py-20" role="status" aria-label="Loading AI models">
+                <Loader2 className="h-16 w-16 mx-auto animate-spin text-blue-400 mb-4" aria-hidden="true" />
                 <h2 className="text-xl font-semibold mb-2">Loading AI Models</h2>
                 <p className="text-gray-400">
                   Preparing your AI friend for conversation...
@@ -249,7 +250,7 @@ function App() {
             )}
 
             {/* Chat Messages */}
-            <div className="space-y-4">
+            <div className="space-y-4" aria-live="polite" aria-label="Chat messages">
               {messages.map((message, index) => (
                 <ChatMessage
                   key={index}
