@@ -276,18 +276,14 @@ export class HTMLCleaner {
       curr[0] = i;
       for (let j = 1; j <= len2; j++) {
         const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        curr[j] = Math.min(
-          prev[j] + 1,
-          curr[j - 1] + 1,
-          prev[j - 1] + cost,
-        );
+        curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
       }
       [prev, curr] = [curr, prev];
     }
 
     const distance = prev[len2];
     const maxLength = Math.max(len1, len2);
-    return 1 - (distance / maxLength);
+    return 1 - distance / maxLength;
   }
 
   /**
