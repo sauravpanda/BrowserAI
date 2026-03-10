@@ -267,10 +267,13 @@ export class BrowserAI {
       this.mediaRecorder.stop();
     }
     this.mediaRecorder = null;
-    if (this.engine instanceof MLCEngineWrapper) {
+    this.audioChunks = [];
+
+    if (this.engine) {
       this.engine.dispose();
     }
     this.engine = null;
     this.currentModel = null;
+    this.modelIdentifier = null;
   }
 }
