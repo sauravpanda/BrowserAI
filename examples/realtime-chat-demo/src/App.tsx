@@ -80,7 +80,7 @@ function App() {
       // Generate AI response
       const response = await chatAI.generateText("You are an helpful AI friend which lives inside browser and is always happy to help.Answer should be in following language: " + language + ". Reply to this message: \n" + transcribedText, {
         temperature: 0.7,
-        maxTokens: 100,
+        max_tokens: 100,
       });
 
       const voices = {
