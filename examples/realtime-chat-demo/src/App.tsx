@@ -123,28 +123,6 @@ function App() {
     }
   };
 
-  const generateSpeech = async (text: string): Promise<ArrayBuffer> => {
-    try {
-      // Your speech generation logic here
-      const response = await fetch('/api/speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Speech generation failed');
-      }
-
-      return await response.arrayBuffer();
-    } catch (error) {
-      console.error('Error generating speech:', error);
-      throw error;
-    }
-  };
-
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat && !isListening && !isLoading && messages.length > 0) {
