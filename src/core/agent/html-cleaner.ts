@@ -30,13 +30,24 @@ export class HTMLCleaner {
   }
 
   /**
+   * Parses an HTML string using DOMParser and returns the body element.
+   * @private
+   * @param {string} html - The HTML string to parse
+   * @returns {HTMLElement} The parsed body element
+   */
+  private parseHTML(html: string): HTMLElement {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body;
+  }
+
+  /**
    * Cleans HTML content by removing specified tags and attributes, returning only text content.
    * @param {string} html - The HTML content to clean
    * @returns {string} Cleaned text content with excess whitespace removed
    */
   clean(html: string): string {
-    let tempElement = document.createElement('div');
-    tempElement.innerHTML = html;
+    const tempElement = this.parseHTML(html);
 
     this.tagsToRemove.forEach((tag) => {
       let elements = tempElement.querySelectorAll(tag);
@@ -59,8 +70,7 @@ export class HTMLCleaner {
    * @returns {string} Concatenated text content from semantic elements with line breaks
    */
   cleanSemantic(html: string): string {
-    let tempElement = document.createElement('div');
-    tempElement.innerHTML = html;
+    const tempElement = this.parseHTML(html);
     let importantText = '';
     const importantTags = [
       'article',
@@ -97,8 +107,7 @@ export class HTMLCleaner {
    * @returns {string} Formatted string containing information about interactive elements
    */
   cleanForInteractive(html: string): string {
-    let tempElement = document.createElement('div');
-    tempElement.innerHTML = html;
+    const tempElement = this.parseHTML(html);
 
     const interactiveElements = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'menu', 'menuitem']);
 
@@ -131,8 +140,7 @@ export class HTMLCleaner {
    * @returns {string} Indented text representation of the document's semantic structure
    */
   preserveSemanticHierarchy(html: string): string {
-    let tempElement = document.createElement('div');
-    tempElement.innerHTML = html;
+    const tempElement = this.parseHTML(html);
 
     const headingLevels = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
     let structuredContent = '';
@@ -336,12 +344,7 @@ export class HTMLCleaner {
     const includeCodeBlocks = options.includeCodeBlocks || false;
     const includeScripts = options.includeScripts || false;
 
-    let tempElement = document.createElement('div');
-    // Use DOMParser for potentially more robust parsing, though innerHTML is often fine
-    // const parser = new DOMParser();
-    // const doc = parser.parseFromString(html, 'text/html');
-    // tempElement = doc.body; // Or work directly with doc.body
-    tempElement.innerHTML = html; // Sticking with innerHTML for simplicity matching original code
+    const tempElement = this.parseHTML(html);
 
     // --- Initial Cleaning ---
 
