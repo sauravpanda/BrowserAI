@@ -7,6 +7,7 @@ import { IndexedDBStorageFactory } from './implementation/indexeddb';
 const vectorStoreFactories: Record<string, VectorStoreFactory> = {};
 
 // register storage factories here
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const storageFactories: Record<string, StorageFactory<any>> = {
   indexeddb: new IndexedDBStorageFactory(),
 };

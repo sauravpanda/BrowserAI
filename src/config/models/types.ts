@@ -6,11 +6,11 @@ export interface BaseModelConfig {
   defaultQuantization: string;
   supportedDTypes?: string[];
   contextLength?: number;
-  defaultParams?: Record<string, any>;
+  defaultParams?: Record<string, unknown>;
   quantizations?: string[];
   requiredFeatures?: string[];
   modelLibrary?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type ModelType =
@@ -25,7 +25,7 @@ export interface MLCConfig extends BaseModelConfig {
   engine: 'mlc';
   quantized?: boolean;
   threads?: number;
-  overrides?: Record<string, any>;
+  overrides?: Record<string, unknown>;
 }
 
 export interface TransformersConfig extends BaseModelConfig {

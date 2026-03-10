@@ -75,8 +75,10 @@ const workerCode = `
 interface MLCLoadModelOptions {
   useWorker?: boolean;
   workerTimeout?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onProgress?: (progress: any) => void;
   quantization?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -559,6 +561,7 @@ export class MLCEngineWrapper {
 
       if (this.worker) {
         this.mlcEngine = await CreateWebWorkerMLCEngine(this.worker, modelIdentifier, {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           initProgressCallback: (progress: any) => {
             options.onProgress?.(progress);
           },
@@ -583,12 +586,14 @@ export class MLCEngineWrapper {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async generateText(input: string | Record<string, any>[], options: any = {}) {
     if (!this.mlcEngine) {
       throw new Error('MLC Engine not initialized.');
     }
 
     // Start with system messages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let messages: Record<string, any>[] = [];
 
     // Combine system prompts into a single message
@@ -654,6 +659,7 @@ export class MLCEngineWrapper {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async embed(input: string, options: any = {}) {
     if (!this.mlcEngine) {
       throw new Error('MLC Engine not initialized.');
@@ -690,6 +696,7 @@ export class MLCEngineWrapper {
   }
 
   // Add this new method to the MLCEngineWrapper class
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getCacheInfo(): Promise<any> {
     return this.cacheManager.getCacheInfo();
   }
