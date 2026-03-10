@@ -10,7 +10,7 @@ import {
   PipelineType,
 } from '../libs/transformers/transformers';
 import { ModelConfig } from '../config/models/types';
-import { TTSEngine } from './tts-engine';
+import { TTSEngine, SAMPLE_RATE as TTS_SAMPLE_RATE } from './tts-engine';
 import { AutoProcessor, MultiModalityCausalLM } from '../libs/transformers/transformers';
 
 export class TransformersEngineWrapper {
@@ -158,7 +158,7 @@ export class TransformersEngineWrapper {
       // Return both the stream and the sample rate needed for playback
       return {
         stream: stream,
-        sampleRate: 24000, // Hardcoded based on kokoro-tts's known sample rate
+        sampleRate: (options.sampleRate as number) || TTS_SAMPLE_RATE,
       };
     } catch (error) {
       console.error('Error in text-to-speech stream:', error);
