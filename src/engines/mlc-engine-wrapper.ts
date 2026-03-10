@@ -532,7 +532,6 @@ export class MLCEngineWrapper {
             moduleURL,
           });
         });
-
       }
 
       const quantization = options.quantization || modelConfig.defaultQuantization;
