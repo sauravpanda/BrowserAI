@@ -68,6 +68,13 @@ export class ImageParser {
    * Parse text from an image file
    */
   static async parseFromFile(file: File, options: ImageParseOptions = {}): Promise<ImageParseResult> {
+    if (!file) {
+      throw new Error('File is required');
+    }
+    if (!this.isValidImageFile(file)) {
+      throw new Error(`Invalid image file type: "${file.type}". Supported types: image/jpeg, image/png`);
+    }
+
     const debugInfo: string[] = [];
     if (options.debug) debugInfo.push(`Starting image parsing: ${file.name}`);
 

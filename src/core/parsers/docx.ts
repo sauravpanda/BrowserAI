@@ -86,6 +86,13 @@ export class DOCXParser {
    * @returns Promise resolving to parsed DOCX data
    */
   static async parseFromFile(file: File, options: DOCXParseOptions = {}): Promise<DOCXParseResult> {
+    if (!file) {
+      throw new Error('File is required');
+    }
+    if (!this.isValidDocxFile(file) && !this.isValidDocFile(file)) {
+      throw new Error(`Invalid document file type: "${file.type}". Supported types: .doc, .docx`);
+    }
+
     const debugInfo: string[] = options.debug
       ? [`Parsing DOCX file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`]
       : [];
