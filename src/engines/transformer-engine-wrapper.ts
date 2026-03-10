@@ -158,7 +158,7 @@ export class TransformersEngineWrapper {
       // Return both the stream and the sample rate needed for playback
       return {
         stream: stream,
-        sampleRate: (options.sampleRate as number) || TTS_SAMPLE_RATE
+        sampleRate: (options.sampleRate as number) || TTS_SAMPLE_RATE,
       };
     } catch (error) {
       console.error('Error in text-to-speech stream:', error);
