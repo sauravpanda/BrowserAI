@@ -422,12 +422,12 @@ export class ContentSectionAnalyzer {
 
   private inferTypeFromContext(element: Element): ContentSection['type'] {
     const context = {
-      hasInteractiveElements: element.querySelectorAll('button, a, input, textarea').length > 0,
-      hasImages: element.querySelectorAll('img').length > 0,
+      hasInteractiveElements: element.querySelector('button, a, input, textarea') !== null,
+      hasImages: element.querySelector('img') !== null,
       textLength: element.textContent?.length || 0,
       isNearHeader: this.isNearElementType(element, 'header'),
       isNearNav: this.isNearElementType(element, 'nav'),
-      hasStructuredData: element.querySelectorAll('ul, ol, table').length > 0,
+      hasStructuredData: element.querySelector('ul, ol, table') !== null,
     };
 
     // Use context to infer section type
@@ -521,7 +521,13 @@ export class ContentSectionAnalyzer {
   }
 
   private isElementInSections(element: Element, sections: ContentSection[]): boolean {
-    return sections.some((section) => section.elements.some((el) => el.contains(element)));
+    const sectionElements = new Set<Element>();
+    for (const section of sections) {
+      for (const el of section.elements) {
+        sectionElements.add(el);
+      }
+    }
+    return Array.from(sectionElements).some((el) => el.contains(element));
   }
 
   private generateSectionSummary(sections: ContentSection[]): string {
