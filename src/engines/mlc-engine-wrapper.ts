@@ -582,7 +582,7 @@ export class MLCEngineWrapper {
         this.worker = null;
       }
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to load MLC model "${modelConfig}": ${message}`);
+      throw new Error(`Failed to load MLC model "${modelConfig.modelName}": ${message}`);
     }
   }
 
