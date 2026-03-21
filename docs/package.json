@@ -1,7 +1,7 @@
 {
     "dependencies": {
         "@isaacs/brace-expansion": "5.0.1",
-        "next": "^14.2.30",
+        "next": "^16.2.1",
         "nextra": "^4.6.0",
         "nextra-theme-docs": "^4.6.0",
         "react": "^18.2.0",
