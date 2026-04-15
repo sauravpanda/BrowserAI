@@ -3,14 +3,29 @@
   "version": "2.1.0",
   "private": false,
   "description": "A library for running AI models directly in the browser",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./demucs": {
+      "import": {
+        "types": "./dist/demucs.d.ts",
+        "default": "./dist/demucs.mjs"
+      },
+      "require": {
+        "types": "./dist/demucs.d.cts",
+        "default": "./dist/demucs.cjs"
+      }
     }
   },
   "directories": {
@@ -76,6 +91,9 @@
       "json",
       "node"
     ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
     "testMatch": [
       "<rootDir>/src/**/*.test.ts"
     ],

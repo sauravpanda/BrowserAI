@@ -21,7 +21,25 @@ if (IS_BROWSER_OR_WEBWORKER) {
   loadImageFunction = self.createImageBitmap;
   ImageDataClass = self.ImageData;
 } else {
-  throw new Error('Unable to load image processing library.');
+  // Running in Node.js (or any non-browser env). Defer the error until
+  // something actually calls into image processing — otherwise a top-level
+  // throw here would fail the entire `import { BrowserAI } from ...` even
+  // for pure text-generation usage. See GH #192.
+  const notAvailable = () => {
+    throw new Error(
+      "BrowserAI's image pipeline requires browser globals " +
+        '(OffscreenCanvas, createImageBitmap, ImageData) and is not available ' +
+        'in this environment. Text/audio generation paths work in Node; ' +
+        'image-based operations do not.',
+    );
+  };
+  createCanvasFunction = notAvailable;
+  loadImageFunction = notAvailable;
+  ImageDataClass = class {
+    constructor() {
+      notAvailable();
+    }
+  };
 }
 
 // Defined here: https://github.com/python-pillow/Pillow/blob/a405e8406b83f8bfb8916e93971edc7407b8b1ff/src/libImaging/Imaging.h#L262-L268
