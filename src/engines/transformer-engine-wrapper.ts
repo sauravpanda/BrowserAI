@@ -13,6 +13,20 @@ import { ModelConfig } from '../config/models/types';
 import { TTSEngine, SAMPLE_RATE as TTS_SAMPLE_RATE } from './tts-engine';
 import { AutoProcessor, MultiModalityCausalLM } from '../libs/transformers/transformers';
 
+/**
+ * Detect whether a usable WebGPU adapter is available.
+ * Falls back to CPU (ONNX WASM backend) when WebGPU is absent or fails.
+ */
+async function detectBestDevice(): Promise<'webgpu' | 'cpu'> {
+  if (typeof navigator === 'undefined' || !('gpu' in navigator)) return 'cpu';
+  try {
+    const adapter = await (navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter();
+    return adapter ? 'webgpu' : 'cpu';
+  } catch {
+    return 'cpu';
+  }
+}
+
 export class TransformersEngineWrapper {
   private transformersPipeline:
     | TextGenerationPipeline
@@ -48,7 +62,15 @@ export class TransformersEngineWrapper {
 
       this.modelType = modelConfig.modelType;
 
-      options.device = 'webgpu';
+      // Detect the best available compute device; fall back to CPU/WASM when
+      // WebGPU is unavailable (e.g. Firefox, older Chromium, Node.js).
+      // Callers may still override by passing `options.device` explicitly.
+      if (!options.device) {
+        options.device = await detectBestDevice();
+        if (options.device === 'cpu') {
+          console.info('[Transformers] WebGPU unavailable — falling back to CPU/WASM inference');
+        }
+      }
 
       // Configure pipeline options with proper worker settings
       const pipelineOptions = {
@@ -67,7 +89,6 @@ export class TransformersEngineWrapper {
 
       // Initialize image processor for multimodal models
       if (modelConfig.modelType === 'multimodal') {
-        options.device = 'webgpu';
         // console.log('Loading multimodal model...');
         this.imageProcessor = await AutoProcessor.from_pretrained(modelConfig.repo, pipelineOptions);
         // console.log('Image processor loaded');
