@@ -19,8 +19,8 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
-    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "build": "tsup --format esm,cjs --dts --clean",
+    "dev": "tsup --format esm,cjs --dts --watch",
     "prepublishOnly": "npm run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

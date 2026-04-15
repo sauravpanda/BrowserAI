@@ -19,7 +19,8 @@ export type ModelType =
   | 'feature-extraction'
   | 'automatic-speech-recognition'
   | 'multimodal'
-  | 'text-to-speech';
+  | 'text-to-speech'
+  | 'audio-source-separation';
 
 export interface MLCConfig extends BaseModelConfig {
   engine: 'mlc';
@@ -33,4 +34,14 @@ export interface TransformersConfig extends BaseModelConfig {
   revision?: string;
 }
 
-export type ModelConfig = MLCConfig | TransformersConfig;
+export interface DemucsConfig extends BaseModelConfig {
+  engine: 'demucs';
+  modelUrl: string;
+  sampleRate: number;
+  segmentSamples: number;
+  channels: number;
+  sources: string[];
+  executionProviders?: ('webgpu' | 'wasm')[];
+}
+
+export type ModelConfig = MLCConfig | TransformersConfig | DemucsConfig;

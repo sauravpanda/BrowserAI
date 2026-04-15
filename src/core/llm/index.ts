@@ -2,18 +2,22 @@
 
 import { MLCEngineWrapper } from '../../engines/mlc-engine-wrapper';
 import { TransformersEngineWrapper } from '../../engines/transformer-engine-wrapper';
-import { ModelConfig, MLCConfig, TransformersConfig } from '../../config/models/types';
+import { DemucsEngine } from '../../engines/demucs-engine';
+import type { SeparateOptions, SeparationResult } from '../../engines/demucs-engine';
+import type { ModelConfig, MLCConfig, TransformersConfig, DemucsConfig } from '../../config/models/types';
 import mlcModels from '../../config/models/mlc-models.json';
 import transformersModels from '../../config/models/transformers-models.json';
+import demucsModels from '../../config/models/demucs-models.json';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
   ...(mlcModels as Record<string, MLCConfig>),
   ...(transformersModels as Record<string, TransformersConfig>),
+  ...(demucsModels as Record<string, DemucsConfig>),
 };
 
 export class BrowserAI {
-  private engine: MLCEngineWrapper | TransformersEngineWrapper | null;
+  private engine: MLCEngineWrapper | TransformersEngineWrapper | DemucsEngine | null;
   public currentModel: ModelConfig | null;
   private mediaRecorder: MediaRecorder | null = null;
   private mediaStream: MediaStream | null = null;
@@ -61,6 +65,10 @@ export class BrowserAI {
         this.engine = new TransformersEngineWrapper();
         await this.engine.loadModel(modelConfig, options);
         break;
+      case 'demucs':
+        this.engine = new DemucsEngine();
+        await this.engine.loadModel(modelConfig, options);
+        break;
       default:
         throw new Error(`Engine "${engineToUse}" not supported.`);
     }
@@ -71,6 +79,9 @@ export class BrowserAI {
   async generateText(prompt: string, options: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.engine) {
       throw new Error('No model loaded. Please call loadModel first.');
+    }
+    if (this.engine instanceof DemucsEngine) {
+      throw new Error('Current engine does not support text generation.');
     }
 
     try {
@@ -86,7 +97,35 @@ export class BrowserAI {
     if (!this.engine) {
       throw new Error('No model loaded. Please call loadModel first.');
     }
+    if (this.engine instanceof DemucsEngine) {
+      throw new Error('Current engine does not support embeddings.');
+    }
     return await this.engine.embed(input, options);
+  }
+
+  async separateAudio(
+    audio: Blob | AudioBuffer,
+    options: SeparateOptions = {},
+  ): Promise<SeparationResult> {
+    if (!this.engine) {
+      throw new Error('No model loaded. Please call loadModel first.');
+    }
+    if (!(this.engine instanceof DemucsEngine)) {
+      throw new Error('Current engine does not support audio source separation.');
+    }
+
+    let audioBuffer: AudioBuffer;
+    if (audio instanceof AudioBuffer) {
+      audioBuffer = audio;
+    } else {
+      const ctx = new AudioContext();
+      try {
+        audioBuffer = await ctx.decodeAudioData(await audio.arrayBuffer());
+      } finally {
+        ctx.close();
+      }
+    }
+    return await this.engine.separate(audioBuffer, options);
   }
 
   async transcribeAudio(audio: Blob | Float32Array, options: Record<string, unknown> = {}): Promise<unknown> {

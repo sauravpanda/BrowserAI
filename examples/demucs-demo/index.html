@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrowserAI — Demucs Source Separation Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0b1020;
+        color: #e5e7ff;
+        display: flex;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+      .card {
+        width: 100%;
+        max-width: 760px;
+        background: #11172b;
+        border: 1px solid #222a45;
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      }
+      h1 { margin: 0 0 4px; font-size: 22px; }
+      p.subtitle { margin: 0 0 20px; color: #8892b8; font-size: 13px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+      button {
+        background: #4f6bff;
+        color: white;
+        border: 0;
+        padding: 9px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      button:disabled { background: #2a3357; color: #6b7599; cursor: not-allowed; }
+      input[type="file"] { color: #c1c8e6; font-size: 13px; }
+      progress { width: 100%; height: 10px; }
+      .stems { display: grid; gap: 12px; margin-top: 16px; }
+      .stem {
+        background: #0d1326;
+        border: 1px solid #1d2540;
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .stem-name { min-width: 72px; font-weight: 600; text-transform: capitalize; }
+      .stem audio { flex: 1; }
+      .stem a { color: #8ab4ff; font-size: 12px; text-decoration: none; }
+      .log {
+        margin-top: 14px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: #8892b8;
+        white-space: pre-wrap;
+        max-height: 160px;
+        overflow: auto;
+        background: #0d1326;
+        border: 1px solid #1d2540;
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .notice {
+        background: #1c2240;
+        border-left: 3px solid #4f6bff;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #c1c8e6;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        line-height: 1.5;
+      }
+      .notice code { background: #0b1020; padding: 1px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Demucs — In-Browser Source Separation</h1>
+      <p class="subtitle">Split a song into drums, bass, other, and vocals, running fully client-side with BrowserAI + onnxruntime-web.</p>
+
+      <div class="notice">
+        Uses <a href="https://huggingface.co/smank/htdemucs-onnx" style="color:#8ab4ff">smank/htdemucs-onnx</a> via
+        <code>onnxruntime-web</code>. <strong>Stick with the WASM execution provider</strong> —
+        ort-web 1.21's WebGPU backend has a state bug that corrupts output on subsequent
+        inference calls for this model. <strong>Run the demo via</strong>
+        <code>npx serve .</code> <strong>from the repo root</strong> so the bundled
+        <code>serve.json</code> sends the COOP/COEP headers that unlock multi-threaded WASM
+        (otherwise ORT runs on 1 thread and it's ~4× slower).
+      </div>
+
+      <div class="row">
+        <button id="load">1. Load htdemucs</button>
+        <input type="file" id="file" accept="audio/*" disabled />
+        <label style="font-size: 13px; color: #8892b8;">
+          shifts
+          <select id="shifts" style="background:#0d1326;color:#e5e7ff;border:1px solid #1d2540;border-radius:6px;padding:4px 6px;">
+            <option value="1">1 (fast)</option>
+            <option value="2">2</option>
+            <option value="5">5 (best)</option>
+          </select>
+        </label>
+        <label style="font-size: 13px; color: #8892b8;">
+          ep
+          <select id="ep" style="background:#0d1326;color:#e5e7ff;border:1px solid #1d2540;border-radius:6px;padding:4px 6px;">
+            <option value="wasm" selected>WASM (correct output)</option>
+            <option value="webgpu">WebGPU (broken — ort-web 1.21 state bug)</option>
+          </select>
+        </label>
+        <button id="run" disabled>2. Separate</button>
+      </div>
+
+      <progress id="progress" value="0" max="100"></progress>
+
+      <div id="stems" class="stems"></div>
+
+      <pre id="log" class="log">Ready.</pre>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.bundle.min.mjs"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as ort from "onnxruntime-web";
+      import { DemucsEngine, demucsModels } from "/dist/demucs.mjs";
+
+      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+      // Multi-threaded WASM: only works when the page is cross-origin-isolated
+      // (COOP + COEP headers, supplied by serve.json). When isolated,
+      // SharedArrayBuffer is available and ORT can spin up a worker thread
+      // pool. Without it, this silently falls back to 1 thread.
+      const crossOriginIsolated =
+        typeof window !== "undefined" && window.crossOriginIsolated === true;
+      ort.env.wasm.simd = true;
+      ort.env.wasm.numThreads = crossOriginIsolated
+        ? Math.min(navigator.hardwareConcurrency || 4, 8)
+        : 1;
+      // Proxy mode: ORT spawns its own worker and runs session.run there, so
+      // the main thread stays idle during inference and the UI doesn't jank.
+      // Has to be set BEFORE the session is created.
+      ort.env.wasm.proxy = true;
+      console.log(
+        `[demo] crossOriginIsolated=${crossOriginIsolated} ` +
+          `wasmThreads=${ort.env.wasm.numThreads} ` +
+          `proxy=${ort.env.wasm.proxy} ` +
+          `hardwareConcurrency=${navigator.hardwareConcurrency}`,
+      );
+
+      const engine = new DemucsEngine();
+      const modelConfig = demucsModels.htdemucs;
+      const loadBtn = document.getElementById("load");
+      const fileInput = document.getElementById("file");
+      const runBtn = document.getElementById("run");
+      const progress = document.getElementById("progress");
+      const stemsEl = document.getElementById("stems");
+      const logEl = document.getElementById("log");
+
+      const log = (msg) => {
+        logEl.textContent += "\n" + msg;
+        logEl.scrollTop = logEl.scrollHeight;
+      };
+
+      let selectedFile = null;
+
+      loadBtn.addEventListener("click", async () => {
+        loadBtn.disabled = true;
+        const ep = document.getElementById("ep").value;
+        log(`Loading htdemucs ONNX model (~300MB) on ${ep}...`);
+        try {
+          await engine.loadModel(modelConfig, {
+            executionProviders: [ep],
+            onProgress: (p) => {
+              progress.value = Math.min(100, p.progress ?? 0);
+            },
+          });
+          progress.value = 100;
+          log("Model loaded. Pick an audio file.");
+          fileInput.disabled = false;
+        } catch (err) {
+          log("Failed to load model: " + err.message);
+          loadBtn.disabled = false;
+        }
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        selectedFile = e.target.files?.[0] ?? null;
+        runBtn.disabled = !selectedFile;
+        if (selectedFile) log("Selected: " + selectedFile.name);
+      });
+
+      runBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+        runBtn.disabled = true;
+        stemsEl.innerHTML = "";
+        progress.value = 0;
+        log("Running separation…");
+        const started = performance.now();
+        try {
+          // Decode directly at 44.1 kHz so we avoid a double-resample
+          // (file -> system rate -> 44.1 kHz) that was softening the input.
+          const audioCtx = new AudioContext({ sampleRate: 44100 });
+          const audioBuffer = await audioCtx.decodeAudioData(await selectedFile.arrayBuffer());
+          audioCtx.close();
+          const shifts = parseInt(document.getElementById("shifts").value, 10) || 1;
+          const { sources } = await engine.separate(audioBuffer, {
+            shifts,
+            onProgress: (p) => {
+              progress.value = p.percent;
+              log(`segment ${p.segment}/${p.total} (${p.percent.toFixed(1)}%)`);
+            },
+          });
+          const elapsed = ((performance.now() - started) / 1000).toFixed(1);
+          log(`Done in ${elapsed}s. Rendering stems...`);
+          for (const [name, buffer] of Object.entries(sources)) {
+            const wav = audioBufferToWav(buffer);
+            const url = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+            const row = document.createElement("div");
+            row.className = "stem";
+            row.innerHTML = `
+              <div class="stem-name">${name}</div>
+              <audio controls src="${url}"></audio>
+              <a download="${name}.wav" href="${url}">download</a>
+            `;
+            stemsEl.appendChild(row);
+          }
+        } catch (err) {
+          log("Separation failed: " + err.message);
+        } finally {
+          runBtn.disabled = false;
+        }
+      });
+
+      function audioBufferToWav(buffer) {
+        const numCh = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const length = buffer.length;
+        const bytesPerSample = 2;
+        const blockAlign = numCh * bytesPerSample;
+        const dataSize = length * blockAlign;
+        const arr = new ArrayBuffer(44 + dataSize);
+        const view = new DataView(arr);
+        const writeStr = (off, str) => {
+          for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+        };
+        writeStr(0, "RIFF");
+        view.setUint32(4, 36 + dataSize, true);
+        writeStr(8, "WAVE");
+        writeStr(12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numCh, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, "data");
+        view.setUint32(40, dataSize, true);
+        const channels = [];
+        for (let c = 0; c < numCh; c++) channels.push(buffer.getChannelData(c));
+        let offset = 44;
+        for (let i = 0; i < length; i++) {
+          for (let c = 0; c < numCh; c++) {
+            const sample = Math.max(-1, Math.min(1, channels[c][i]));
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+            offset += 2;
+          }
+        }
+        return arr;
+      }
+    </script>
+  </body>
+</html>

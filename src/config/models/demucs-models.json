@@ -1,0 +1,16 @@
+{
+  "htdemucs": {
+    "engine": "demucs",
+    "modelName": "htdemucs",
+    "modelType": "audio-source-separation",
+    "repo": "facebookresearch/demucs",
+    "pipeline": "audio-source-separation",
+    "defaultQuantization": "fp32",
+    "modelUrl": "https://huggingface.co/smank/htdemucs-onnx/resolve/main/htdemucs.onnx",
+    "sampleRate": 44100,
+    "segmentSamples": 343980,
+    "channels": 2,
+    "sources": ["drums", "bass", "other", "vocals"],
+    "executionProviders": ["webgpu", "wasm"]
+  }
+}
