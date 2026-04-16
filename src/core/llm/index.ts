@@ -103,10 +103,7 @@ export class BrowserAI {
     return await this.engine.embed(input, options);
   }
 
-  async separateAudio(
-    audio: Blob | AudioBuffer,
-    options: SeparateOptions = {},
-  ): Promise<SeparationResult> {
+  async separateAudio(audio: Blob | AudioBuffer, options: SeparateOptions = {}): Promise<SeparationResult> {
     if (!this.engine) {
       throw new Error('No model loaded. Please call loadModel first.');
     }

@@ -97,11 +97,19 @@ export class DemucsEngine {
     for (let s = 0; s < numSources; s++) {
       for (let c = 0; c < cfg.channels; c++) {
         const chan = accumulated[s][c];
-        let sum = 0, sumSq = 0, minV = Infinity, maxV = -Infinity, nanCount = 0;
+        let sum = 0,
+          sumSq = 0,
+          minV = Infinity,
+          maxV = -Infinity,
+          nanCount = 0;
         for (let n = 0; n < totalSamples; n++) {
           const v = chan[n] * invShifts;
-          if (!Number.isFinite(v)) { nanCount++; continue; }
-          sum += v; sumSq += v * v;
+          if (!Number.isFinite(v)) {
+            nanCount++;
+            continue;
+          }
+          sum += v;
+          sumSq += v * v;
           if (v < minV) minV = v;
           if (v > maxV) maxV = v;
         }
@@ -173,10 +181,14 @@ export class DemucsEngine {
       const outputTensor = result[outputName];
       const outData = outputTensor.data as Float32Array;
       if (idx === 0) {
-        let sum = 0, sumSq = 0, minV = Infinity, maxV = -Infinity;
+        let sum = 0,
+          sumSq = 0,
+          minV = Infinity,
+          maxV = -Infinity;
         for (let i = 0; i < outData.length; i++) {
           const v = outData[i];
-          sum += v; sumSq += v * v;
+          sum += v;
+          sumSq += v * v;
           if (v < minV) minV = v;
           if (v > maxV) maxV = v;
         }
@@ -209,7 +221,8 @@ export class DemucsEngine {
     }
 
     {
-      let minW = Infinity, maxW = -Infinity;
+      let minW = Infinity,
+        maxW = -Infinity;
       for (let n = 0; n < totalSamples; n++) {
         const w = weightSum[n];
         if (w < minW) minW = w;
@@ -244,12 +257,7 @@ export class DemucsEngine {
     return count;
   }
 
-  private applyShift(
-    channels: Float32Array[],
-    length: number,
-    shift: number,
-    numCh: number,
-  ): Float32Array[] {
+  private applyShift(channels: Float32Array[], length: number, shift: number, numCh: number): Float32Array[] {
     if (shift === 0) return channels;
     const out: Float32Array[] = [];
     for (let c = 0; c < numCh; c++) {
@@ -267,10 +275,7 @@ export class DemucsEngine {
     this.config = null;
   }
 
-  private async fetchModel(
-    url: string,
-    onProgress?: (p: { progress: number }) => void,
-  ): Promise<Uint8Array> {
+  private async fetchModel(url: string, onProgress?: (p: { progress: number }) => void): Promise<Uint8Array> {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch Demucs model: ${response.status} ${response.statusText}`);
     const total = Number(response.headers.get('content-length')) || 0;
@@ -298,14 +303,10 @@ export class DemucsEngine {
 
   private async toTargetRate(audio: AudioBuffer, targetRate: number, channels: number): Promise<AudioBuffer> {
     if (audio.sampleRate === targetRate && audio.numberOfChannels === channels) return audio;
-    const length = Math.ceil((audio.duration * targetRate));
+    const length = Math.ceil(audio.duration * targetRate);
     const offline = new OfflineAudioContext(channels, length, targetRate);
     const src = offline.createBufferSource();
-    const srcBuffer = offline.createBuffer(
-      Math.max(audio.numberOfChannels, 1),
-      audio.length,
-      audio.sampleRate,
-    );
+    const srcBuffer = offline.createBuffer(Math.max(audio.numberOfChannels, 1), audio.length, audio.sampleRate);
     for (let c = 0; c < audio.numberOfChannels; c++) {
       srcBuffer.copyToChannel(audio.getChannelData(c), c);
     }
