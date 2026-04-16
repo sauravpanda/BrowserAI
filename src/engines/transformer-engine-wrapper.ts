@@ -20,7 +20,9 @@ import { AutoProcessor, MultiModalityCausalLM } from '../libs/transformers/trans
 async function detectBestDevice(): Promise<'webgpu' | 'cpu'> {
   if (typeof navigator === 'undefined' || !('gpu' in navigator)) return 'cpu';
   try {
-    const adapter = await (navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter();
+    const adapter = await (
+      navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }
+    ).gpu.requestAdapter();
     return adapter ? 'webgpu' : 'cpu';
   } catch {
     return 'cpu';
