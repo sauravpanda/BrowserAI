@@ -1,0 +1,128 @@
+{
+  "smollm2-135m-flare": {
+    "engine": "flare",
+    "modelName": "SmolLM2-135M-Instruct",
+    "modelType": "text-generation",
+    "repo": "HuggingFaceTB/smollm2-135M-instruct-GGUF",
+    "url": "https://huggingface.co/HuggingFaceTB/smollm2-135M-instruct-GGUF/resolve/main/smollm2-135m-instruct-q8_0.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q8_0",
+    "quantizations": ["Q8_0"],
+    "architecture": "llama",
+    "downloadSizeMB": 138,
+    "contextLength": 2048,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Smallest Flare model — instant load, great for demos",
+      "tier": 1
+    }
+  },
+  "smollm2-135m-flare-q4": {
+    "engine": "flare",
+    "modelName": "SmolLM2-135M-Instruct-Q4",
+    "modelType": "text-generation",
+    "repo": "HuggingFaceTB/smollm2-135M-instruct-GGUF",
+    "url": "https://huggingface.co/HuggingFaceTB/smollm2-135M-instruct-GGUF/resolve/main/smollm2-135m-instruct-q4_k_m.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q4_K_M",
+    "quantizations": ["Q4_K_M"],
+    "architecture": "llama",
+    "downloadSizeMB": 75,
+    "contextLength": 2048,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Smallest download (~75 MB), great for bandwidth-constrained environments",
+      "tier": 1
+    }
+  },
+  "smollm2-360m-flare": {
+    "engine": "flare",
+    "modelName": "SmolLM2-360M-Instruct",
+    "modelType": "text-generation",
+    "repo": "HuggingFaceTB/smollm2-360M-instruct-GGUF",
+    "url": "https://huggingface.co/HuggingFaceTB/smollm2-360M-instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q8_0",
+    "quantizations": ["Q8_0"],
+    "architecture": "llama",
+    "downloadSizeMB": 350,
+    "contextLength": 2048,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Better quality than 135M while still loading quickly",
+      "tier": 2
+    }
+  },
+  "qwen2.5-0.5b-flare": {
+    "engine": "flare",
+    "modelName": "Qwen2.5-0.5B-Instruct",
+    "modelType": "text-generation",
+    "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+    "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q4_K_M",
+    "quantizations": ["Q4_K_M"],
+    "architecture": "qwen2",
+    "downloadSizeMB": 350,
+    "contextLength": 4096,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Multilingual model with strong reasoning — Alibaba Qwen2.5 family",
+      "tier": 2
+    }
+  },
+  "llama-3.2-1b-flare": {
+    "engine": "flare",
+    "modelName": "Llama-3.2-1B-Instruct",
+    "modelType": "text-generation",
+    "repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+    "url": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q8_0.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q8_0",
+    "quantizations": ["Q8_0"],
+    "architecture": "llama",
+    "downloadSizeMB": 1200,
+    "contextLength": 4096,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Best quality in the Flare tier — Meta Llama 3.2 1B full precision Q8",
+      "tier": 3
+    }
+  },
+  "llama-3.2-1b-flare-q4": {
+    "engine": "flare",
+    "modelName": "Llama-3.2-1B-Instruct-Q4",
+    "modelType": "text-generation",
+    "repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+    "url": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "pipeline": "text-generation",
+    "defaultQuantization": "Q4_K_M",
+    "quantizations": ["Q4_K_M"],
+    "architecture": "llama",
+    "downloadSizeMB": 600,
+    "contextLength": 4096,
+    "defaultParams": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "metadata": {
+      "description": "Balanced quality/size — Llama 3.2 1B at Q4_K_M quantization",
+      "tier": 3
+    }
+  }
+}

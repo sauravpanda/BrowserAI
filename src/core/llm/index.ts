@@ -4,20 +4,23 @@ import { MLCEngineWrapper } from '../../engines/mlc-engine-wrapper';
 import { TransformersEngineWrapper } from '../../engines/transformer-engine-wrapper';
 import { DemucsEngine } from '../../engines/demucs-engine';
 import type { SeparateOptions, SeparationResult } from '../../engines/demucs-engine';
-import type { ModelConfig, MLCConfig, TransformersConfig, DemucsConfig } from '../../config/models/types';
+import { FlareEngineWrapper, FlareAdapterOptions } from '../../engines/flare-engine-wrapper';
+import type { ModelConfig, MLCConfig, TransformersConfig, DemucsConfig, FlareConfig } from '../../config/models/types';
 import mlcModels from '../../config/models/mlc-models.json';
 import transformersModels from '../../config/models/transformers-models.json';
 import demucsModels from '../../config/models/demucs-models.json';
+import flareModels from '../../config/models/flare-models.json';
 
 // Combine model configurations
 const MODEL_CONFIG: Record<string, ModelConfig> = {
   ...(mlcModels as Record<string, MLCConfig>),
   ...(transformersModels as Record<string, TransformersConfig>),
   ...(demucsModels as Record<string, DemucsConfig>),
+  ...(flareModels as Record<string, FlareConfig>),
 };
 
 export class BrowserAI {
-  private engine: MLCEngineWrapper | TransformersEngineWrapper | DemucsEngine | null;
+  private engine: MLCEngineWrapper | TransformersEngineWrapper | DemucsEngine | FlareEngineWrapper | null;
   public currentModel: ModelConfig | null;
   private mediaRecorder: MediaRecorder | null = null;
   private mediaStream: MediaStream | null = null;
@@ -46,13 +49,12 @@ export class BrowserAI {
       throw new Error(`Model identifier "${this.modelIdentifier}" not recognized.`);
     }
 
-    // Check if model exists in both MLC and Transformers configs
+    // Check if model exists in MLC config (preferred for text-generation)
     const mlcVersion = (mlcModels as Record<string, MLCConfig>)[this.modelIdentifier];
-    // const transformersVersion = (transformersModels as Record<string, TransformersConfig>)[modelIdentifier];
 
-    // For text-generation models, prefer MLC if available
+    // For text-generation models, prefer MLC if available (unless explicitly requesting flare)
     let engineToUse = modelConfig.engine;
-    if (modelConfig.modelType === 'text-generation' && mlcVersion) {
+    if (modelConfig.modelType === 'text-generation' && mlcVersion && engineToUse !== 'flare') {
       engineToUse = 'mlc';
     }
 
@@ -69,6 +71,12 @@ export class BrowserAI {
         this.engine = new DemucsEngine();
         await this.engine.loadModel(modelConfig, options);
         break;
+      case 'flare': {
+        const flareEngine = new FlareEngineWrapper();
+        await flareEngine.loadModel(modelConfig as FlareConfig, options);
+        this.engine = flareEngine;
+        break;
+      }
       default:
         throw new Error(`Engine "${engineToUse}" not supported.`);
     }
@@ -99,6 +107,11 @@ export class BrowserAI {
     }
     if (this.engine instanceof DemucsEngine) {
       throw new Error('Current engine does not support embeddings.');
+    }
+    if (this.engine instanceof FlareEngineWrapper) {
+      throw new Error(
+        'Flare engine does not support embeddings. Use a Transformers.js feature-extraction model instead.',
+      );
     }
     return await this.engine.embed(input, options);
   }
@@ -268,6 +281,43 @@ export class BrowserAI {
     }
 
     throw new Error('Current engine does not support multimodal generation');
+  }
+
+  /**
+   * Load a LoRA adapter into the current Flare engine.
+   *
+   * Only supported when using the Flare engine. The adapter must be in
+   * SafeTensors format and compatible with the loaded base model.
+   *
+   * @example
+   * ```ts
+   * await ai.loadModel('llama-3.2-1b-flare');
+   * await ai.loadAdapter({ url: 'https://hf.co/.../adapter.safetensors' });
+   * ```
+   */
+  async loadAdapter(options: FlareAdapterOptions): Promise<void> {
+    if (!(this.engine instanceof FlareEngineWrapper)) {
+      throw new Error('loadAdapter is only supported with the Flare engine.');
+    }
+    return this.engine.loadAdapter(options);
+  }
+
+  /**
+   * Check whether the current Flare model is cached in OPFS for instant reload.
+   */
+  async isFlareModelCached(): Promise<boolean> {
+    if (!(this.engine instanceof FlareEngineWrapper)) return false;
+    return this.engine.isCached();
+  }
+
+  /**
+   * Delete the OPFS cache entry for the current Flare model.
+   */
+  async clearFlareModelCache(): Promise<void> {
+    if (!(this.engine instanceof FlareEngineWrapper)) {
+      throw new Error('clearFlareModelCache is only supported with the Flare engine.');
+    }
+    return this.engine.clearCache();
   }
 
   async clearModelCache(): Promise<void> {

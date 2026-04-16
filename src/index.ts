@@ -7,9 +7,17 @@ export { MLCEngineWrapper } from './engines/mlc-engine-wrapper';
 export { TransformersEngineWrapper } from './engines/transformer-engine-wrapper';
 export { DemucsEngine } from './engines/demucs-engine';
 export type { SeparateOptions, SeparationResult } from './engines/demucs-engine';
+export {
+  FlareEngineWrapper,
+  isModelCached as isFlareModelCached,
+  deleteCachedModel as deleteFlareModelCache,
+  listCachedModels as listFlareCachedModels,
+} from './engines/flare-engine-wrapper';
+export type { FlareLoadOptions, FlareGenerateOptions, FlareAdapterOptions } from './engines/flare-engine-wrapper';
 export { default as mlcModels } from './config/models/mlc-models.json';
 export { default as transformersModels } from './config/models/transformers-models.json';
 export { default as demucsModels } from './config/models/demucs-models.json';
+export { default as flareModels } from './config/models/flare-models.json';
 
 export { DatabaseImpl } from './core/database';
 export * from './core/agent';

@@ -44,4 +44,16 @@ export interface DemucsConfig extends BaseModelConfig {
   executionProviders?: ('webgpu' | 'wasm')[];
 }
 
-export type ModelConfig = MLCConfig | TransformersConfig | DemucsConfig;
+export interface FlareConfig extends BaseModelConfig {
+  engine: 'flare';
+  /** Direct URL to the GGUF model file (overrides registry URL) */
+  url?: string;
+  /** Model architecture hint (e.g. 'llama', 'mistral', 'qwen2') */
+  architecture?: string;
+  /** Quantization string (e.g. 'Q8_0', 'Q4_K_M') */
+  quantization?: string;
+  /** Approximate download size in MB */
+  downloadSizeMB?: number;
+}
+
+export type ModelConfig = MLCConfig | TransformersConfig | DemucsConfig | FlareConfig;
