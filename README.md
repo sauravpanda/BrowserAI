@@ -48,12 +48,13 @@
 
 - 🎯 Run AI models directly in the browser - no server required!
 - ⚡ WebGPU acceleration for blazing fast inference
-- 🔄 Seamless switching between MLC and Transformers engines
+- 🔄 Seamless switching between MLC, Transformers, Flare, and Demucs engines
 - 📦 Pre-configured popular models ready to use
 - 🛠️ Easy-to-use API for text generation and more
 - 🔧 Web Worker support for non-blocking UI performance
 - 📊 Structured output generation with JSON schemas
 - 🎙️ Speech recognition and text-to-speech capabilities
+- 🎵 Audio source separation (Demucs) - isolate vocals, drums, bass, and other stems
 - 💾 Built-in database support for storing conversations and embeddings
 
 
@@ -163,6 +164,37 @@ audioContext.decodeAudioData(audioBuffer, (buffer) => {
 });
 ```
 
+### Audio Source Separation (Demucs)
+```javascript
+import { DemucsEngine } from '@browserai/browserai/demucs';
+
+const engine = new DemucsEngine();
+await engine.loadModel({ /* htdemucs config */ });
+
+// Separate an AudioBuffer into stems
+const result = await engine.separate(audioBuffer, {
+  shifts: 1,        // Time-shift augmentation passes (higher = better quality, slower)
+  overlap: 0.25,    // Segment overlap ratio
+});
+
+// result.sources contains: drums, bass, other, vocals (each as AudioBuffer)
+const vocals = result.sources['vocals'];
+```
+
+### Flare Engine (GGUF Models via WASM)
+```javascript
+const ai = new BrowserAI();
+
+// Load a GGUF model via the Flare engine
+await ai.loadModel('llama-3.2-1b-flare');
+
+// Generate text — same API as MLC/Transformers
+const response = await ai.generateText('Explain quantum computing briefly');
+
+// Optional: Load a LoRA adapter
+await ai.loadAdapter({ url: 'https://example.com/adapter.safetensors' });
+```
+
 ## 🔧 Supported Models
 
 More models will be added soon. Request a model by creating an issue.
@@ -196,6 +228,15 @@ More models will be added soon. Request a model by creating an issue.
 - Whisper-base-all (Speech Recognition)
 - Whisper-small-all (Speech Recognition)
 - Kokoro-TTS (Text-to-Speech)
+
+### Flare Models (GGUF via WASM)
+- SmolLM2-135M-Instruct (Q8_0, Q4_K_M)
+- SmolLM2-360M-Instruct (Q8_0)
+- Qwen2.5-0.5B-Instruct (Q4_K_M)
+- Llama-3.2-1B-Instruct (Q8_0, Q4_K_M)
+
+### Demucs Models (Audio Source Separation)
+- HTDemucs (4-stem: drums, bass, other, vocals)
 
 ## 🗺️ Enhanced Roadmap
 
@@ -238,6 +279,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [MLC AI](https://github.com/mlc-ai/mlc-llm) for their incredible mode compilation library and support for webgpu runtime and xgrammar
 - [Hugging Face](https://huggingface.co/) and [Xenova](https://github.com/xenova) for their Transformers.js library, licensed under Apache License 2.0. The original code has been modified to work in a browser environment and converted to TypeScript.
+- [Facebook Research](https://github.com/facebookresearch/demucs) for Demucs, the state-of-the-art music source separation model.
+- [Aspect](https://github.com/aspect-build/flare) for the Flare WASM inference engine enabling GGUF model support in the browser.
 - All our contributors and supporters!
 
 ---

@@ -185,14 +185,14 @@ describe('BrowserAI — engine registry sanity', () => {
     // This is a smoke test that no two registries have collided and broken
     // the spread order — if, say, demucs-models.json has a key that shadows
     // an mlc-models.json key, loading the older entry would silently break.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const mlc = require('../../config/models/mlc-models.json') as Record<string, ModelConfig>;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const transformers =
       require('../../config/models/transformers-models.json') as Record<string, ModelConfig>;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const demucs = require('../../config/models/demucs-models.json') as Record<string, ModelConfig>;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const flare = require('../../config/models/flare-models.json') as Record<string, ModelConfig>;
 
     const mlcKeys = new Set(Object.keys(mlc));
@@ -215,7 +215,7 @@ describe('BrowserAI — engine registry sanity', () => {
   });
 
   test('every Flare model config has engine: "flare"', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const flare = require('../../config/models/flare-models.json') as Record<string, FlareConfig>;
     for (const cfg of Object.values(flare)) {
       expect(cfg.engine).toBe('flare');
@@ -223,7 +223,7 @@ describe('BrowserAI — engine registry sanity', () => {
   });
 
   test('every Demucs model config has engine: "demucs"', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const demucs =
       require('../../config/models/demucs-models.json') as Record<string, DemucsConfig>;
     for (const cfg of Object.values(demucs)) {

@@ -101,9 +101,9 @@ describe('flare-models.json', () => {
     const flareKeys = new Set(Object.keys(flareModels));
     // Intentionally import lazily to avoid the cross-engine tests depending
     // on a specific MLC registry shape.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const mlcModels = require('../config/models/mlc-models.json') as Record<string, MLCConfig>;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const demucsModels = require('../config/models/demucs-models.json') as Record<string, DemucsConfig>;
     for (const k of flareKeys) {
       expect(mlcModels[k]).toBeUndefined();
