@@ -27,7 +27,11 @@ jobs:
         MAX_KB=900
         ESM_SIZE=$(stat --format=%s dist/index.mjs)
         ESM_KB=$((ESM_SIZE / 1024))
-        CJS_SIZE=$(stat --format=%s dist/index.js)
+        # CJS output was renamed from .js to .cjs in v2.1.1 (see tsup.config.ts).
+        # Keep a fallback so this still works on older PR bases that predate the rename.
+        CJS_FILE=dist/index.cjs
+        if [ ! -f "$CJS_FILE" ]; then CJS_FILE=dist/index.js; fi
+        CJS_SIZE=$(stat --format=%s "$CJS_FILE")
         CJS_KB=$((CJS_SIZE / 1024))
         DTS_SIZE=$(stat --format=%s dist/index.d.ts)
         DTS_KB=$((DTS_SIZE / 1024))
@@ -36,7 +40,7 @@ jobs:
         echo "| Output | Size |" >> $GITHUB_STEP_SUMMARY
         echo "|--------|------|" >> $GITHUB_STEP_SUMMARY
         echo "| ESM (index.mjs) | ${ESM_KB} KB |" >> $GITHUB_STEP_SUMMARY
-        echo "| CJS (index.js) | ${CJS_KB} KB |" >> $GITHUB_STEP_SUMMARY
+        echo "| CJS (${CJS_FILE##*/}) | ${CJS_KB} KB |" >> $GITHUB_STEP_SUMMARY
         echo "| DTS (index.d.ts) | ${DTS_KB} KB |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
