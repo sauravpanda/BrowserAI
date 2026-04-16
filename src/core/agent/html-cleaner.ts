@@ -42,12 +42,71 @@ export class HTMLCleaner {
   }
 
   /**
+   * Removes elements that are explicitly hidden or are responsive-design duplicates.
+   *
+   * Many sites include the same content twice — once for mobile and once for desktop —
+   * controlling visibility via CSS classes or inline styles. Since DOMParser runs without
+   * stylesheets we cannot resolve class-based visibility, but we can prune elements that
+   * use explicit DOM signals to indicate they are non-primary content:
+   *
+   * 1. `aria-hidden="true"` — explicitly hidden from assistive technologies; almost always
+   *    a decorative duplicate (e.g. a mobile nav icon that mirrors visible text).
+   * 2. `style="display:none"` / `style="visibility:hidden"` — inline-hidden elements that
+   *    are never visible regardless of which CSS is loaded.
+   * 3. CSS class names containing "mobile", "desktop", "tablet" combined with common
+   *    hide/show utility words ("hidden", "only", "show", "hide", "visible") — a heuristic
+   *    that catches Tailwind / Bootstrap / custom responsive utilities.
+   *
+   * @private
+   * @param {HTMLElement} root - The parsed DOM element to prune in-place
+   */
+  private removeHiddenAndDuplicateElements(root: HTMLElement): void {
+    // Responsive class patterns that signal show/hide intent.
+    // Match e.g. "mobile-only", "desktop-hidden", "show-on-tablet", "hidden-xs"
+    const RESPONSIVE_PATTERN =
+      /\b(mobile|desktop|tablet|phone|sm|md|lg|xl)\b.{0,10}\b(only|hidden|hide|show|visible|invisible)\b|\b(hidden|hide|show|visible|invisible)\b.{0,10}\b(mobile|desktop|tablet|phone|sm|md|lg|xl)\b/i;
+
+    const toRemove: Element[] = [];
+
+    root.querySelectorAll('*').forEach((el) => {
+      // 1. aria-hidden="true"
+      if (el.getAttribute('aria-hidden') === 'true') {
+        toRemove.push(el);
+        return;
+      }
+
+      // 2. Inline display:none or visibility:hidden
+      const style = (el as HTMLElement).style;
+      if (style) {
+        if (style.display === 'none' || style.visibility === 'hidden') {
+          toRemove.push(el);
+          return;
+        }
+      }
+
+      // 3. Responsive class heuristic
+      const className = el.className;
+      if (typeof className === 'string' && RESPONSIVE_PATTERN.test(className)) {
+        toRemove.push(el);
+      }
+    });
+
+    // Remove in reverse document order so parent removal doesn't invalidate children
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      toRemove[i].remove();
+    }
+  }
+
+  /**
    * Cleans HTML content by removing specified tags and attributes, returning only text content.
    * @param {string} html - The HTML content to clean
    * @returns {string} Cleaned text content with excess whitespace removed
    */
   clean(html: string): string {
     const tempElement = this.parseHTML(html);
+
+    // Remove hidden elements and responsive-design duplicates before extracting text
+    this.removeHiddenAndDuplicateElements(tempElement);
 
     this.tagsToRemove.forEach((tag) => {
       let elements = tempElement.querySelectorAll(tag);
@@ -71,6 +130,7 @@ export class HTMLCleaner {
    */
   cleanSemantic(html: string): string {
     const tempElement = this.parseHTML(html);
+    this.removeHiddenAndDuplicateElements(tempElement);
     let importantText = '';
     const importantTags = [
       'article',
@@ -141,6 +201,7 @@ export class HTMLCleaner {
    */
   preserveSemanticHierarchy(html: string): string {
     const tempElement = this.parseHTML(html);
+    this.removeHiddenAndDuplicateElements(tempElement);
 
     const headingLevels = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
     let structuredContent = '';
