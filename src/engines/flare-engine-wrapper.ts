@@ -5,15 +5,15 @@
  * (no TVM compilation step). It supports WebGPU acceleration, OPFS caching for
  * instant repeat loads, LoRA adapter merging, and progressive model loading.
  *
- * The `@aspect/flare` npm package must be installed for this engine to work:
- *   npm install @aspect/flare
+ * The `@sauravpanda/flare` npm package must be installed for this engine to work:
+ *   npm install @sauravpanda/flare
  *
  * Resolves issues: #293 #295 #296 #297 #298 #300
  */
 
 import { FlareConfig } from '../config/models/types';
 
-// Flare WASM API types (from @aspect/flare)
+// Flare WASM API types (from @sauravpanda/flare)
 interface FlareEngineWasm {
   load(bytes: Uint8Array): FlareEngineInstance;
 }
@@ -272,7 +272,7 @@ export class FlareEngineWrapper {
    * On repeat calls: loads instantly from the OPFS cache (<100 ms).
    */
   async loadModel(modelConfig: FlareConfig, options: FlareLoadOptions = {}): Promise<void> {
-    // Dynamically import @aspect/flare — fails gracefully if not installed
+    // Dynamically import @sauravpanda/flare — fails gracefully if not installed
     this.flare = await this.importFlare();
 
     const url = options.url ?? modelConfig.url;
@@ -521,15 +521,15 @@ export class FlareEngineWrapper {
   private async importFlare(): Promise<FlareModule> {
     try {
       // Dynamic import so the package is optional — BrowserAI still works
-      // without @aspect/flare as long as users don't select the Flare engine.
-      const mod = await import('@aspect/flare' as string);
+      // without @sauravpanda/flare as long as users don't select the Flare engine.
+      const mod = await import('@sauravpanda/flare' as string);
       // Initialise the WASM module
       await (mod as unknown as { default: () => Promise<void> }).default();
       return mod as unknown as FlareModule;
     } catch (err) {
       throw new Error(
-        '[Flare] Could not load @aspect/flare. ' +
-          'Install it with: npm install @aspect/flare\n' +
+        '[Flare] Could not load @sauravpanda/flare. ' +
+          'Install it with: npm install @sauravpanda/flare\n' +
           `Original error: ${err}`,
       );
     }

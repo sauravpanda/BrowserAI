@@ -1,8 +1,8 @@
 /**
  * FlareEngineWrapper unit tests. These cover the pure-logic surface of the
  * engine (constructor, dispose, cache-key hashing, error guards) without
- * hitting the @aspect/flare WASM runtime or network — those require a real
- * browser environment and a published @aspect/flare package.
+ * hitting the @sauravpanda/flare WASM runtime or network — those require a real
+ * browser environment and a published @sauravpanda/flare package.
  */
 
 import { FlareEngineWrapper } from './flare-engine-wrapper';
@@ -56,7 +56,7 @@ describe('FlareEngineWrapper', () => {
     expect(() => engine.dispose()).not.toThrow();
   });
 
-  test('loadModel() fails loudly when @aspect/flare is not installed', async () => {
+  test('loadModel() fails loudly when @sauravpanda/flare is not installed', async () => {
     const engine = new FlareEngineWrapper();
     const cfg: FlareConfig = {
       engine: 'flare',
@@ -67,9 +67,9 @@ describe('FlareEngineWrapper', () => {
       defaultQuantization: 'Q4_K_M',
       url: 'https://example.com/test.gguf',
     };
-    // @aspect/flare isn't installed in the test env, so the dynamic import
+    // @sauravpanda/flare isn't installed in the test env, so the dynamic import
     // inside importFlare() should reject with a clear install instruction.
-    await expect(engine.loadModel(cfg)).rejects.toThrow(/@aspect\/flare/i);
+    await expect(engine.loadModel(cfg)).rejects.toThrow(/@sauravpanda\/flare/i);
   });
 });
 
