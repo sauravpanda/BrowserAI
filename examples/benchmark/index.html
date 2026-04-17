@@ -370,7 +370,7 @@
           },
           flare: {
             id: 'smollm2-135m-flare',
-            url: 'https://huggingface.co/HuggingFaceTB/smollm2-135M-instruct-GGUF/resolve/main/smollm2-135m-instruct-q8_0.gguf',
+            url: 'https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf',
           },
         },
         'llama-3.2-1b': {
@@ -520,7 +520,7 @@
       async function runTransformersInference(prompt, opts) {
         const t0 = performance.now();
         let firstTokenTime = null;
-        let outputTokenCount = 0;
+        let prevTokenCount = 0;
 
         const messages = [{ role: 'user', content: prompt }];
         let input;
@@ -533,33 +533,44 @@
           input = prompt;
         }
 
-        const inputTokens = transformersPipeline.tokenizer(input);
-        const inputLen = inputTokens?.input_ids?.dims?.[1] || input.length / 4;
-
         const result = await transformersPipeline(input, {
           max_new_tokens: opts.maxTokens,
           temperature: opts.temperature || 0.001,
           do_sample: opts.temperature > 0,
-          callback_function: (beams) => {
-            const generated = beams?.[0]?.output_token_ids?.length || 0;
-            if (firstTokenTime === null && generated > inputLen) {
+          callback_function: (output) => {
+            // output can be [{generated_text}] or beams with output_token_ids
+            const ids = output?.[0]?.output_token_ids;
+            const currentLen = ids?.length || ids?.size || 0;
+            if (firstTokenTime === null && currentLen > prevTokenCount) {
               firstTokenTime = performance.now() - t0;
             }
-            outputTokenCount = Math.max(0, generated - inputLen);
+            if (currentLen > 0) prevTokenCount = currentLen;
           },
         });
 
         const totalTime = performance.now() - t0;
         const output = result[0]?.generated_text || '';
         const generatedPart = typeof output === 'string' ? output.slice(input.length) : '';
-        const decodeTime = totalTime - (firstTokenTime || totalTime);
 
+        // Count output tokens by tokenizing the generated part
+        let outputTokenCount = 0;
+        try {
+          const genTokens = transformersPipeline.tokenizer(generatedPart);
+          outputTokenCount = genTokens?.input_ids?.dims?.[1] || genTokens?.input_ids?.length || 0;
+        } catch {
+          // Rough fallback: ~4 chars per token
+          outputTokenCount = Math.max(1, Math.round(generatedPart.length / 4));
+        }
+
+        // Transformers.js generates all tokens in a single batch call (no true
+        // streaming), so firstTokenTime ≈ totalTime. Use tokens/totalTime for
+        // throughput since there's no separate decode phase.
         return {
           output: generatedPart,
           ttft: firstTokenTime || totalTime,
           totalTime,
           tokenCount: outputTokenCount,
-          tokensPerSec: (outputTokenCount > 1 && decodeTime > 0) ? ((outputTokenCount - 1) / (decodeTime / 1000)) : 0,
+          tokensPerSec: outputTokenCount > 0 ? (outputTokenCount / (totalTime / 1000)) : 0,
         };
       }
 
@@ -575,9 +586,38 @@
         if (!flareLib) {
           log('Loading @sauravpanda/flare WASM from CDN...', 'info');
           const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.0/pkg';
-          flareLib = await import(`${CDN}/flare_web.js`);
+          const wasmUrl = `${CDN}/flare_web_bg.wasm`;
+
+          // Fetch the JS module source, patch the WASM URL, and load via blob
+          // to avoid cross-origin ES module import restrictions.
+          const jsResp = await fetch(`${CDN}/flare_web.js`, { cache: 'no-cache' });
+          if (!jsResp.ok) throw new Error(`HTTP ${jsResp.status} fetching flare_web.js`);
+          let jsSrc = await jsResp.text();
+          log(`Fetched flare_web.js (${(jsSrc.length / 1024).toFixed(0)} KB)`, 'info');
+
+          // Patch import.meta.url references so the WASM file resolves to CDN
+          jsSrc = jsSrc.replaceAll('import.meta.url', `'${CDN}/flare_web.js'`);
+
+          // Fix wasm-pack codegen bug: a JSDoc block contains "/* done */"
+          // which prematurely closes the outer /** */ comment, causing
+          // "Unexpected token '*'" parse error. Remove the nested comment.
+          jsSrc = jsSrc.replaceAll('/* done */', '/* done -/');
+
+          const blob = new Blob([jsSrc], { type: 'application/javascript' });
+          const blobUrl = URL.createObjectURL(blob);
+          try {
+            flareLib = await import(/* webpackIgnore: true */ blobUrl);
+          } catch (importErr) {
+            URL.revokeObjectURL(blobUrl);
+            log(`Blob import failed: ${importErr.message}`, 'error');
+            // Fallback: try direct CDN import
+            log('Trying direct CDN import...', 'info');
+            flareLib = await import(`${CDN}/flare_web.js`);
+          }
+          URL.revokeObjectURL(blobUrl);
+
           // Initialize the WASM module
-          await flareLib.default(`${CDN}/flare_web_bg.wasm`);
+          await flareLib.default(wasmUrl);
           log('Flare WASM initialized.', 'success');
         }
 
