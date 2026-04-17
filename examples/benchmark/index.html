@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrowserAI — Engine Benchmark</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0b1020;
+        color: #e5e7ff;
+        display: flex;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+      .container {
+        width: 100%;
+        max-width: 960px;
+      }
+      .card {
+        background: #11172b;
+        border: 1px solid #222a45;
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        margin-bottom: 20px;
+      }
+      h1 { margin: 0 0 4px; font-size: 24px; }
+      h2 { margin: 0 0 12px; font-size: 18px; color: #a5b0d8; }
+      p.subtitle { margin: 0 0 20px; color: #8892b8; font-size: 13px; }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      label {
+        font-size: 13px;
+        color: #8892b8;
+        min-width: 80px;
+      }
+      select {
+        background: #1a2240;
+        color: #c1c8e6;
+        border: 1px solid #2a3357;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+        min-width: 200px;
+      }
+      button {
+        background: #4f6bff;
+        color: white;
+        border: 0;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      button:disabled {
+        background: #2a3357;
+        color: #6b7599;
+        cursor: not-allowed;
+      }
+      button.danger { background: #ff4f5e; }
+      button.secondary {
+        background: #1e2a50;
+        border: 1px solid #2a3357;
+        color: #a5b0d8;
+      }
+      .config-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      input[type="number"], input[type="text"] {
+        background: #1a2240;
+        color: #c1c8e6;
+        border: 1px solid #2a3357;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .log {
+        background: #080c1a;
+        border: 1px solid #1a2040;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        color: #8892b8;
+      }
+      .log .info { color: #4f6bff; }
+      .log .success { color: #3ddc84; }
+      .log .error { color: #ff4f5e; }
+      .log .metric { color: #ffb74d; }
+      progress {
+        width: 100%;
+        height: 8px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+      }
+      progress::-webkit-progress-bar { background: #1a2240; border-radius: 4px; }
+      progress::-webkit-progress-value { background: #4f6bff; border-radius: 4px; }
+
+      /* Results table */
+      .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+      .results-table th {
+        background: #1a2240;
+        padding: 10px 14px;
+        text-align: left;
+        color: #8892b8;
+        font-weight: 500;
+        border-bottom: 1px solid #2a3357;
+      }
+      .results-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #1a2040;
+      }
+      .results-table tr:hover td { background: #0d1326; }
+      .results-table .best { color: #3ddc84; font-weight: 600; }
+      .results-table .engine-mlc { border-left: 3px solid #4f6bff; }
+      .results-table .engine-transformers { border-left: 3px solid #ff9800; }
+      .results-table .engine-flare { border-left: 3px solid #3ddc84; }
+
+      /* Bar chart */
+      .bar-chart { margin-top: 16px; }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        gap: 10px;
+      }
+      .bar-label {
+        min-width: 100px;
+        font-size: 12px;
+        color: #8892b8;
+        text-align: right;
+      }
+      .bar-track {
+        flex: 1;
+        height: 24px;
+        background: #1a2240;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: white;
+        white-space: nowrap;
+      }
+      .bar-fill.mlc { background: #4f6bff; }
+      .bar-fill.transformers { background: #ff9800; }
+      .bar-fill.flare { background: #3ddc84; }
+      .bar-value {
+        min-width: 80px;
+        font-size: 12px;
+        color: #c1c8e6;
+        font-family: monospace;
+      }
+
+      .chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .chip.mlc { background: #4f6bff33; color: #4f6bff; }
+      .chip.transformers { background: #ff980033; color: #ff9800; }
+      .chip.flare { background: #3ddc8433; color: #3ddc84; }
+
+      .status-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .runs-badge {
+        font-size: 12px;
+        color: #6b7599;
+      }
+      .hw-info {
+        font-size: 11px;
+        color: #6b7599;
+        margin-top: 8px;
+      }
+
+      .checkbox-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .checkbox-row label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        min-width: auto;
+      }
+      .checkbox-row input[type="checkbox"] {
+        accent-color: #4f6bff;
+      }
+
+      .prompt-area {
+        width: 100%;
+        min-height: 60px;
+        background: #1a2240;
+        color: #c1c8e6;
+        border: 1px solid #2a3357;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 13px;
+        font-family: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+        margin-bottom: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="card">
+        <h1>BrowserAI Engine Benchmark</h1>
+        <p class="subtitle">
+          Compare inference performance across MLC (WebGPU), Transformers.js (ONNX), and Flare (WASM/GGUF) engines.
+          All inference runs locally in your browser.
+        </p>
+        <div class="hw-info" id="hwInfo"></div>
+      </div>
+
+      <!-- Configuration -->
+      <div class="card">
+        <h2>Configuration</h2>
+
+        <div class="row">
+          <label>Model:</label>
+          <select id="modelSelect">
+            <option value="smollm2-135m">SmolLM2 135M</option>
+            <option value="llama-3.2-1b">Llama 3.2 1B</option>
+            <option value="qwen2.5-0.5b">Qwen 2.5 0.5B</option>
+          </select>
+        </div>
+
+        <label style="display:block; margin-bottom: 8px;">Engines to benchmark:</label>
+        <div class="checkbox-row">
+          <label><input type="checkbox" id="engMlc" checked> <span class="chip mlc">MLC</span> WebGPU</label>
+          <label><input type="checkbox" id="engTransformers" checked> <span class="chip transformers">Transformers.js</span> ONNX/WASM</label>
+          <label><input type="checkbox" id="engFlare" checked> <span class="chip flare">Flare</span> GGUF/WASM</label>
+        </div>
+
+        <label style="display:block; margin-bottom: 8px;">Prompt:</label>
+        <textarea class="prompt-area" id="promptInput">Explain what WebGPU is in 2-3 sentences.</textarea>
+
+        <div class="config-grid">
+          <div>
+            <label>Max tokens:</label>
+            <input type="number" id="maxTokens" value="128" min="16" max="1024">
+          </div>
+          <div>
+            <label>Runs per engine:</label>
+            <input type="number" id="numRuns" value="3" min="1" max="10">
+          </div>
+          <div>
+            <label>Temperature:</label>
+            <input type="number" id="temperature" value="0.0" min="0" max="2" step="0.1">
+          </div>
+          <div>
+            <label>Warmup runs:</label>
+            <input type="number" id="warmupRuns" value="1" min="0" max="3">
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="runBtn" onclick="runBenchmark()">Run Benchmark</button>
+          <button id="stopBtn" class="danger" onclick="stopBenchmark()" disabled>Stop</button>
+          <button class="secondary" onclick="clearResults()">Clear Results</button>
+          <button class="secondary" onclick="exportResults()">Export JSON</button>
+        </div>
+
+        <progress id="progress" value="0" max="100" style="display:none;"></progress>
+      </div>
+
+      <!-- Log -->
+      <div class="card">
+        <h2>Log</h2>
+        <div class="log" id="log"></div>
+      </div>
+
+      <!-- Results -->
+      <div class="card" id="resultsCard" style="display:none;">
+        <h2>Results</h2>
+        <div id="resultsContent"></div>
+      </div>
+
+      <!-- Charts -->
+      <div class="card" id="chartsCard" style="display:none;">
+        <h2>Comparison Charts</h2>
+        <div id="chartsContent"></div>
+      </div>
+    </div>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "@mlc-ai/web-llm": "https://esm.run/@mlc-ai/web-llm"
+      }
+    }
+    </script>
+
+    <script type="module">
+      // ── Hardware info ──
+      const hwInfo = document.getElementById('hwInfo');
+      const gpuInfo = [];
+      if (navigator.gpu) {
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          if (adapter) {
+            const info = await adapter.requestAdapterInfo();
+            gpuInfo.push(`GPU: ${info.description || info.device || 'WebGPU available'}`);
+          }
+        } catch {}
+      } else {
+        gpuInfo.push('GPU: WebGPU not available');
+      }
+      gpuInfo.push(`CPU cores: ${navigator.hardwareConcurrency || '?'}`);
+      gpuInfo.push(`Cross-origin isolated: ${crossOriginIsolated}`);
+      gpuInfo.push(`User Agent: ${navigator.userAgent.split(') ')[0]})`);
+      hwInfo.textContent = gpuInfo.join(' | ');
+
+      // ── Model configs per engine ──
+      const MODEL_CONFIGS = {
+        'smollm2-135m': {
+          mlc: {
+            id: 'SmolLM2-135M-Instruct-q0f16-MLC',
+          },
+          transformers: {
+            id: 'HuggingFaceTB/SmolLM2-135M-Instruct',
+            task: 'text-generation',
+            dtype: 'fp16',
+          },
+          flare: {
+            id: 'smollm2-135m-flare',
+            url: 'https://huggingface.co/HuggingFaceTB/smollm2-135M-instruct-GGUF/resolve/main/smollm2-135m-instruct-q8_0.gguf',
+          },
+        },
+        'llama-3.2-1b': {
+          mlc: {
+            id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+          },
+          transformers: {
+            id: 'Xenova/llama-3.2-1b-instruct',
+            task: 'text-generation',
+            dtype: 'q4',
+          },
+          flare: {
+            id: 'llama-3.2-1b-flare',
+            url: 'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q8_0.gguf',
+          },
+        },
+        'qwen2.5-0.5b': {
+          mlc: {
+            id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+          },
+          transformers: null,
+          flare: {
+            id: 'qwen2.5-0.5b-flare',
+            url: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf',
+          },
+        },
+      };
+
+      // ── State ──
+      let allResults = [];
+      let running = false;
+      let abortController = null;
+
+      // ── Logging ──
+      const logEl = document.getElementById('log');
+      function log(msg, cls = '') {
+        const line = document.createElement('div');
+        if (cls) line.className = cls;
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      // ── MLC Engine (via @mlc-ai/web-llm) ──
+      let mlcEngine = null;
+      let webllm = null;
+
+      async function loadMlcEngine(config) {
+        if (!webllm) {
+          log('Loading @mlc-ai/web-llm from CDN...', 'info');
+          webllm = await import('@mlc-ai/web-llm');
+        }
+        log(`Loading MLC model: ${config.id}`, 'info');
+        const t0 = performance.now();
+
+        mlcEngine = await webllm.CreateMLCEngine(config.id, {
+          initProgressCallback: (report) => {
+            if (report.text) {
+              const match = report.text.match(/([\d.]+)%/);
+              if (match) updateProgress(parseFloat(match[1]));
+            }
+          },
+        });
+
+        const loadTime = performance.now() - t0;
+        log(`MLC model loaded in ${(loadTime / 1000).toFixed(1)}s`, 'success');
+        return loadTime;
+      }
+
+      async function runMlcInference(prompt, opts) {
+        const messages = [
+          { role: 'user', content: prompt },
+        ];
+
+        let firstTokenTime = null;
+        let tokenCount = 0;
+        const t0 = performance.now();
+
+        const reply = await mlcEngine.chat.completions.create({
+          messages,
+          temperature: opts.temperature || 0.001,
+          max_tokens: opts.maxTokens,
+          stream: true,
+        });
+
+        let output = '';
+        for await (const chunk of reply) {
+          const delta = chunk.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            if (firstTokenTime === null) {
+              firstTokenTime = performance.now() - t0;
+            }
+            tokenCount++;
+            output += delta;
+          }
+        }
+
+        const totalTime = performance.now() - t0;
+        const decodeTime = totalTime - (firstTokenTime || totalTime);
+        return {
+          output,
+          ttft: firstTokenTime || totalTime,
+          totalTime,
+          tokenCount,
+          tokensPerSec: (tokenCount > 1 && decodeTime > 0) ? ((tokenCount - 1) / (decodeTime / 1000)) : 0,
+        };
+      }
+
+      function disposeMlc() {
+        if (mlcEngine) {
+          try { mlcEngine.unload(); } catch {}
+          mlcEngine = null;
+        }
+      }
+
+      // ── Transformers.js Engine ──
+      let transformersPipeline = null;
+      let transformersLib = null;
+
+      async function loadTransformersEngine(config) {
+        if (!transformersLib) {
+          log('Loading @huggingface/transformers from CDN...', 'info');
+          transformersLib = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1/dist/transformers.min.js');
+        }
+        log(`Loading Transformers model: ${config.id}`, 'info');
+        const t0 = performance.now();
+
+        transformersPipeline = await transformersLib.pipeline(
+          config.task || 'text-generation',
+          config.id,
+          {
+            dtype: config.dtype || 'fp32',
+            device: 'wasm',
+            progress_callback: (p) => {
+              if (p.progress !== undefined) {
+                updateProgress(Math.round(p.progress));
+              }
+            },
+          }
+        );
+
+        const loadTime = performance.now() - t0;
+        log(`Transformers model loaded in ${(loadTime / 1000).toFixed(1)}s`, 'success');
+        return loadTime;
+      }
+
+      async function runTransformersInference(prompt, opts) {
+        const t0 = performance.now();
+        let firstTokenTime = null;
+        let outputTokenCount = 0;
+
+        const messages = [{ role: 'user', content: prompt }];
+        let input;
+        try {
+          input = transformersPipeline.tokenizer.apply_chat_template(messages, {
+            tokenize: false,
+            add_generation_prompt: true,
+          });
+        } catch {
+          input = prompt;
+        }
+
+        const inputTokens = transformersPipeline.tokenizer(input);
+        const inputLen = inputTokens?.input_ids?.dims?.[1] || input.length / 4;
+
+        const result = await transformersPipeline(input, {
+          max_new_tokens: opts.maxTokens,
+          temperature: opts.temperature || 0.001,
+          do_sample: opts.temperature > 0,
+          callback_function: (beams) => {
+            const generated = beams?.[0]?.output_token_ids?.length || 0;
+            if (firstTokenTime === null && generated > inputLen) {
+              firstTokenTime = performance.now() - t0;
+            }
+            outputTokenCount = Math.max(0, generated - inputLen);
+          },
+        });
+
+        const totalTime = performance.now() - t0;
+        const output = result[0]?.generated_text || '';
+        const generatedPart = typeof output === 'string' ? output.slice(input.length) : '';
+        const decodeTime = totalTime - (firstTokenTime || totalTime);
+
+        return {
+          output: generatedPart,
+          ttft: firstTokenTime || totalTime,
+          totalTime,
+          tokenCount: outputTokenCount,
+          tokensPerSec: (outputTokenCount > 1 && decodeTime > 0) ? ((outputTokenCount - 1) / (decodeTime / 1000)) : 0,
+        };
+      }
+
+      function disposeTransformers() {
+        transformersPipeline = null;
+      }
+
+      // ── Flare Engine (via @sauravpanda/flare WASM) ──
+      let flareEngine = null;
+      let flareLib = null;
+
+      async function loadFlareEngine(config) {
+        if (!flareLib) {
+          log('Loading @sauravpanda/flare WASM from CDN...', 'info');
+          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.0/pkg';
+          flareLib = await import(`${CDN}/flare_web.js`);
+          // Initialize the WASM module
+          await flareLib.default(`${CDN}/flare_web_bg.wasm`);
+          log('Flare WASM initialized.', 'success');
+        }
+
+        log(`Downloading GGUF model: ${config.url.split('/').pop()}`, 'info');
+        const t0 = performance.now();
+
+        // Download the GGUF file
+        const resp = await fetch(config.url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching model`);
+        const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let received = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (contentLength > 0) {
+            updateProgress(Math.round((received / contentLength) * 100));
+          }
+        }
+
+        // Concatenate chunks
+        const bytes = new Uint8Array(received);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        log(`Downloaded ${(received / 1024 / 1024).toFixed(1)} MB, parsing GGUF...`, 'info');
+
+        // Load into Flare engine
+        flareEngine = flareLib.FlareEngine.load(bytes);
+
+        const loadTime = performance.now() - t0;
+        log(`Flare model loaded in ${(loadTime / 1000).toFixed(1)}s (arch: ${flareEngine.architecture})`, 'success');
+        return loadTime;
+      }
+
+      async function runFlareInference(prompt, opts) {
+        const t0 = performance.now();
+
+        // Encode prompt using the embedded GGUF tokenizer
+        const promptIds = flareEngine.encode_text(prompt);
+        if (!promptIds || promptIds.length === 0) {
+          throw new Error('Flare tokenizer failed to encode prompt');
+        }
+
+        // Start streaming
+        flareEngine.reset();
+        flareEngine.begin_stream_with_params(
+          promptIds,
+          opts.maxTokens,
+          opts.temperature || 0.001, // temperature
+          1.0,   // top_p
+          40,    // top_k
+          1.0,   // repeat_penalty
+          0.0,   // min_p
+        );
+
+        const firstTokenTime = performance.now() - t0; // prefill done at begin_stream
+        let tokenCount = 0;
+        let output = '';
+
+        // Decode tokens
+        while (!flareEngine.stream_done) {
+          const id = flareEngine.next_token();
+          if (id === undefined) break;
+          tokenCount++;
+          output += flareEngine.decode_token_chunk(id);
+        }
+
+        const totalTime = performance.now() - t0;
+        const decodeTime = totalTime - firstTokenTime;
+
+        // Try to get perf summary from engine
+        let engineTps = null;
+        try {
+          const summary = JSON.parse(flareEngine.performance_summary());
+          engineTps = summary.tokens_per_second;
+        } catch {}
+
+        return {
+          output,
+          ttft: firstTokenTime,
+          totalTime,
+          tokenCount,
+          tokensPerSec: engineTps || ((tokenCount > 1 && decodeTime > 0) ? ((tokenCount - 1) / (decodeTime / 1000)) : 0),
+        };
+      }
+
+      function disposeFlare() {
+        flareEngine = null;
+        // Flare doesn't have explicit dispose — GC handles it
+      }
+
+      // ── Benchmark runner ──
+      function updateProgress(pct) {
+        const bar = document.getElementById('progress');
+        bar.style.display = '';
+        bar.value = Math.min(pct, 100);
+      }
+
+      function getSelectedEngines() {
+        const engines = [];
+        if (document.getElementById('engMlc').checked) engines.push('mlc');
+        if (document.getElementById('engTransformers').checked) engines.push('transformers');
+        if (document.getElementById('engFlare').checked) engines.push('flare');
+        return engines;
+      }
+
+      window.clearResults = function() {
+        allResults = [];
+        document.getElementById('resultsCard').style.display = 'none';
+        document.getElementById('chartsCard').style.display = 'none';
+        logEl.innerHTML = '';
+        log('Results cleared.', 'info');
+      };
+
+      window.stopBenchmark = function() {
+        if (abortController) {
+          abortController.abort();
+          log('Benchmark stopped by user.', 'error');
+        }
+      };
+
+      window.exportResults = function() {
+        if (allResults.length === 0) {
+          log('No results to export.', 'error');
+          return;
+        }
+        const data = {
+          timestamp: new Date().toISOString(),
+          hardware: hwInfo.textContent,
+          results: allResults,
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `browserai-benchmark-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        log('Results exported.', 'success');
+      };
+
+      window.runBenchmark = async function() {
+        if (running) return;
+        running = true;
+        abortController = new AbortController();
+
+        const runBtn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        runBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        const modelKey = document.getElementById('modelSelect').value;
+        const engines = getSelectedEngines();
+        const prompt = document.getElementById('promptInput').value;
+        const maxTokens = parseInt(document.getElementById('maxTokens').value);
+        const numRuns = parseInt(document.getElementById('numRuns').value);
+        const temperature = parseFloat(document.getElementById('temperature').value);
+        const warmupRuns = parseInt(document.getElementById('warmupRuns').value);
+        const configs = MODEL_CONFIGS[modelKey];
+
+        if (engines.length === 0) {
+          log('Select at least one engine.', 'error');
+          running = false;
+          runBtn.disabled = false;
+          stopBtn.disabled = true;
+          return;
+        }
+
+        log(`Starting benchmark: ${modelKey} | engines: ${engines.join(', ')} | ${numRuns} runs + ${warmupRuns} warmup`, 'info');
+        log(`Prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}" | max_tokens: ${maxTokens} | temp: ${temperature}`, 'info');
+
+        const benchResults = [];
+
+        for (const engine of engines) {
+          if (abortController.signal.aborted) break;
+
+          const config = configs[engine];
+          if (!config) {
+            log(`${engine}: no model config available for ${modelKey}, skipping.`, 'error');
+            continue;
+          }
+
+          log(`\n${'='.repeat(50)}`, '');
+          log(`Engine: ${engine.toUpperCase()}`, 'info');
+          log(`${'='.repeat(50)}`, '');
+
+          try {
+            // Load model
+            let loadTime;
+            if (engine === 'mlc') {
+              loadTime = await loadMlcEngine(config);
+            } else if (engine === 'transformers') {
+              loadTime = await loadTransformersEngine(config);
+            } else if (engine === 'flare') {
+              loadTime = await loadFlareEngine(config);
+            }
+
+            // Warmup
+            for (let w = 0; w < warmupRuns; w++) {
+              if (abortController.signal.aborted) break;
+              log(`Warmup run ${w + 1}/${warmupRuns}...`, 'info');
+              if (engine === 'mlc') {
+                await runMlcInference(prompt, { maxTokens: 16, temperature });
+              } else if (engine === 'transformers') {
+                await runTransformersInference(prompt, { maxTokens: 16, temperature });
+              } else if (engine === 'flare') {
+                await runFlareInference(prompt, { maxTokens: 16, temperature });
+              }
+            }
+
+            // Benchmark runs
+            const runs = [];
+            for (let r = 0; r < numRuns; r++) {
+              if (abortController.signal.aborted) break;
+              log(`Run ${r + 1}/${numRuns}...`, 'info');
+              updateProgress(((r / numRuns) * 100) | 0);
+
+              let result;
+              if (engine === 'mlc') {
+                result = await runMlcInference(prompt, { maxTokens, temperature });
+              } else if (engine === 'transformers') {
+                result = await runTransformersInference(prompt, { maxTokens, temperature });
+              } else if (engine === 'flare') {
+                result = await runFlareInference(prompt, { maxTokens, temperature });
+              }
+
+              runs.push(result);
+              log(`  TTFT: ${result.ttft.toFixed(0)}ms | Tokens: ${result.tokenCount} | ${result.tokensPerSec.toFixed(1)} tok/s | Total: ${(result.totalTime / 1000).toFixed(2)}s`, 'metric');
+            }
+
+            // Aggregate
+            const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+            const aggregated = {
+              engine,
+              model: modelKey,
+              modelId: config.id || config.url?.split('/').pop(),
+              loadTimeMs: loadTime,
+              runs: runs.length,
+              ttft: {
+                avg: avg(runs.map(r => r.ttft)),
+                min: Math.min(...runs.map(r => r.ttft)),
+                max: Math.max(...runs.map(r => r.ttft)),
+              },
+              tokensPerSec: {
+                avg: avg(runs.map(r => r.tokensPerSec)),
+                min: Math.min(...runs.map(r => r.tokensPerSec)),
+                max: Math.max(...runs.map(r => r.tokensPerSec)),
+              },
+              totalTime: {
+                avg: avg(runs.map(r => r.totalTime)),
+              },
+              tokenCount: {
+                avg: avg(runs.map(r => r.tokenCount)),
+              },
+              sampleOutput: runs[0]?.output?.slice(0, 200) || '',
+            };
+
+            benchResults.push(aggregated);
+
+            log(`\n--- ${engine.toUpperCase()} Summary ---`, 'success');
+            log(`  Load time:    ${(aggregated.loadTimeMs / 1000).toFixed(1)}s`, 'metric');
+            log(`  Avg TTFT:     ${aggregated.ttft.avg.toFixed(0)}ms`, 'metric');
+            log(`  Avg tok/s:    ${aggregated.tokensPerSec.avg.toFixed(1)}`, 'metric');
+            log(`  Avg tokens:   ${aggregated.tokenCount.avg.toFixed(0)}`, 'metric');
+
+            // Dispose
+            if (engine === 'mlc') disposeMlc();
+            else if (engine === 'transformers') disposeTransformers();
+            else if (engine === 'flare') disposeFlare();
+
+          } catch (err) {
+            log(`${engine} error: ${err.message}`, 'error');
+            console.error(err);
+            if (engine === 'mlc') disposeMlc();
+            else if (engine === 'transformers') disposeTransformers();
+            else if (engine === 'flare') disposeFlare();
+          }
+        }
+
+        // Store and render
+        if (benchResults.length > 0) {
+          allResults.push({
+            timestamp: new Date().toISOString(),
+            model: modelKey,
+            prompt: prompt.slice(0, 100),
+            config: { maxTokens, temperature, numRuns, warmupRuns },
+            engines: benchResults,
+          });
+          renderResults();
+          renderCharts(benchResults);
+        }
+
+        updateProgress(100);
+        log('\nBenchmark complete.', 'success');
+
+        running = false;
+        runBtn.disabled = false;
+        stopBtn.disabled = true;
+      };
+
+      // ── Render results table ──
+      function renderResults() {
+        const card = document.getElementById('resultsCard');
+        const content = document.getElementById('resultsContent');
+        card.style.display = '';
+
+        const latest = allResults[allResults.length - 1];
+        const engines = latest.engines;
+
+        // Find best values
+        const bestTtft = Math.min(...engines.map(e => e.ttft.avg));
+        const bestTps = Math.max(...engines.map(e => e.tokensPerSec.avg));
+        const bestLoad = Math.min(...engines.map(e => e.loadTimeMs));
+
+        let html = `
+          <div class="status-bar">
+            <span>Model: <strong>${latest.model}</strong></span>
+            <span class="runs-badge">${latest.config.numRuns} runs, ${latest.config.maxTokens} max tokens</span>
+          </div>
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Engine</th>
+                <th>Model Load</th>
+                <th>Avg TTFT</th>
+                <th>Avg tok/s</th>
+                <th>Avg Tokens</th>
+                <th>Avg Total</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        for (const e of engines) {
+          const isBestTtft = e.ttft.avg === bestTtft && engines.length > 1;
+          const isBestTps = e.tokensPerSec.avg === bestTps && engines.length > 1;
+          const isBestLoad = e.loadTimeMs === bestLoad && engines.length > 1;
+
+          html += `
+            <tr class="engine-${e.engine}">
+              <td><span class="chip ${e.engine}">${e.engine.toUpperCase()}</span></td>
+              <td class="${isBestLoad ? 'best' : ''}">${(e.loadTimeMs / 1000).toFixed(1)}s</td>
+              <td class="${isBestTtft ? 'best' : ''}">${e.ttft.avg.toFixed(0)}ms <span style="color:#6b7599;font-size:11px;">(${e.ttft.min.toFixed(0)}-${e.ttft.max.toFixed(0)})</span></td>
+              <td class="${isBestTps ? 'best' : ''}">${e.tokensPerSec.avg.toFixed(1)} <span style="color:#6b7599;font-size:11px;">(${e.tokensPerSec.min.toFixed(1)}-${e.tokensPerSec.max.toFixed(1)})</span></td>
+              <td>${e.tokenCount.avg.toFixed(0)}</td>
+              <td>${(e.totalTime.avg / 1000).toFixed(2)}s</td>
+            </tr>
+          `;
+        }
+
+        html += '</tbody></table>';
+        content.innerHTML = html;
+      }
+
+      // ── Render bar charts ──
+      function renderCharts(engines) {
+        const card = document.getElementById('chartsCard');
+        const content = document.getElementById('chartsContent');
+        card.style.display = '';
+
+        const metrics = [
+          { key: 'tokensPerSec', label: 'Tokens/sec (higher is better)', unit: 'tok/s', getter: e => e.tokensPerSec.avg, higherBetter: true },
+          { key: 'ttft', label: 'Time to First Token (lower is better)', unit: 'ms', getter: e => e.ttft.avg, higherBetter: false },
+          { key: 'loadTime', label: 'Model Load Time (lower is better)', unit: 's', getter: e => e.loadTimeMs / 1000, higherBetter: false },
+        ];
+
+        let html = '';
+
+        for (const metric of metrics) {
+          const values = engines.map(e => ({ engine: e.engine, value: metric.getter(e) }));
+          const maxVal = Math.max(...values.map(v => v.value));
+
+          html += `<h3 style="font-size:14px; color:#a5b0d8; margin: 20px 0 10px;">${metric.label}</h3>`;
+          html += '<div class="bar-chart">';
+
+          // Sort: for "higher is better" show highest first, for "lower is better" show lowest first
+          const sorted = [...values].sort((a, b) => metric.higherBetter ? b.value - a.value : a.value - b.value);
+
+          for (const v of sorted) {
+            const pct = maxVal > 0 ? (v.value / maxVal * 100) : 0;
+            const isBest = v === sorted[0];
+            html += `
+              <div class="bar-row">
+                <div class="bar-label"><span class="chip ${v.engine}">${v.engine.toUpperCase()}</span></div>
+                <div class="bar-track">
+                  <div class="bar-fill ${v.engine}" style="width:${Math.max(pct, 2)}%"></div>
+                </div>
+                <div class="bar-value" style="${isBest ? 'color:#3ddc84;font-weight:600;' : ''}">${v.value.toFixed(metric.key === 'loadTime' ? 1 : 0)} ${metric.unit}</div>
+              </div>
+            `;
+          }
+
+          html += '</div>';
+        }
+
+        content.innerHTML = html;
+      }
+    </script>
+  </body>
+</html>
