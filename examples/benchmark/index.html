@@ -585,7 +585,7 @@
       async function loadFlareEngine(config) {
         if (!flareLib) {
           log('Loading @sauravpanda/flare WASM from CDN...', 'info');
-          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.2/pkg';
+          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.3/pkg';
           const wasmUrl = `${CDN}/flare_web_bg.wasm`;
 
           // Fetch the JS module source, patch the WASM URL, and load via blob
