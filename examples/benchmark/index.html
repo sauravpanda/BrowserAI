@@ -655,6 +655,17 @@
         // Load into Flare engine
         flareEngine = flareLib.FlareEngine.load(bytes);
 
+        // Try WebGPU acceleration
+        try {
+          const gpuOk = await flareEngine.init_gpu();
+          const info = JSON.parse(flareEngine.backend_info());
+          console.log('[Flare] backend_info:', info);
+          log(`Flare backend: ${JSON.stringify(info)}`, gpuOk ? 'success' : 'info');
+        } catch (e) {
+          console.warn('[Flare] GPU init failed:', e);
+          log('Flare GPU init failed — using CPU SIMD', 'info');
+        }
+
         const loadTime = performance.now() - t0;
         log(`Flare model loaded in ${(loadTime / 1000).toFixed(1)}s (arch: ${flareEngine.architecture})`, 'success');
         return loadTime;

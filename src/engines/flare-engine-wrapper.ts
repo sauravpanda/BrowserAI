@@ -59,6 +59,7 @@ interface FlareEngineInstance {
   reset(): void;
   add_stop_sequence(seq: string): void;
   clear_stop_sequences(): void;
+  backend_info(): string;
 }
 
 interface FlareModule {
@@ -310,6 +311,7 @@ export class FlareEngineWrapper {
     if (useGpu) {
       try {
         this.gpuEnabled = await this.engine.init_gpu();
+        console.log('[Flare]', JSON.parse(this.engine.backend_info()));
         if (!this.gpuEnabled) {
           console.info('[Flare] WebGPU unavailable — using CPU SIMD path');
         }
