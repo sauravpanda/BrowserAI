@@ -53,7 +53,7 @@
   "dependencies": {
     "@huggingface/jinja": "^0.3.3",
     "@mlc-ai/web-llm": "^0.2.79",
-    "@sauravpanda/flare": "^0.2.5",
+    "@sauravpanda/flare": "^0.2.6",
     "@types/pdfjs-dist": "^2.10.378",
     "mammoth": "^1.9.0",
     "onnxruntime-web": "^1.21.0",
