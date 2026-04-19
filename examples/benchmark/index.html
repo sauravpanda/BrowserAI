@@ -661,6 +661,12 @@
           const info = JSON.parse(flareEngine.backend_info());
           console.log('[Flare] backend_info:', info);
           log(`Flare backend: ${JSON.stringify(info)}`, gpuOk ? 'success' : 'info');
+          // Prefill profiling — captures per-layer timing
+          flareEngine.enable_prefill_profiling();
+          const profile = JSON.parse(flareEngine.prefill_profile_json());
+          console.log('[Flare] prefill profile:', profile);
+          log(`Flare prefill profile: ${JSON.stringify(profile)}`, 'info');
+          flareEngine.disable_prefill_profiling();
         } catch (e) {
           console.warn('[Flare] GPU init failed:', e);
           log('Flare GPU init failed — using CPU SIMD', 'info');

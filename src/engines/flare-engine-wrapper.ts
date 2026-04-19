@@ -60,6 +60,9 @@ interface FlareEngineInstance {
   add_stop_sequence(seq: string): void;
   clear_stop_sequences(): void;
   backend_info(): string;
+  enable_prefill_profiling(): void;
+  disable_prefill_profiling(): void;
+  prefill_profile_json(): string;
 }
 
 interface FlareModule {
@@ -311,7 +314,11 @@ export class FlareEngineWrapper {
     if (useGpu) {
       try {
         this.gpuEnabled = await this.engine.init_gpu();
-        console.log('[Flare]', JSON.parse(this.engine.backend_info()));
+        console.log('[Flare] backend_info:', JSON.parse(this.engine.backend_info()));
+        // Prefill profiling — captures per-layer timing for the first run
+        this.engine.enable_prefill_profiling();
+        console.log('[Flare] prefill profile:', JSON.parse(this.engine.prefill_profile_json()));
+        this.engine.disable_prefill_profiling();
         if (!this.gpuEnabled) {
           console.info('[Flare] WebGPU unavailable — using CPU SIMD path');
         }
