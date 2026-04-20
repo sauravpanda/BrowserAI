@@ -578,53 +578,69 @@
         transformersPipeline = null;
       }
 
-      // ── Flare Engine (via @sauravpanda/flare WASM) ──
-      let flareEngine = null;
-      let flareLib = null;
+      // ── Flare Engine (via @sauravpanda/flare WASM in a dedicated Worker) ──
+      //
+      // Flare's FlareEngine.load() is a synchronous WASM call that blocks the
+      // main thread for the full 138MB GGUF parse + GPU buffer upload.  We
+      // run it in a dedicated Web Worker to keep the UI responsive — matches
+      // MLC and Transformers.js which do the same internally.
+      let flareWorker = null;
+      let flareArch = null;
+      let flareRpcSeq = 0;
+      const flareRpcPending = new Map();
+
+      function ensureFlareWorker() {
+        if (flareWorker) return flareWorker;
+        flareWorker = new Worker(new URL('./flare-worker.js', import.meta.url), {
+          type: 'module',
+        });
+        flareWorker.addEventListener('message', (e) => {
+          const { id, result, error, stream } = e.data;
+          const slot = flareRpcPending.get(id);
+          if (!slot) return;
+          if (error) {
+            slot.reject(new Error(error.message || 'flare worker error'));
+            flareRpcPending.delete(id);
+            return;
+          }
+          if (stream) {
+            try { slot.onStream && slot.onStream(stream); } catch (err) { console.error(err); }
+            return;
+          }
+          slot.resolve(result);
+          flareRpcPending.delete(id);
+        });
+        flareWorker.addEventListener('error', (e) => {
+          console.error('[flare-worker] error:', e);
+          log(`Flare worker error: ${e.message || e}`, 'error');
+        });
+        return flareWorker;
+      }
+
+      function flareCall(type, args = {}, transfer = [], onStream = null) {
+        const id = ++flareRpcSeq;
+        return new Promise((resolve, reject) => {
+          flareRpcPending.set(id, { resolve, reject, onStream });
+          flareWorker.postMessage({ id, type, args }, transfer);
+        });
+      }
 
       async function loadFlareEngine(config) {
-        if (!flareLib) {
-          log('Loading @sauravpanda/flare WASM from CDN...', 'info');
+        if (!flareWorker) {
+          log('Starting Flare worker...', 'info');
+          ensureFlareWorker();
           const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.11/pkg';
-          const wasmUrl = `${CDN}/flare_web_bg.wasm`;
-
-          // Fetch the JS module source, patch the WASM URL, and load via blob
-          // to avoid cross-origin ES module import restrictions.
-          const jsResp = await fetch(`${CDN}/flare_web.js`, { cache: 'no-cache' });
-          if (!jsResp.ok) throw new Error(`HTTP ${jsResp.status} fetching flare_web.js`);
-          let jsSrc = await jsResp.text();
-          log(`Fetched flare_web.js (${(jsSrc.length / 1024).toFixed(0)} KB)`, 'info');
-
-          // Patch import.meta.url references so the WASM file resolves to CDN
-          jsSrc = jsSrc.replaceAll('import.meta.url', `'${CDN}/flare_web.js'`);
-
-          // Fix wasm-pack codegen bug: a JSDoc block contains "/* done */"
-          // which prematurely closes the outer /** */ comment, causing
-          // "Unexpected token '*'" parse error. Remove the nested comment.
-          jsSrc = jsSrc.replaceAll('/* done */', '/* done -/');
-
-          const blob = new Blob([jsSrc], { type: 'application/javascript' });
-          const blobUrl = URL.createObjectURL(blob);
-          try {
-            flareLib = await import(/* webpackIgnore: true */ blobUrl);
-          } catch (importErr) {
-            URL.revokeObjectURL(blobUrl);
-            log(`Blob import failed: ${importErr.message}`, 'error');
-            // Fallback: try direct CDN import
-            log('Trying direct CDN import...', 'info');
-            flareLib = await import(`${CDN}/flare_web.js`);
-          }
-          URL.revokeObjectURL(blobUrl);
-
-          // Initialize the WASM module
-          await flareLib.default(wasmUrl);
-          log('Flare WASM initialized.', 'success');
+          await flareCall('init', {
+            jsUrl: `${CDN}/flare_web.js`,
+            wasmUrl: `${CDN}/flare_web_bg.wasm`,
+            patchImportMeta: true,
+          });
+          log('Flare WASM initialized in worker.', 'success');
         }
 
         log(`Downloading GGUF model: ${config.url.split('/').pop()}`, 'info');
         const t0 = performance.now();
 
-        // Download the GGUF file
         const resp = await fetch(config.url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching model`);
         const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
@@ -642,7 +658,6 @@
           }
         }
 
-        // Concatenate chunks
         const bytes = new Uint8Array(received);
         let offset = 0;
         for (const chunk of chunks) {
@@ -650,88 +665,97 @@
           offset += chunk.length;
         }
 
-        log(`Downloaded ${(received / 1024 / 1024).toFixed(1)} MB, parsing GGUF...`, 'info');
+        log(`Downloaded ${(received / 1024 / 1024).toFixed(1)} MB, parsing GGUF in worker...`, 'info');
 
-        // Load into Flare engine
-        flareEngine = flareLib.FlareEngine.load(bytes);
+        // Transfer the GGUF bytes to the worker — zero-copy.  After this,
+        // `bytes.buffer` is detached on the main thread, so we drop the
+        // reference immediately.
+        const { architecture } = await flareCall('load', { bytes }, [bytes.buffer]);
+        flareArch = architecture;
 
-        // Try WebGPU acceleration
+        // Try WebGPU acceleration in the worker
         try {
-          const gpuOk = await flareEngine.init_gpu();
-          const info = JSON.parse(flareEngine.backend_info());
-          console.log('[Flare] backend_info:', info);
-          log(`Flare backend: ${JSON.stringify(info)}`, gpuOk ? 'success' : 'info');
-          // Prefill profiling — captures per-layer timing
-          flareEngine.enable_prefill_profiling();
-          const profile = JSON.parse(flareEngine.prefill_profile_json());
-          console.log('[Flare] prefill profile:', profile);
-          log(`Flare prefill profile: ${JSON.stringify(profile)}`, 'info');
-          flareEngine.disable_prefill_profiling();
+          const { gpuOk, backendInfo } = await flareCall('init_gpu');
+          console.log('[Flare] backend_info:', backendInfo);
+          log(`Flare backend: ${JSON.stringify(backendInfo)}`, gpuOk ? 'success' : 'info');
+          await flareCall('enable_prefill_profiling');
         } catch (e) {
           console.warn('[Flare] GPU init failed:', e);
           log('Flare GPU init failed — using CPU SIMD', 'info');
         }
 
         const loadTime = performance.now() - t0;
-        log(`Flare model loaded in ${(loadTime / 1000).toFixed(1)}s (arch: ${flareEngine.architecture})`, 'success');
+        log(`Flare model loaded in ${(loadTime / 1000).toFixed(1)}s (arch: ${architecture})`, 'success');
         return loadTime;
       }
 
       async function runFlareInference(prompt, opts) {
         const t0 = performance.now();
 
-        // Encode prompt using the embedded GGUF tokenizer
-        const promptIds = flareEngine.encode_text(prompt);
-        if (!promptIds || promptIds.length === 0) {
+        const promptTokens = await flareCall('encode_text', { text: prompt });
+        if (!promptTokens || promptTokens.length === 0) {
           throw new Error('Flare tokenizer failed to encode prompt');
         }
 
-        // Start streaming
-        flareEngine.reset();
-        flareEngine.begin_stream_with_params(
-          promptIds,
-          opts.maxTokens,
-          opts.temperature || 0.001, // temperature
-          1.0,   // top_p
-          40,    // top_k
-          1.0,   // repeat_penalty
-          0.0,   // min_p
-        );
+        await flareCall('reset');
 
-        const firstTokenTime = performance.now() - t0; // prefill done at begin_stream
+        let firstTokenTime = 0;
         let tokenCount = 0;
         let output = '';
 
-        // Decode tokens
-        while (!flareEngine.stream_done) {
-          const id = flareEngine.next_token();
-          if (id === undefined) break;
-          tokenCount++;
-          output += flareEngine.decode_token_chunk(id);
+        await flareCall(
+          'stream',
+          {
+            promptTokens,
+            maxTokens: opts.maxTokens,
+            temperature: opts.temperature || 0.001,
+            topP: 1.0,
+            topK: 40,
+            repeatPenalty: 1.0,
+            minP: 0.0,
+          },
+          [],
+          (chunk) => {
+            if (tokenCount === 0) firstTokenTime = performance.now() - t0;
+            output += chunk.tokenText;
+            tokenCount += 1;
+          },
+        );
+
+        // Read per-phase profile from the completed prefill once per page load.
+        if (!window.__flareProfileLogged) {
+          try {
+            const profileStr = await flareCall('prefill_profile_json');
+            const profile = JSON.parse(profileStr);
+            if (profile && profile.seq_len > 0) {
+              console.log('[Flare] prefill profile:', profile);
+              log(`Flare prefill profile: ${JSON.stringify(profile)}`, 'info');
+              window.__flareProfileLogged = true;
+            }
+          } catch (e) {
+            console.warn('[Flare] prefill profile read failed:', e);
+          }
         }
 
         const totalTime = performance.now() - t0;
         const decodeTime = totalTime - firstTokenTime;
-
-        // Try to get perf summary from engine
-        let engineTps = null;
-        try {
-          const summary = JSON.parse(flareEngine.performance_summary());
-          engineTps = summary.tokens_per_second;
-        } catch {}
 
         return {
           output,
           ttft: firstTokenTime,
           totalTime,
           tokenCount,
-          tokensPerSec: engineTps || ((tokenCount > 1 && decodeTime > 0) ? ((tokenCount - 1) / (decodeTime / 1000)) : 0),
+          tokensPerSec: (tokenCount > 1 && decodeTime > 0) ? ((tokenCount - 1) / (decodeTime / 1000)) : 0,
         };
       }
 
       function disposeFlare() {
-        flareEngine = null;
-        // Flare doesn't have explicit dispose — GC handles it
+        if (flareWorker) {
+          flareWorker.terminate();
+          flareWorker = null;
+        }
+        flareRpcPending.clear();
+        flareArch = null;
       }
 
       // ── Benchmark runner ──

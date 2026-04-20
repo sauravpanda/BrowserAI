@@ -264,6 +264,11 @@ export class FlareEngineWrapper {
   private systemPrompt = '';
   private modelCacheKey = '';
   private gpuEnabled = false;
+  /**
+   * Process-wide latch: log the first real prefill profile once per page load.
+   * Prevents spamming the console on every `generateText` call.
+   */
+  private static profileLogged = false;
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -315,10 +320,10 @@ export class FlareEngineWrapper {
       try {
         this.gpuEnabled = await this.engine.init_gpu();
         console.log('[Flare] backend_info:', JSON.parse(this.engine.backend_info()));
-        // Prefill profiling — captures per-layer timing for the first run
+        // Turn profiling on now; the first generateText call reads the JSON
+        // after prefill completes.  Overhead when active is a single
+        // function-pointer check per phase boundary.
         this.engine.enable_prefill_profiling();
-        console.log('[Flare] prefill profile:', JSON.parse(this.engine.prefill_profile_json()));
-        this.engine.disable_prefill_profiling();
         if (!this.gpuEnabled) {
           console.info('[Flare] WebGPU unavailable — using CPU SIMD path');
         }
@@ -381,6 +386,21 @@ export class FlareEngineWrapper {
     if (onToken) {
       // Streaming path — call onToken per decoded token
       this.engine.begin_stream_with_params(promptTokens, maxTokens, temperature, topP, topK, repeatPenalty, minP);
+
+      // First-run prefill profile snapshot (if profiling is enabled).
+      if (!FlareEngineWrapper.profileLogged) {
+        try {
+          const profile = JSON.parse(
+            (this.engine as unknown as { prefill_profile_json(): string }).prefill_profile_json(),
+          );
+          if (profile && profile.seq_len > 0) {
+            console.log('[Flare] prefill profile:', profile);
+            FlareEngineWrapper.profileLogged = true;
+          }
+        } catch {
+          // prefill_profile_json is only present on flare-web >= 0.2.10
+        }
+      }
 
       while (!this.engine.stream_done) {
         const tokenId = this.engine.next_token();
