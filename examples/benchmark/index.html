@@ -629,7 +629,7 @@
         if (!flareWorker) {
           log('Starting Flare worker...', 'info');
           ensureFlareWorker();
-          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.11/pkg';
+          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.12/pkg';
           await flareCall('init', {
             jsUrl: `${CDN}/flare_web.js`,
             wasmUrl: `${CDN}/flare_web_bg.wasm`,
