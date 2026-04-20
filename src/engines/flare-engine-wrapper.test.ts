@@ -30,9 +30,9 @@ describe('FlareEngineWrapper', () => {
 
   test('loadAdapter() before loadModel() throws', async () => {
     const engine = new FlareEngineWrapper();
-    await expect(
-      engine.loadAdapter({ url: 'https://example.com/adapter.safetensors' }),
-    ).rejects.toThrow(/No model loaded/i);
+    await expect(engine.loadAdapter({ url: 'https://example.com/adapter.safetensors' })).rejects.toThrow(
+      /No model loaded/i,
+    );
   });
 
   test('isCached() returns false on a never-loaded engine', async () => {
@@ -101,9 +101,9 @@ describe('flare-models.json', () => {
     const flareKeys = new Set(Object.keys(flareModels));
     // Intentionally import lazily to avoid the cross-engine tests depending
     // on a specific MLC registry shape.
-     
+
     const mlcModels = require('../config/models/mlc-models.json') as Record<string, MLCConfig>;
-     
+
     const demucsModels = require('../config/models/demucs-models.json') as Record<string, DemucsConfig>;
     for (const k of flareKeys) {
       expect(mlcModels[k]).toBeUndefined();

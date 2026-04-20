@@ -390,7 +390,9 @@ export class FlareEngineWrapper {
       // First-run prefill profile snapshot (if profiling is enabled).
       if (!FlareEngineWrapper.profileLogged) {
         try {
-          const profile = JSON.parse((this.engine as unknown as { prefill_profile_json(): string }).prefill_profile_json());
+          const profile = JSON.parse(
+            (this.engine as unknown as { prefill_profile_json(): string }).prefill_profile_json(),
+          );
           if (profile && profile.seq_len > 0) {
             console.log('[Flare] prefill profile:', profile);
             FlareEngineWrapper.profileLogged = true;
