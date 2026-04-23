@@ -597,7 +597,7 @@
         if (!flareLib) {
           log('Loading @sauravpanda/flare WASM from CDN...', 'info');
           T('fetching flare_web.js from CDN');
-          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.13/pkg';
+          const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.15/pkg';
           const wasmUrl = `${CDN}/flare_web_bg.wasm`;
 
           const jsResp = await fetch(`${CDN}/flare_web.js`, { cache: 'no-cache' });
@@ -724,12 +724,12 @@
         T('FlareEngine.load returned');
         bytes = null; // drop source buffer before warmup / GPU upload
 
-        // GPU prefill is currently deadlocked on Chrome main-thread wasm due
-        // to wgpu's sync readback pattern (map_async callback can't fire
-        // while we're mid-sync-WASM-call).  Force CPU path until the async
-        // readback refactor lands upstream.
-        const USE_GPU = new URL(location.href).searchParams.get('gpu') === '1';
-        T(`init_gpu: ${USE_GPU ? 'ENABLED via ?gpu=1' : 'SKIPPED (CPU only)'}`);
+        // GPU decode now works via `next_token_async` (flare-web 0.2.14).
+        // Prefill still runs sync → uses the CPU backend's Q8_0 SIMD path;
+        // decode reads back through the async readback so the WebGPU
+        // `map_async` callback can fire.  `?gpu=0` opts out for debugging.
+        const USE_GPU = new URL(location.href).searchParams.get('gpu') !== '0';
+        T(`init_gpu: ${USE_GPU ? 'ENABLED (async decode)' : 'SKIPPED via ?gpu=0'}`);
         try {
           const gpuOk = USE_GPU ? await flareEngine.init_gpu() : false;
           T(`init_gpu complete, gpuOk=${gpuOk}`);
@@ -792,8 +792,12 @@
         let output = '';
 
         tInf('entering decode loop');
+        // Prefer the async variant when available (flare-web >= 0.2.14) so
+        // WebGPU's map_async callback can fire between tokens.  Sync
+        // next_token is only safe on CPU backend.
+        const hasAsync = typeof flareEngine.next_token_async === 'function';
         while (!flareEngine.stream_done) {
-          const id = flareEngine.next_token();
+          const id = hasAsync ? await flareEngine.next_token_async() : flareEngine.next_token();
           if (id === undefined) break;
           tokenCount++;
           output += flareEngine.decode_token_chunk(id);
