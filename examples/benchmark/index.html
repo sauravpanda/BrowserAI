@@ -592,20 +592,22 @@
       let flareLib = null;
 
       async function loadFlareEngine(config) {
+        const T = (label) => console.log(`[flare-trace ${Math.round(performance.now())}ms] ${label}`);
+        T('loadFlareEngine: enter');
         if (!flareLib) {
           log('Loading @sauravpanda/flare WASM from CDN...', 'info');
+          T('fetching flare_web.js from CDN');
           const CDN = 'https://cdn.jsdelivr.net/npm/@sauravpanda/flare@0.2.13/pkg';
           const wasmUrl = `${CDN}/flare_web_bg.wasm`;
 
-          // Fetch the JS module source, patch the WASM URL, and load via blob
-          // to avoid cross-origin ES module import restrictions.
           const jsResp = await fetch(`${CDN}/flare_web.js`, { cache: 'no-cache' });
           if (!jsResp.ok) throw new Error(`HTTP ${jsResp.status} fetching flare_web.js`);
           let jsSrc = await jsResp.text();
-          log(`Fetched flare_web.js (${(jsSrc.length / 1024).toFixed(0)} KB)`, 'info');
+          T(`flare_web.js fetched (${(jsSrc.length / 1024).toFixed(0)} KB)`);
 
+          // Patch import.meta.url so the WASM binary resolves to the CDN.
           jsSrc = jsSrc.replaceAll('import.meta.url', `'${CDN}/flare_web.js'`);
-          // Fix wasm-pack codegen bug: a JSDoc block contains "/* done */"
+          // Workaround for wasm-pack codegen: a JSDoc block contains "/* done */"
           // which prematurely closes the outer /** */ comment.
           jsSrc = jsSrc.replaceAll('/* done */', '/* done -/');
 
@@ -615,54 +617,128 @@
             flareLib = await import(/* webpackIgnore: true */ blobUrl);
           } catch (importErr) {
             URL.revokeObjectURL(blobUrl);
-            log(`Blob import failed: ${importErr.message}`, 'error');
-            log('Trying direct CDN import...', 'info');
+            T(`blob import failed, trying direct CDN import: ${importErr.message}`);
             flareLib = await import(`${CDN}/flare_web.js`);
           }
           URL.revokeObjectURL(blobUrl);
-
+          T('flare_web.js imported, calling default init');
           await flareLib.default(wasmUrl);
+          T('WASM init complete');
           log('Flare WASM initialized.', 'success');
+        } else {
+          T('flareLib already loaded (cached)');
         }
 
-        log(`Downloading GGUF model: ${config.url.split('/').pop()}`, 'info');
         const t0 = performance.now();
 
-        const resp = await fetch(config.url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching model`);
-        const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
-        const reader = resp.body.getReader();
-        const chunks = [];
-        let received = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          received += value.length;
-          if (contentLength > 0) {
-            updateProgress(Math.round((received / contentLength) * 100));
-          }
-        }
-
-        const bytes = new Uint8Array(received);
-        let offset = 0;
-        for (const chunk of chunks) {
-          bytes.set(chunk, offset);
-          offset += chunk.length;
-        }
-
-        log(`Downloaded ${(received / 1024 / 1024).toFixed(1)} MB, parsing GGUF...`, 'info');
-
-        flareEngine = flareLib.FlareEngine.load(bytes);
-
+        // OPFS caching: on first run the GGUF streams directly to disk;
+        // subsequent runs skip the 138 MB download.  Big UX win for
+        // iterative benchmarking on the same model.  Falls back to
+        // in-memory fetch on browsers without OPFS (Firefox private mode).
+        const cacheName = 'flare-' + config.url.split('/').pop();
+        let bytes = null;
+        let opfsDir = null;
+        T('probing OPFS');
         try {
-          const gpuOk = await flareEngine.init_gpu();
+          opfsDir = await navigator.storage.getDirectory();
+          T('OPFS available');
+        } catch (e) {
+          T(`OPFS unavailable: ${e}`);
+        }
+
+        if (opfsDir) {
+          let fileHandle = null;
+          let cached = false;
+          try {
+            fileHandle = await opfsDir.getFileHandle(cacheName, { create: false });
+            const info = await fileHandle.getFile();
+            T(`OPFS cache file exists, size=${info.size}`);
+            if (info.size > 100 * 1024 * 1024) {
+              cached = true;
+              log(`Using cached GGUF from OPFS (${(info.size / 1024 / 1024).toFixed(1)} MB)`, 'success');
+              updateProgress(100);
+              bytes = new Uint8Array(await info.arrayBuffer());
+            }
+          } catch (e) {
+            T(`no OPFS cache hit: ${e.message || e}`);
+          }
+
+          if (!cached) {
+            log(`Downloading GGUF model: ${config.url.split('/').pop()}`, 'info');
+            fileHandle = await opfsDir.getFileHandle(cacheName, { create: true });
+            const writable = await fileHandle.createWritable();
+            try {
+              const resp = await fetch(config.url);
+              if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching model`);
+              const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+              const reader = resp.body.getReader();
+              const chunks = [];
+              let received = 0;
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                await writable.write(value);
+                chunks.push(value);
+                received += value.length;
+                if (contentLength > 0) {
+                  updateProgress(Math.round((received / contentLength) * 100));
+                }
+              }
+              await writable.close();
+              T(`downloaded ${(received / 1024 / 1024).toFixed(1)} MB to OPFS`);
+              bytes = new Uint8Array(received);
+              let off = 0;
+              for (const c of chunks) { bytes.set(c, off); off += c.length; }
+              chunks.length = 0;
+              log(`Downloaded ${(received / 1024 / 1024).toFixed(1)} MB`, 'info');
+            } catch (err) {
+              try { await writable.abort(); } catch {}
+              throw err;
+            }
+          }
+        } else {
+          // OPFS fallback: regular in-memory download.
+          log(`Downloading GGUF model: ${config.url.split('/').pop()}`, 'info');
+          const resp = await fetch(config.url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching model`);
+          const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+          const reader = resp.body.getReader();
+          const chunks = [];
+          let received = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+            if (contentLength > 0) updateProgress(Math.round((received / contentLength) * 100));
+          }
+          bytes = new Uint8Array(received);
+          let offset = 0;
+          for (const c of chunks) { bytes.set(c, offset); offset += c.length; }
+          chunks.length = 0;
+        }
+
+        log(`Parsing ${(bytes.length / 1024 / 1024).toFixed(1)} MB GGUF...`, 'info');
+        T(`calling FlareEngine.load (bytes=${bytes.length})`);
+        flareEngine = flareLib.FlareEngine.load(bytes);
+        T('FlareEngine.load returned');
+        bytes = null; // drop source buffer before warmup / GPU upload
+
+        // GPU prefill is currently deadlocked on Chrome main-thread wasm due
+        // to wgpu's sync readback pattern (map_async callback can't fire
+        // while we're mid-sync-WASM-call).  Force CPU path until the async
+        // readback refactor lands upstream.
+        const USE_GPU = new URL(location.href).searchParams.get('gpu') === '1';
+        T(`init_gpu: ${USE_GPU ? 'ENABLED via ?gpu=1' : 'SKIPPED (CPU only)'}`);
+        try {
+          const gpuOk = USE_GPU ? await flareEngine.init_gpu() : false;
+          T(`init_gpu complete, gpuOk=${gpuOk}`);
           const info = JSON.parse(flareEngine.backend_info());
           console.log('[Flare] backend_info:', info);
           log(`Flare backend: ${JSON.stringify(info)}`, gpuOk ? 'success' : 'info');
           // Enable profiling; runFlareInference reads it after the first prefill
           flareEngine.enable_prefill_profiling();
+          T('prefill profiling enabled');
         } catch (e) {
           console.warn('[Flare] GPU init failed:', e);
           log('Flare GPU init failed — using CPU SIMD', 'info');
@@ -674,20 +750,27 @@
       }
 
       async function runFlareInference(prompt, opts) {
+        const tInf = (label) => console.log(`[flare-trace ${Math.round(performance.now())}ms] inf: ${label}`);
+        tInf('enter runFlareInference');
         const t0 = performance.now();
 
+        tInf('encode_text begin');
         const promptIds = flareEngine.encode_text(prompt);
+        tInf(`encode_text done, ${promptIds?.length || 0} tokens`);
         if (!promptIds || promptIds.length === 0) {
           throw new Error('Flare tokenizer failed to encode prompt');
         }
 
+        tInf('reset()');
         flareEngine.reset();
+        tInf(`begin_stream_with_params (maxTokens=${opts.maxTokens}) — this runs prefill`);
         flareEngine.begin_stream_with_params(
           promptIds,
           opts.maxTokens,
           opts.temperature || 0.001,
           1.0, 40, 1.0, 0.0,
         );
+        tInf('begin_stream_with_params returned (prefill done)');
 
         const firstTokenTime = performance.now() - t0;
 
@@ -708,12 +791,17 @@
         let tokenCount = 0;
         let output = '';
 
+        tInf('entering decode loop');
         while (!flareEngine.stream_done) {
           const id = flareEngine.next_token();
           if (id === undefined) break;
           tokenCount++;
           output += flareEngine.decode_token_chunk(id);
+          if (tokenCount === 1 || tokenCount === 5 || tokenCount % 32 === 0) {
+            tInf(`decoded ${tokenCount} tokens`);
+          }
         }
+        tInf(`decode loop exit: ${tokenCount} tokens, stream_done=${flareEngine.stream_done}`);
 
         const totalTime = performance.now() - t0;
         const decodeTime = totalTime - firstTokenTime;
